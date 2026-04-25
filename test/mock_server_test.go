@@ -73,7 +73,7 @@ func jsonSrv(payload string, statusCode int) *httptest.Server {
 // -------------------------------------------------------------------------
 
 func TestMock_MonitorsList_JSON(t *testing.T) {
-	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":60}]`, 200)
+	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "json")
@@ -87,7 +87,7 @@ func TestMock_MonitorsList_JSON(t *testing.T) {
 }
 
 func TestMock_MonitorsList_Table(t *testing.T) {
-	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":60}]`, 200)
+	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "table")
@@ -103,7 +103,7 @@ func TestMock_MonitorsList_Table(t *testing.T) {
 }
 
 func TestMock_MonitorsList_CSV(t *testing.T) {
-	srv := jsonSrv(`[{"name":"csv-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":60}]`, 200)
+	srv := jsonSrv(`[{"name":"csv-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "csv")
@@ -123,7 +123,7 @@ func TestMock_MonitorsList_CSV(t *testing.T) {
 }
 
 func TestMock_MonitorsList_YAML(t *testing.T) {
-	srv := jsonSrv(`[{"name":"yaml-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":60}]`, 200)
+	srv := jsonSrv(`[{"name":"yaml-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "yaml")
@@ -139,7 +139,7 @@ func TestMock_MonitorsList_YAML(t *testing.T) {
 }
 
 func TestMock_MonitorsGet_Valid(t *testing.T) {
-	payload := `{"name":"my-monitor","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":60}`
+	payload := `{"name":"my-monitor","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}`
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/api/instance/test-instance/monitors/00000000-0000-0000-0000-000000000001",
 		func(w http.ResponseWriter, r *http.Request) {
@@ -389,7 +389,9 @@ func TestMock_NotificationPoliciesList(t *testing.T) {
 }
 
 func TestMock_MutingRulesList(t *testing.T) {
-	srv := jsonSrv(`[{"name":"maintenance","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	// MutingRule.Id is a plain string, not an object.
+	// Required non-optional fields: comment, createdBy, endsAt, id, matchers
+	srv := jsonSrv(`[{"name":"maintenance","id":"muting-id-001","comment":"","createdBy":"","endsAt":"2024-01-01T00:00:00Z","matchers":null}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "muting-rules", "list", "--output", "json")
 	if code != 0 {
@@ -409,7 +411,8 @@ func TestMock_LogMetricsList(t *testing.T) {
 }
 
 func TestMock_SyntheticMonitorsList(t *testing.T) {
-	srv := jsonSrv(`[{"name":"homepage-check","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	// SyntheticSyntheticMonitor: id is *string, interval/rule_type/timeout/instance/name are required strings.
+	srv := jsonSrv(`[{"name":"homepage-check","id":"sm-001","enabled":true,"instance":"test","interval":"60s","timeout":"10s","rule_type":"http","rule_config":{}}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "synthetic-monitors", "list", "--output", "json")
 	if code != 0 {
@@ -439,7 +442,8 @@ func TestMock_FoldersList(t *testing.T) {
 }
 
 func TestMock_DropRulesList(t *testing.T) {
-	srv := jsonSrv(`[{"name":"drop-debug","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	// DropRule: id is a plain string, not an object. Also has required fields: metric_name, rule_name, type.
+	srv := jsonSrv(`[{"id":"drop-id-001","rule_name":"drop-debug","type":"drop","metric_name":{}}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "drop-rules", "list", "--output", "json")
 	if code != 0 {
@@ -479,7 +483,8 @@ func TestMock_ApiKeysList(t *testing.T) {
 }
 
 func TestMock_UsersList(t *testing.T) {
-	srv := jsonSrv(`[{"email":"user@example.com","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	// ListUsersResponse is a struct with a "users" field, not a plain array.
+	srv := jsonSrv(`{"users":[{"email":"user@example.com","user_id":"user-001"}]}`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "users", "list", "--output", "json")
 	if code != 0 {
@@ -498,10 +503,12 @@ func TestMock_Configure_SavesConfig(t *testing.T) {
 
 	// configure makes a validation API call which will fail here (no mock server for configure).
 	// That's fine — we just want to verify the config file was written.
+	// Use --retries 0 to avoid slow exponential-backoff retries on the connection failure.
 	cmd := exec.Command(oodleBin, "configure",
 		"--api-key", "saved-api-key",
 		"--instance", "saved-instance",
 		"--api-url", "https://example.test",
+		"--retries", "0",
 	)
 	cmd.Env = append(os.Environ(), "HOME="+homeDir)
 	var out, errBuf strings.Builder
