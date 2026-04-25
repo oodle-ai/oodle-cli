@@ -11,6 +11,26 @@ and agents (deterministic JSON output, exit codes, env-based config).
 
 ## Installation
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew tap oodle-ai/oodle
+brew install oodle
+```
+
+To upgrade:
+
+```bash
+brew upgrade oodle
+```
+
+### Download a release binary
+
+Pre-built binaries for macOS, Linux, and Windows are available on the
+[Releases](https://github.com/oodle-ai/oodle-cli/releases) page. Download the
+archive for your platform, extract it, and place the `oodle` binary on your
+`PATH`.
+
 ### Install with `go install`
 
 ```bash
@@ -491,6 +511,35 @@ internal/         # CLI commands, output formatting, client wiring
 api/              # OpenAPI specs
 test/             # integration tests (build tag: integration)
 ```
+
+### Releasing
+
+Releases are automated via [GoReleaser](https://goreleaser.com/) and GitHub
+Actions. To cut a new release:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+This triggers the release workflow which:
+
+1. Builds cross-platform binaries (macOS/Linux/Windows, amd64/arm64)
+2. Creates a GitHub Release with the binaries and checksums
+3. Updates the Homebrew formula in
+   [oodle-ai/homebrew-oodle](https://github.com/oodle-ai/homebrew-oodle)
+
+**Prerequisites** (one-time setup):
+
+1. Create the [oodle-ai/homebrew-oodle](https://github.com/oodle-ai/homebrew-oodle)
+   repository with an empty `Formula/` directory.
+2. Create a GitHub Personal Access Token for GoReleaser to push the formula
+   update. Prefer a **fine-grained** PAT scoped only to the
+   `oodle-ai/homebrew-oodle` repository with `Contents: Read and write`
+   permission. A classic PAT with `repo` scope also works but grants broader
+   access than necessary.
+3. Add the token as a repository secret named `HOMEBREW_TAP_GITHUB_TOKEN` in
+   the oodle-cli repo settings.
 
 ### Running integration tests
 

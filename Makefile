@@ -7,6 +7,8 @@ DATE    ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
 generate:
 	go generate ./internal/client/...
 
+# NOTE: the -X ldflags below are kept in sync with `.goreleaser.yaml`.
+# If you add or change an -X flag, update both files.
 build:
 	go build -ldflags "-X github.com/oodle-ai/oodle-cli/internal/cmd.version=$(VERSION) -X github.com/oodle-ai/oodle-cli/internal/cmd.commit=$(COMMIT) -X github.com/oodle-ai/oodle-cli/internal/cmd.date=$(DATE)" -o bin/oodle ./cmd/oodle
 
