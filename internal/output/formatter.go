@@ -32,19 +32,25 @@ type Column struct {
 }
 
 // Print writes data in the requested format to w. For table and CSV, data
-// must be a slice; single objects can be wrapped in a one-element slice.
+// must be a slice; single objects can be wrapped in a one-element slice. If
+// table or CSV is requested but no columns are defined (e.g. for free-form
+// map[string]interface{} responses), Print falls back to JSON so the user
+// sees something useful rather than a blank screen.
 func Print(w io.Writer, format Format, data any, columns []Column) error {
 	switch format {
 	case FormatJSON, "":
-		if format == "" {
-			return printJSON(w, data)
-		}
 		return printJSON(w, data)
 	case FormatYAML:
 		return printYAML(w, data)
 	case FormatCSV:
+		if len(columns) == 0 {
+			return printJSON(w, data)
+		}
 		return printCSV(w, data, columns)
 	case FormatTable:
+		if len(columns) == 0 {
+			return printJSON(w, data)
+		}
 		return printTable(w, data, columns)
 	default:
 		return fmt.Errorf("unsupported output format: %s", format)

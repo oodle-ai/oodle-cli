@@ -99,6 +99,33 @@ func TestPrintTable_SingleStructWrapped(t *testing.T) {
 	}
 }
 
+// TestPrintTable_NilColumnsFallsBackToJSON verifies that when a caller asks
+// for table output but provides no columns (e.g. for free-form
+// map[string]any responses), Print emits JSON rather than a blank screen.
+func TestPrintTable_NilColumnsFallsBackToJSON(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]any{"foo": "bar", "n": 42}
+	if err := Print(&buf, FormatTable, data, nil); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	out := buf.String()
+	if !strings.Contains(out, `"foo"`) || !strings.Contains(out, `"bar"`) {
+		t.Errorf("expected JSON fallback, got: %s", out)
+	}
+}
+
+// TestPrintCSV_NilColumnsFallsBackToJSON mirrors the table fallback for CSV.
+func TestPrintCSV_NilColumnsFallsBackToJSON(t *testing.T) {
+	var buf bytes.Buffer
+	data := map[string]any{"foo": "bar"}
+	if err := Print(&buf, FormatCSV, data, nil); err != nil {
+		t.Fatalf("Print: %v", err)
+	}
+	if !strings.Contains(buf.String(), `"foo"`) {
+		t.Errorf("expected JSON fallback, got: %s", buf.String())
+	}
+}
+
 func TestPrintUnsupportedFormat(t *testing.T) {
 	var buf bytes.Buffer
 	err := Print(&buf, Format("xml"), sampleData, sampleColumns)

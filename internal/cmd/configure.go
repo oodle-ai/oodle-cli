@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"strings"
 	"syscall"
@@ -119,7 +118,6 @@ func loadExistingConfig() (*config.Config, error) {
 		}
 		return nil, err
 	}
-	// Use LoadConfig with env cleared? Simpler: just read the file directly.
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -209,7 +207,7 @@ func validateConfig(ctx context.Context, cfg *config.Config, retries int) error 
 	if resp.StatusCode() >= 200 && resp.StatusCode() < 300 {
 		return nil
 	}
-	return api.CheckResponse(&http.Response{StatusCode: resp.StatusCode()}, resp.Body)
+	return api.CheckResponse(resp.HTTPResponse, resp.Body)
 }
 
 

@@ -242,3 +242,139 @@ func TestNewClient_DefaultsRetries(t *testing.T) {
 		t.Fatal("Inner is nil")
 	}
 }
+
+func TestNewClient_ZeroRetriesAllowed(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	// With 0 retries, there should be exactly 1 attempt (no retries).
+	c := &http.Client{Transport: fastRetryTransport(http.DefaultTransport, 0)}
+	resp, err := c.Get(srv.URL)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	defer resp.Body.Close()
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("calls = %d, want 1 (0 retries = 1 attempt)", got)
+	}
+}
+
+// TestNoRetryOnPOST verifies that POST requests are NOT retried even on a
+// retryable status, since retrying a non-idempotent mutation can duplicate
+// server-side side effects (e.g. create the same monitor twice).
+func TestNoRetryOnPOST(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		http.Error(w, "boom", http.StatusInternalServerError)
+	}))
+	defer srv.Close()
+
+	c := &http.Client{Transport: fastRetryTransport(http.DefaultTransport, 3)}
+	resp, err := c.Post(srv.URL, "application/json", strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("Post: %v", err)
+	}
+	defer resp.Body.Close()
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("calls = %d, want 1 (POST must not be retried)", got)
+	}
+}
+
+// TestNoRetryOnPATCH verifies PATCH is treated as non-idempotent.
+func TestNoRetryOnPATCH(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		atomic.AddInt32(&calls, 1)
+		http.Error(w, "boom", http.StatusBadGateway)
+	}))
+	defer srv.Close()
+
+	c := &http.Client{Transport: fastRetryTransport(http.DefaultTransport, 3)}
+	req, err := http.NewRequest(http.MethodPatch, srv.URL, strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Errorf("calls = %d, want 1 (PATCH must not be retried)", got)
+	}
+}
+
+// TestRetryOnPUT verifies idempotent PUT continues to be retried.
+func TestRetryOnPUT(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&calls, 1)
+		if n == 1 {
+			http.Error(w, "boom", http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c := &http.Client{Transport: fastRetryTransport(http.DefaultTransport, 3)}
+	req, err := http.NewRequest(http.MethodPut, srv.URL, strings.NewReader(`{}`))
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Errorf("calls = %d, want 2 (PUT should retry once)", got)
+	}
+}
+
+// TestRetryOnDELETE verifies idempotent DELETE is retried.
+func TestRetryOnDELETE(t *testing.T) {
+	var calls int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		n := atomic.AddInt32(&calls, 1)
+		if n == 1 {
+			http.Error(w, "boom", http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c := &http.Client{Transport: fastRetryTransport(http.DefaultTransport, 3)}
+	req, err := http.NewRequest(http.MethodDelete, srv.URL, nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	resp, err := c.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	if got := atomic.LoadInt32(&calls); got != 2 {
+		t.Errorf("calls = %d, want 2 (DELETE should retry once)", got)
+	}
+}
+
+func TestNewClient_ZeroRetriesViaNewClient(t *testing.T) {
+	cfg := &config.Config{APIKey: "k", Instance: "i", APIURL: "https://example.com"}
+	c, err := NewClient(cfg, 0)
+	if err != nil {
+		t.Fatalf("NewClient with 0 retries: %v", err)
+	}
+	if c.Inner == nil {
+		t.Fatal("Inner is nil")
+	}
+}

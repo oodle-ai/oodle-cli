@@ -15,7 +15,9 @@ type sample struct {
 func TestReadInputFile_JSON(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "in.json")
-	os.WriteFile(path, []byte(`{"foo":"hi","bar":7}`), 0o600)
+	if err := os.WriteFile(path, []byte(`{"foo":"hi","bar":7}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var s sample
 	if err := readInputFile(path, &s); err != nil {
 		t.Fatalf("readInputFile: %v", err)
@@ -28,7 +30,9 @@ func TestReadInputFile_JSON(t *testing.T) {
 func TestReadInputFile_YAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "in.yaml")
-	os.WriteFile(path, []byte("foo: hello\nbar: 42\n"), 0o600)
+	if err := os.WriteFile(path, []byte("foo: hello\nbar: 42\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var s sample
 	if err := readInputFile(path, &s); err != nil {
 		t.Fatalf("readInputFile: %v", err)
@@ -41,7 +45,9 @@ func TestReadInputFile_YAML(t *testing.T) {
 func TestReadInputFile_UnknownExtensionFallback(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "in.txt")
-	os.WriteFile(path, []byte(`{"foo":"x","bar":1}`), 0o600)
+	if err := os.WriteFile(path, []byte(`{"foo":"x","bar":1}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
 	var s sample
 	if err := readInputFile(path, &s); err != nil {
 		t.Fatalf("readInputFile: %v", err)

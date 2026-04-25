@@ -26,9 +26,10 @@ type rootFlags struct {
 // config (since they may exist precisely to *create* one or have no need for
 // API access).
 var commandsSkippingConfig = map[string]bool{
-	"configure": true,
-	"version":   true,
-	"help":      true,
+	"configure":  true,
+	"version":    true,
+	"help":       true,
+	"completion": true,
 }
 
 // NewRootCmd builds the root cobra command tree.
@@ -107,9 +108,8 @@ func shouldSkipConfig(cmd *cobra.Command) bool {
 	return false
 }
 
-// rootFlagsFromCmd walks up the command tree to find the persistent --force
-// flag value. Sub-commands can use this to honor --force without re-declaring
-// it.
+// forceFlag walks up the command tree to find the persistent --force flag
+// value. Sub-commands can use this to honor --force without re-declaring it.
 func forceFlag(cmd *cobra.Command) bool {
 	v, err := cmd.Flags().GetBool("force")
 	if err != nil {

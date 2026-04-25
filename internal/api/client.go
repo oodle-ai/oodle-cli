@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -70,6 +71,24 @@ var retryStatuses = map[int]bool{
 	http.StatusGatewayTimeout:      true, // 504
 }
 
+// idempotentMethods is the set of HTTP methods safe to retry. POST and PATCH
+// are excluded because retrying them can duplicate side effects (e.g. create
+// the same monitor twice if the server processed the original request but the
+// response was lost).
+var idempotentMethods = map[string]bool{
+	http.MethodGet:     true,
+	http.MethodHead:    true,
+	http.MethodOptions: true,
+	http.MethodPut:     true,
+	http.MethodDelete:  true,
+}
+
+// isIdempotent returns true if requests using the given HTTP method can be
+// safely retried.
+func isIdempotent(method string) bool {
+	return idempotentMethods[method]
+}
+
 func newRetryTransport(base http.RoundTripper, maxRetries int) *retryTransport {
 	if base == nil {
 		base = http.DefaultTransport
@@ -89,8 +108,17 @@ func newRetryTransport(base http.RoundTripper, maxRetries int) *retryTransport {
 	}
 }
 
-// RoundTrip executes the request, retrying transient failures.
+// RoundTrip executes the request, retrying transient failures. Only
+// idempotent methods (GET, HEAD, OPTIONS, PUT, DELETE) are retried; POST and
+// PATCH execute exactly once to avoid duplicating server-side side effects
+// (e.g. creating the same monitor twice when a 5xx is returned after the
+// resource was already persisted).
 func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	// Non-idempotent methods bypass retry entirely.
+	if !isIdempotent(req.Method) {
+		return t.base.RoundTrip(req)
+	}
+
 	// Buffer the request body so it can be replayed on each retry.
 	var bodyBytes []byte
 	if req.Body != nil {
@@ -163,10 +191,7 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *retryTransport) backoff(attempt int) time.Duration {
-	d := float64(t.baseDelay)
-	for i := 0; i < attempt; i++ {
-		d *= t.multiplier
-	}
+	d := float64(t.baseDelay) * math.Pow(t.multiplier, float64(attempt))
 	if d > float64(t.maxDelay) {
 		d = float64(t.maxDelay)
 	}
@@ -180,8 +205,8 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config is required")
 	}
-	if maxRetries <= 0 {
-		maxRetries = 3
+	if maxRetries < 0 {
+		maxRetries = 0
 	}
 	httpClient := &http.Client{
 		Transport: newRetryTransport(http.DefaultTransport, maxRetries),
