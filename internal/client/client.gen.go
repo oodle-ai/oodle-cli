@@ -2170,7 +2170,7 @@ func NewListNamesRequest(server string, instance string, params *ListNamesParams
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -2182,7 +2182,7 @@ func NewListNamesRequest(server string, instance string, params *ListNamesParams
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -2241,7 +2241,7 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string, 
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -2253,7 +2253,7 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string, 
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -2319,7 +2319,7 @@ func NewGetValuesByIdRequest(server string, instance string, metricName string, 
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -2331,7 +2331,7 @@ func NewGetValuesByIdRequest(server string, instance string, metricName string, 
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err

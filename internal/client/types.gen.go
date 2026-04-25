@@ -1320,29 +1320,29 @@ type OodleUtilHttputilsModelsErrors struct {
 
 // ListNamesParams defines parameters for ListNames.
 type ListNamesParams struct {
-	// Start Start of the time range in epoch milliseconds
-	Start int64 `form:"start" json:"start"`
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 
-	// End End of the time range in epoch milliseconds
-	End int64 `form:"end" json:"end"`
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 }
 
 // GetLabelsByIdParams defines parameters for GetLabelsById.
 type GetLabelsByIdParams struct {
-	// Start Start of the time range in epoch milliseconds
-	Start int64 `form:"start" json:"start"`
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 
-	// End End of the time range in epoch milliseconds
-	End int64 `form:"end" json:"end"`
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 }
 
 // GetValuesByIdParams defines parameters for GetValuesById.
 type GetValuesByIdParams struct {
-	// Start Start of the time range in epoch milliseconds
-	Start int64 `form:"start" json:"start"`
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 
-	// End End of the time range in epoch milliseconds
-	End int64 `form:"end" json:"end"`
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 }
 
 // GetMonitorStateByIdParams defines parameters for GetMonitorStateById.

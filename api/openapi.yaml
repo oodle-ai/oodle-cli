@@ -2980,14 +2980,14 @@ paths:
           required: true
           schema:
             type: string
-        - name: start
+        - name: startTimeEpochMs
           in: query
           description: Start of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
             format: int64
-        - name: end
+        - name: endTimeEpochMs
           in: query
           description: End of the time range in epoch milliseconds
           required: true
@@ -3043,14 +3043,14 @@ paths:
           required: true
           schema:
             type: string
-        - name: start
+        - name: startTimeEpochMs
           in: query
           description: Start of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
             format: int64
-        - name: end
+        - name: endTimeEpochMs
           in: query
           description: End of the time range in epoch milliseconds
           required: true
@@ -3094,14 +3094,14 @@ paths:
           required: true
           schema:
             type: string
-        - name: start
+        - name: startTimeEpochMs
           in: query
           description: Start of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
             format: int64
-        - name: end
+        - name: endTimeEpochMs
           in: query
           description: End of the time range in epoch milliseconds
           required: true

@@ -640,11 +640,11 @@ func TestMock_MetricsNames_SendsQueryParams(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(*capturedQuery, "start=1700000000000") {
-		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=1700000000000") {
+		t.Errorf("expected startTimeEpochMs=1700000000000 in query %q", *capturedQuery)
 	}
-	if !strings.Contains(*capturedQuery, "end=1700003600000") {
-		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=1700003600000") {
+		t.Errorf("expected endTimeEpochMs=1700003600000 in query %q", *capturedQuery)
 	}
 }
 
@@ -657,11 +657,11 @@ func TestMock_MetricsLabels_SendsQueryParams(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(*capturedQuery, "start=1700000000000") {
-		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=1700000000000") {
+		t.Errorf("expected startTimeEpochMs=1700000000000 in query %q", *capturedQuery)
 	}
-	if !strings.Contains(*capturedQuery, "end=1700003600000") {
-		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=1700003600000") {
+		t.Errorf("expected endTimeEpochMs=1700003600000 in query %q", *capturedQuery)
 	}
 	// Sanity-check that the metric name is in the path so we know we hit
 	// the labels endpoint (and not, say, names) with the right routing.
@@ -679,11 +679,11 @@ func TestMock_MetricsLabelValues_SendsQueryParams(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(*capturedQuery, "start=1700000000000") {
-		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=1700000000000") {
+		t.Errorf("expected startTimeEpochMs=1700000000000 in query %q", *capturedQuery)
 	}
-	if !strings.Contains(*capturedQuery, "end=1700003600000") {
-		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=1700003600000") {
+		t.Errorf("expected endTimeEpochMs=1700003600000 in query %q", *capturedQuery)
 	}
 	// Both metric name and label name should appear in the path.
 	if !strings.Contains(*capturedPath, "up") || !strings.Contains(*capturedPath, "job") {

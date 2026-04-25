@@ -241,11 +241,6 @@ func TestDropRulesList(t *testing.T) {
 }
 
 func TestMetricsNames(t *testing.T) {
-	// TODO(vorflux): unskip once the metrics names endpoint honors the
-	// start/end query params end-to-end. The CLI now sends them (covered
-	// by mock tests in test/mock_server_test.go), but the live server in
-	// CI rejects requests without a time range it actually reads.
-	t.Skip("server-side metrics endpoint does not yet read start/end query params")
 	stdout, stderr, code := runOodle(t, "metrics", "names", "--start", "-1h", "--end", "now", "--output", "json")
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)

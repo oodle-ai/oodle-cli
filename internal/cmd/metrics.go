@@ -79,8 +79,8 @@ func newMetricsNamesCmd() *cobra.Command {
 		}
 
 		resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance, &client.ListNamesParams{
-			Start: start,
-			End:   end,
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
 		})
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
@@ -114,8 +114,8 @@ func newMetricsLabelsCmd() *cobra.Command {
 		}
 
 		resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0], &client.GetLabelsByIdParams{
-			Start: start,
-			End:   end,
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
 		})
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
@@ -149,8 +149,8 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 		}
 
 		resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1], &client.GetValuesByIdParams{
-			Start: start,
-			End:   end,
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
 		})
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
