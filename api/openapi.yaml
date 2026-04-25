@@ -2980,6 +2980,18 @@ paths:
           required: true
           schema:
             type: string
+        - name: start
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: end
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: ""
@@ -3029,6 +3041,18 @@ paths:
           required: true
           schema:
             type: string
+        - name: start
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: end
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: ""
@@ -3066,6 +3090,18 @@ paths:
           required: true
           schema:
             type: string
+        - name: start
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: end
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
       responses:
         "200":
           description: ""

@@ -114,6 +114,65 @@ func TestParseTimeFlag_Invalid(t *testing.T) {
 	}
 }
 
+// --- parseTimeFlagMs tests ---
+
+func TestParseTimeFlagMs_Epoch(t *testing.T) {
+	got, err := parseTimeFlagMs("1700000000000")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != 1700000000000 {
+		t.Errorf("got %d, want 1700000000000", got)
+	}
+}
+
+func TestParseTimeFlagMs_Now(t *testing.T) {
+	before := time.Now().UnixMilli()
+	got, err := parseTimeFlagMs("now")
+	if err != nil {
+		t.Fatal(err)
+	}
+	after := time.Now().UnixMilli()
+	if got < before || got > after {
+		t.Errorf("now = %d not in [%d, %d]", got, before, after)
+	}
+}
+
+func TestParseTimeFlagMs_Relative1h(t *testing.T) {
+	now := time.Now().UnixMilli()
+	got, err := parseTimeFlagMs("-1h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta := now - got
+	expected := int64(time.Hour / time.Millisecond)
+	if delta < expected-1000 || delta > expected+1000 {
+		t.Errorf("delta = %d, want ~%d", delta, expected)
+	}
+}
+
+func TestParseTimeFlagMs_Relative7d(t *testing.T) {
+	now := time.Now().UnixMilli()
+	got, err := parseTimeFlagMs("-7d")
+	if err != nil {
+		t.Fatal(err)
+	}
+	delta := now - got
+	expected := int64(7 * 24 * time.Hour / time.Millisecond)
+	if delta < expected-1000 || delta > expected+1000 {
+		t.Errorf("delta = %d, want ~%d", delta, expected)
+	}
+}
+
+func TestParseTimeFlagMs_Invalid(t *testing.T) {
+	if _, err := parseTimeFlagMs("garbage"); err == nil {
+		t.Error("expected error")
+	}
+	if _, err := parseTimeFlagMs(""); err == nil {
+		t.Error("expected error for empty")
+	}
+}
+
 func TestConfirmAction_Force(t *testing.T) {
 	if !confirmAction("delete?", true) {
 		t.Error("force=true should return true")

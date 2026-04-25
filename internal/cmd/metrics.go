@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
+	client "github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -38,7 +39,11 @@ func newMetricsCmd() *cobra.Command {
 }
 
 func newMetricsNamesCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		startStr string
+		endStr   string
+	)
+	cmd := &cobra.Command{
 		Use:   "names",
 		Short: "List metric names",
 		Args:  cobra.NoArgs,
@@ -47,7 +52,19 @@ func newMetricsNamesCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance)
+			start, err := parseTimeFlagMs(startStr)
+			if err != nil {
+				return fmt.Errorf("--start: %w", err)
+			}
+			end, err := parseTimeFlagMs(endStr)
+			if err != nil {
+				return fmt.Errorf("--end: %w", err)
+			}
+
+			resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance, &client.ListNamesParams{
+				Start: int(start),
+				End:   int(end),
+			})
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -60,10 +77,19 @@ func newMetricsNamesCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200, "Name")
 		},
 	}
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch ms, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch ms, 'now', or relative like -1h)")
+	_ = cmd.MarkFlagRequired("start")
+	_ = cmd.MarkFlagRequired("end")
+	return cmd
 }
 
 func newMetricsLabelsCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		startStr string
+		endStr   string
+	)
+	cmd := &cobra.Command{
 		Use:   "labels <metric_name>",
 		Short: "List label names for a metric",
 		Args:  cobra.ExactArgs(1),
@@ -72,7 +98,19 @@ func newMetricsLabelsCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0])
+			start, err := parseTimeFlagMs(startStr)
+			if err != nil {
+				return fmt.Errorf("--start: %w", err)
+			}
+			end, err := parseTimeFlagMs(endStr)
+			if err != nil {
+				return fmt.Errorf("--end: %w", err)
+			}
+
+			resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0], &client.GetLabelsByIdParams{
+				Start: int(start),
+				End:   int(end),
+			})
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -85,10 +123,19 @@ func newMetricsLabelsCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200, "Label")
 		},
 	}
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch ms, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch ms, 'now', or relative like -1h)")
+	_ = cmd.MarkFlagRequired("start")
+	_ = cmd.MarkFlagRequired("end")
+	return cmd
 }
 
 func newMetricsLabelValuesCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		startStr string
+		endStr   string
+	)
+	cmd := &cobra.Command{
 		Use:   "label-values <metric_name> <label_name>",
 		Short: "List values for a label of a metric",
 		Args:  cobra.ExactArgs(2),
@@ -97,7 +144,19 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1])
+			start, err := parseTimeFlagMs(startStr)
+			if err != nil {
+				return fmt.Errorf("--start: %w", err)
+			}
+			end, err := parseTimeFlagMs(endStr)
+			if err != nil {
+				return fmt.Errorf("--end: %w", err)
+			}
+
+			resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1], &client.GetValuesByIdParams{
+				Start: int(start),
+				End:   int(end),
+			})
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -110,6 +169,11 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200, "Value")
 		},
 	}
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch ms, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch ms, 'now', or relative like -1h)")
+	_ = cmd.MarkFlagRequired("start")
+	_ = cmd.MarkFlagRequired("end")
+	return cmd
 }
 
 // printStringSlice renders a []string in the desired format. For JSON/YAML

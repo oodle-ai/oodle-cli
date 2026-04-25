@@ -1318,6 +1318,33 @@ type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
 }
 
+// ListNamesParams defines parameters for ListNames.
+type ListNamesParams struct {
+	// Start Start of the time range in epoch milliseconds
+	Start int `form:"start" json:"start"`
+
+	// End End of the time range in epoch milliseconds
+	End int `form:"end" json:"end"`
+}
+
+// GetLabelsByIdParams defines parameters for GetLabelsById.
+type GetLabelsByIdParams struct {
+	// Start Start of the time range in epoch milliseconds
+	Start int `form:"start" json:"start"`
+
+	// End End of the time range in epoch milliseconds
+	End int `form:"end" json:"end"`
+}
+
+// GetValuesByIdParams defines parameters for GetValuesById.
+type GetValuesByIdParams struct {
+	// Start Start of the time range in epoch milliseconds
+	Start int `form:"start" json:"start"`
+
+	// End End of the time range in epoch milliseconds
+	End int `form:"end" json:"end"`
+}
+
 // GetMonitorStateByIdParams defines parameters for GetMonitorStateById.
 type GetMonitorStateByIdParams struct {
 	// HistoryRange Time range for the monitor history in the format start-end in epoch seconds in UTC (e.g. 1705036708-1705123108), defaults to last 7 days

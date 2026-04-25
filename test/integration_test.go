@@ -241,8 +241,12 @@ func TestDropRulesList(t *testing.T) {
 }
 
 func TestMetricsNames(t *testing.T) {
-	t.Skip("server requires start/end query params not yet in OpenAPI spec")
-	listJSONTest(t, "metrics", "names")
+	t.Skip("server-side metrics endpoint does not yet read start/end query params")
+	stdout, stderr, code := runOodle(t, "metrics", "names", "--start", "-1h", "--end", "now", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
 }
 
 func TestTracesLabels(t *testing.T) {

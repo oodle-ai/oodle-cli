@@ -126,6 +126,32 @@ func parseTimeFlag(value string) (int64, error) {
 	return n, nil
 }
 
+// parseTimeFlagMs is like parseTimeFlag but returns epoch milliseconds.
+// Use this for endpoints (e.g. metrics) that expect millisecond timestamps.
+func parseTimeFlagMs(value string) (int64, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return 0, fmt.Errorf("empty time value")
+	}
+	if strings.EqualFold(v, "now") {
+		return time.Now().UnixMilli(), nil
+	}
+	// Relative duration. Allow leading +/-; map "d" suffix to hours.
+	if v[0] == '+' || v[0] == '-' {
+		dur, err := parseRelativeDuration(v)
+		if err == nil {
+			return time.Now().Add(dur).UnixMilli(), nil
+		}
+		// Fall through to int parsing in case it's a negative epoch (rare).
+	}
+	// Integer: epoch milliseconds.
+	n, err := strconv.ParseInt(v, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid time %q: expected epoch milliseconds, 'now', or relative duration like -1h, -7d", value)
+	}
+	return n, nil
+}
+
 // parseRelativeDuration parses durations like "-1h", "-30m", "-7d", "-1d12h".
 // "d" units are translated to hours (24h) before delegating to
 // time.ParseDuration.

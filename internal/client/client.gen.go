@@ -164,13 +164,13 @@ type ClientInterface interface {
 	UpdateLogmetricsById(ctx context.Context, instance string, id string, body UpdateLogmetricsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNames request
-	ListNames(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNames(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabelsById request
-	GetLabelsById(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabelsById(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetValuesById request
-	GetValuesById(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetValuesById(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMonitorStateById request
 	GetMonitorStateById(ctx context.Context, instance string, id string, params *GetMonitorStateByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -640,8 +640,8 @@ func (c *Client) UpdateLogmetricsById(ctx context.Context, instance string, id s
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListNames(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNamesRequest(c.Server, instance)
+func (c *Client) ListNames(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamesRequest(c.Server, instance, params)
 	if err != nil {
 		return nil, err
 	}
@@ -652,8 +652,8 @@ func (c *Client) ListNames(ctx context.Context, instance string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLabelsByIdRequest(c.Server, instance, metricName)
+func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLabelsByIdRequest(c.Server, instance, metricName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -664,8 +664,8 @@ func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetValuesById(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetValuesByIdRequest(c.Server, instance, metricName, labelName)
+func (c *Client) GetValuesById(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetValuesByIdRequest(c.Server, instance, metricName, labelName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2142,7 +2142,7 @@ func NewUpdateLogmetricsByIdRequestWithBody(server string, instance string, id s
 }
 
 // NewListNamesRequest generates requests for ListNames
-func NewListNamesRequest(server string, instance string) (*http.Request, error) {
+func NewListNamesRequest(server string, instance string, params *ListNamesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2167,6 +2167,36 @@ func NewListNamesRequest(server string, instance string) (*http.Request, error) 
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -2176,7 +2206,7 @@ func NewListNamesRequest(server string, instance string) (*http.Request, error) 
 }
 
 // NewGetLabelsByIdRequest generates requests for GetLabelsById
-func NewGetLabelsByIdRequest(server string, instance string, metricName string) (*http.Request, error) {
+func NewGetLabelsByIdRequest(server string, instance string, metricName string, params *GetLabelsByIdParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2208,6 +2238,36 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string) 
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -2217,7 +2277,7 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string) 
 }
 
 // NewGetValuesByIdRequest generates requests for GetValuesById
-func NewGetValuesByIdRequest(server string, instance string, metricName string, labelName string) (*http.Request, error) {
+func NewGetValuesByIdRequest(server string, instance string, metricName string, labelName string, params *GetValuesByIdParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2254,6 +2314,36 @@ func NewGetValuesByIdRequest(server string, instance string, metricName string, 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -4277,13 +4367,13 @@ type ClientWithResponsesInterface interface {
 	UpdateLogmetricsByIdWithResponse(ctx context.Context, instance string, id string, body UpdateLogmetricsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLogmetricsByIdResponse, error)
 
 	// ListNamesWithResponse request
-	ListNamesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListNamesResponse, error)
+	ListNamesWithResponse(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*ListNamesResponse, error)
 
 	// GetLabelsByIdWithResponse request
-	GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error)
+	GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error)
 
 	// GetValuesByIdWithResponse request
-	GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error)
+	GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error)
 
 	// GetMonitorStateByIdWithResponse request
 	GetMonitorStateByIdWithResponse(ctx context.Context, instance string, id string, params *GetMonitorStateByIdParams, reqEditors ...RequestEditorFn) (*GetMonitorStateByIdResponse, error)
@@ -6226,8 +6316,8 @@ func (c *ClientWithResponses) UpdateLogmetricsByIdWithResponse(ctx context.Conte
 }
 
 // ListNamesWithResponse request returning *ListNamesResponse
-func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListNamesResponse, error) {
-	rsp, err := c.ListNames(ctx, instance, reqEditors...)
+func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*ListNamesResponse, error) {
+	rsp, err := c.ListNames(ctx, instance, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6235,8 +6325,8 @@ func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instanc
 }
 
 // GetLabelsByIdWithResponse request returning *GetLabelsByIdResponse
-func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error) {
-	rsp, err := c.GetLabelsById(ctx, instance, metricName, reqEditors...)
+func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error) {
+	rsp, err := c.GetLabelsById(ctx, instance, metricName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6244,8 +6334,8 @@ func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, ins
 }
 
 // GetValuesByIdWithResponse request returning *GetValuesByIdResponse
-func (c *ClientWithResponses) GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error) {
-	rsp, err := c.GetValuesById(ctx, instance, metricName, labelName, reqEditors...)
+func (c *ClientWithResponses) GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error) {
+	rsp, err := c.GetValuesById(ctx, instance, metricName, labelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

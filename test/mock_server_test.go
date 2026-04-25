@@ -455,7 +455,7 @@ func TestMock_DropRulesList(t *testing.T) {
 func TestMock_MetricsNames(t *testing.T) {
 	srv := jsonSrv(`["up","http_requests_total"]`, 200)
 	defer srv.Close()
-	stdout, stderr, code := runMock(t, srv.URL, "metrics", "names", "--output", "json")
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "names", "--start", "-1h", "--end", "now", "--output", "json")
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
 	}
