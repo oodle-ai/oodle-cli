@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+builds:
+  # NOTE: ldflags here are kept in sync with the `build` target in `Makefile`.
+  # If you add or change an `-X` flag, update both files.
+  - main: ./cmd/oodle
+    binary: oodle
+    env:
+      - CGO_ENABLED=0
+    # Reproducible builds: timestamp the binary with the commit time so the
+    # same source tree produces byte-identical archives.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/oodle-ai/oodle-cli/internal/cmd.version={{.Version}}
+      - -X github.com/oodle-ai/oodle-cli/internal/cmd.commit={{.Commit}}
+      - -X github.com/oodle-ai/oodle-cli/internal/cmd.date={{.CommitDate}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats:
+          - zip
+
+checksum:
+  name_template: "checksums.txt"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^build:"
+      - "^style:"
+      - "^refactor:"
+
+brews:
+  - name: oodle
+    directory: Formula
+    repository:
+      owner: oodle-ai
+      name: homebrew-oodle
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    homepage: "https://github.com/oodle-ai/oodle-cli"
+    description: "CLI for the Oodle observability platform"
+    license: "Apache-2.0"
+    install: bin.install "oodle"
+    test: system "#{bin}/oodle", "version"

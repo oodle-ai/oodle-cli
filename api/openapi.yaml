@@ -1,0 +1,4994 @@
+# AUTO-GENERATED — do not edit manually.
+
+openapi: 3.0.0
+components:
+  schemas:
+    AnonymousType1:
+      type: object
+    AnonymousType2:
+      type: object
+    AnonymousType3:
+      type: object
+    AnonymousType4:
+      type: object
+    AnonymousType5:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          nullable: true
+          items:
+            type: string
+    AnonymousType6:
+      type: object
+    AnonymousType7:
+      type: object
+    AnonymousType8:
+      type: object
+    AnonymousType9:
+      type: object
+    AnonymousType10:
+      type: object
+    AnonymousType11:
+      type: object
+    AnonymousType12:
+      type: object
+    AnonymousType13:
+      type: object
+    AnonymousType14:
+      type: object
+    AnonymousType15:
+      type: object
+    ApiKey:
+      type: object
+      required:
+        - id
+        - name
+        - token
+        - expiresAtEpochMillis
+        - lastUsedAtEpochMillis
+        - createdAtEpochMillis
+        - updatedAtEpochMillis
+        - isPrimary
+      properties:
+        createdAtEpochMillis:
+          type: integer
+        deletedAtEpochMillis:
+          type: integer
+          nullable: true
+        expiresAtEpochMillis:
+          type: integer
+        id:
+          type: string
+        isPrimary:
+          type: boolean
+        lastUsedAtEpochMillis:
+          type: integer
+        name:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+        scopes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        token:
+          type: string
+        updatedAtEpochMillis:
+          type: integer
+    Authorization:
+      type: object
+      description: Authorization contains HTTP authorization credentials.
+      properties:
+        credentials:
+          type: string
+        credentials_file:
+          type: string
+        credentials_ref:
+          type: string
+          description: CredentialsRef is the name of the secret within the secret manager to use as credentials.
+        type:
+          type: string
+    BasicAuth:
+      type: object
+      description: BasicAuth contains basic HTTP authentication credentials.
+      required:
+        - username
+      properties:
+        password:
+          type: string
+        password_file:
+          type: string
+        password_ref:
+          type: string
+          description: PasswordRef is the name of the secret within the secret manager to use as the password.
+        username:
+          type: string
+        username_file:
+          type: string
+        username_ref:
+          type: string
+          description: UsernameRef is the name of the secret within the secret manager to use as the username.
+    BulkSendInvitationItem:
+      type: object
+      description: |-
+        BulkSendInvitationItem represents a single invitee
+        within a bulk invitation request.
+      required:
+        - email
+        - roles
+      properties:
+        email:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+    BulkSendInvitationRequest:
+      type: object
+      description: |-
+        BulkSendInvitationRequest is the request body for
+        sending multiple organization invitations in one call.
+      required:
+        - sender_email
+        - invitations
+      properties:
+        invitations:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/BulkSendInvitationItem'
+        sender_email:
+          type: string
+    BulkSendInvitationResponse:
+      type: object
+      description: |-
+        BulkSendInvitationResponse is the response body for
+        a bulk invitation request. Each item corresponds
+        positionally to the input invitations array.
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/BulkSendInvitationResultItem'
+    BulkSendInvitationResultItem:
+      type: object
+      description: |-
+        BulkSendInvitationResultItem holds the outcome of a
+        single invitation within a bulk request.
+      required:
+        - email
+      properties:
+        email:
+          type: string
+        error:
+          type: string
+        invitation:
+          $ref: '#/components/schemas/UserInvitation'
+    Condition:
+      type: object
+      description: Condition is a model for a condition to be evaluated in monitors.
+      required:
+        - op
+        - value
+      properties:
+        alert_on_no_data:
+          type: boolean
+          description: |-
+            Deprecated: use ConditionBySeverity#NoData instead
+            AlertOnNoData indicates whether the alert should be triggered
+          deprecated: true
+        for:
+          type: string
+          format: duration
+          description: |-
+            For is the duration for which the condition should be true
+            before the alert is triggered.
+        keep_firing_for:
+          type: string
+          format: duration
+          description: |-
+            KeepFiringFor is the duration for which the alert should keep firing
+            after the condition is no longer true.
+        op:
+          type: integer
+        value:
+          type: number
+    ConditionBySeverity:
+      type: object
+      description: ConditionBySeverity represents a condition for each severity level.
+      properties:
+        critical:
+          $ref: '#/components/schemas/Condition'
+        no_data:
+          $ref: '#/components/schemas/Condition'
+        warn:
+          $ref: '#/components/schemas/Condition'
+    CreateApiKeyRequest:
+      type: object
+      required:
+        - name
+        - scopes
+      properties:
+        name:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+        scopes:
+          type: array
+          nullable: true
+          items:
+            type: string
+    CreateDropRuleRequest:
+      type: object
+      description: CreateDropRuleRequest is the request body for creating a drop rule.
+      required:
+        - rule_name
+        - metric_name
+        - filters
+        - type
+      properties:
+        filters:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        metric_name:
+          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        rule_name:
+          type: string
+        type:
+          type: string
+    CreateFolderRequest:
+      type: object
+      description: CreateFolderRequest represents a request to create a folder
+      required:
+        - title
+      properties:
+        parentUid:
+          type: string
+        title:
+          type: string
+        uid:
+          type: string
+    DashboardSearchEntry:
+      type: object
+      description: DashboardSearchEntry represents a dashboard search result
+      required:
+        - id
+        - uid
+        - title
+        - url
+        - type
+        - isStarred
+      properties:
+        folderId:
+          type: integer
+        folderTitle:
+          type: string
+        folderUid:
+          type: string
+        folderUrl:
+          type: string
+        id:
+          type: integer
+        isStarred:
+          type: boolean
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        title:
+          type: string
+        type:
+          type: string
+        uid:
+          type: string
+        url:
+          type: string
+    DropRule:
+      type: object
+      description: DropRule is the API model for a metric drop rule.
+      required:
+        - id
+        - rule_name
+        - metric_name
+        - filters
+        - type
+      properties:
+        filters:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        id:
+          type: string
+        metric_name:
+          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        rule_name:
+          type: string
+        type:
+          type: string
+    EmailConfig:
+      type: object
+      description: EmailConfig configures notifications via mail.
+      required:
+        - send_resolved
+      properties:
+        auth_identity:
+          type: string
+        auth_password:
+          type: string
+        auth_secret:
+          type: string
+        auth_username:
+          type: string
+        from:
+          type: string
+        headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        hello:
+          type: string
+        html:
+          type: string
+        require_tls:
+          type: boolean
+          nullable: true
+        send_resolved:
+          type: boolean
+        smarthost:
+          $ref: '#/components/schemas/HostPort'
+        text:
+          type: string
+        tls_config:
+          $ref: '#/components/schemas/TLSConfig'
+        to:
+          type: string
+          description: Email address to notify.
+    Folder:
+      type: object
+      description: Folder represents a Grafana folder
+      required:
+        - id
+        - uid
+        - title
+        - url
+        - version
+      properties:
+        created:
+          type: string
+        id:
+          type: integer
+        parentUid:
+          type: string
+        title:
+          type: string
+        uid:
+          type: string
+        updated:
+          type: string
+        url:
+          type: string
+        version:
+          type: integer
+    GenerateMonitorExpressionInsightReportsReq:
+      type: object
+      description: GenerateMonitorExpressionInsightReportsReq is the request body for the generate monitor expression insight reports endpoint.
+      required:
+        - start_time_epoch_millis
+        - end_time_epoch_millis
+        - monitor_instance_start_time_epoch_millis
+        - monitor_instance_ends_at_time_epoch_millis
+        - severity
+        - do_not_return_all_values
+      properties:
+        do_not_return_all_values:
+          type: boolean
+        end_time_epoch_millis:
+          type: integer
+          description: End time of the report in epoch milliseconds
+        monitor_instance_ends_at_time_epoch_millis:
+          type: integer
+          description: |-
+            The end time of the alert instance in epoch milliseconds for which
+            this report is being generated.
+        monitor_instance_start_time_epoch_millis:
+          type: integer
+          description: |-
+            The start time of the alert instance in epoch milliseconds for which
+            this report is being generated.
+        severity:
+          type: string
+          description: Severity of the alert instance for which this report is being generated.
+        start_time_epoch_millis:
+          type: integer
+          description: Start time of the report in epoch milliseconds
+    GetDashboardResponse:
+      type: object
+      properties:
+        dashboard:
+          type: object
+          description: Grafana-compatible dashboard JSON
+        meta:
+          type: object
+          properties:
+            created:
+              type: string
+            folderId:
+              type: integer
+            folderTitle:
+              type: string
+            folderUid:
+              type: string
+            slug:
+              type: string
+            updated:
+              type: string
+            url:
+              type: string
+            version:
+              type: integer
+    GoogleChatConfig:
+      type: object
+      description: GoogleChatConfig configures notifications via Google Chat.
+      required:
+        - send_resolved
+      properties:
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        message:
+          type: string
+        send_resolved:
+          type: boolean
+        threading:
+          type: boolean
+        url:
+          type: string
+    Grouping:
+      type: object
+      description: Grouping is a model for grouping alerts.
+      properties:
+        by_labels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        by_monitor:
+          type: boolean
+        disabled:
+          type: boolean
+    HTTPClientConfig:
+      type: object
+      description: HTTPClientConfig configures an HTTP client.
+      required:
+        - follow_redirects
+        - enable_http2
+      properties:
+        authorization:
+          $ref: '#/components/schemas/Authorization'
+        basic_auth:
+          $ref: '#/components/schemas/BasicAuth'
+        bearer_token:
+          type: string
+          description: |-
+            The bearer token for the targets. Deprecated in favour of
+            Authorization.Credentials.
+        bearer_token_file:
+          type: string
+          description: |-
+            The bearer token file for the targets. Deprecated in favour of
+            Authorization.CredentialsFile.
+        enable_http2:
+          type: boolean
+          description: |-
+            EnableHTTP2 specifies whether the client should configure HTTP2.
+            The omitempty flag is not set, because it would be hidden from the
+            marshalled configuration when set to false.
+        follow_redirects:
+          type: boolean
+          description: |-
+            FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
+            The omitempty flag is not set, because it would be hidden from the
+            marshalled configuration when set to false.
+        http_headers:
+          $ref: '#/components/schemas/Headers'
+        no_proxy:
+          type: string
+          description: NoProxy contains addresses that should not use a proxy.
+        oauth2:
+          $ref: '#/components/schemas/OAuth2'
+        proxy_connect_header:
+          type: object
+          description: |-
+            ProxyConnectHeader optionally specifies headers to send to
+            proxies during CONNECT requests. Assume that at least _some_ of
+            these headers are going to contain secrets and use Secret as the
+            value type instead of string.
+          nullable: true
+          additionalProperties:
+            type: array
+            nullable: true
+            items:
+              type: string
+        proxy_from_environment:
+          type: boolean
+          description: |-
+            ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
+            to determine proxies.
+        proxy_url:
+          $ref: '#/components/schemas/URL'
+        tls_config:
+          $ref: '#/components/schemas/TLSConfig'
+    Header:
+      type: object
+      description: Header represents the configuration for a single HTTP header.
+      properties:
+        files:
+          type: array
+          nullable: true
+          items:
+            type: string
+        secrets:
+          type: array
+          nullable: true
+          items:
+            type: string
+        values:
+          type: array
+          nullable: true
+          items:
+            type: string
+    Headers:
+      type: object
+      description: Headers represents the configuration for HTTP headers.
+      required:
+        - Headers
+      properties:
+        Headers:
+          type: object
+          nullable: true
+          additionalProperties: null
+    HostPort:
+      type: string
+      description: HostPort represents a "host:port" network address.
+    ID:
+      type: string
+      format: uuid
+      description: ID is a unique identifier (UUID string) used in all alert related models.
+    Label:
+      type: object
+      description: Label represents a name-value pair for a metric label.
+      properties:
+        name:
+          type: string
+          description: Name is the name of the label.
+        value:
+          type: string
+          description: |-
+            Value is the static value of the label.
+            Only one of Value or ValueExtractor should be set.
+          nullable: true
+        valueExtractor:
+          $ref: '#/components/schemas/ValueExtractor'
+    LabelMatcher:
+      type: object
+      required:
+        - type
+        - name
+        - value
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/MatchType'
+        value:
+          type: string
+    LabelMatcherNotifications:
+      type: object
+      description: |-
+        LabelMatcherNotifications defines a notification policy that is applied when
+        alert labels match the specified matchers.
+      required:
+        - matchers
+      properties:
+        matchers:
+          type: array
+          description: Matchers are the label matchers that determine when this policy applies
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LabelMatcher'
+        notification_policy_id:
+          $ref: '#/components/schemas/ID'
+        notifiers:
+          $ref: '#/components/schemas/NotifiersByCondition'
+    ListInvitationsResponse:
+      type: object
+      description: |-
+        ListInvitationsResponse is the response for listing
+        invitations.
+      required:
+        - invitations
+      properties:
+        invitations:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/UserInvitation'
+    ListUsersResponse:
+      type: object
+      description: ListUsersResponse is the response for listing users.
+      required:
+        - users
+      properties:
+        users:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/User'
+    LogFilter:
+      type: object
+      description: 'LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.'
+      properties:
+        all:
+          type: array
+          description: All filters must match (AND). Each item is a LogFilter.
+          minItems: 1
+          items:
+            type: object
+            description: Nested LogFilter (recursive). Same structure as the parent LogFilter.
+        any:
+          type: array
+          description: At least one filter must match (OR). Each item is a LogFilter.
+          minItems: 1
+          items:
+            type: object
+            description: Nested LogFilter (recursive). Same structure as the parent LogFilter.
+        match:
+          type: object
+          required:
+            - field
+            - operator
+          properties:
+            field:
+              type: string
+            jsonPath:
+              type: string
+              nullable: true
+            operator:
+              type: string
+              enum:
+                - is
+                - contains
+                - matches regex
+                - exists
+            value:
+              type: string
+              nullable: true
+        not:
+          type: object
+          description: Nested LogFilter (recursive). Same structure as the parent LogFilter.
+    LogMetrics:
+      type: object
+      description: LogMetrics is a definition to convert logs to metrics.
+      properties:
+        filter:
+          $ref: '#/components/schemas/LogFilter'
+        id:
+          $ref: '#/components/schemas/ID'
+        labels:
+          type: array
+          description: |-
+            Labels are the labels that will be added to all metrics created
+            by this configuration.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Label'
+        metricDefinitions:
+          type: array
+          description: MetricDefinitions defines all the metrics to be created from the logs.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/MetricDefinition'
+        name:
+          type: string
+          description: Name is the name of the rule.
+        updatedAtEpochMs:
+          type: integer
+          description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+    Lookup:
+      type: object
+      description: Lookup specifies how to look up a value in a lookup/enrichment table.
+      properties:
+        fallback:
+          $ref: '#/components/schemas/LookupFallback'
+        matchColumn:
+          type: string
+          description: MatchColumn is the column name in the lookup table to match against.
+        tableId:
+          type: string
+          description: TableID is the ID of the lookup table to use.
+        valueColumn:
+          type: string
+          description: ValueColumn is the column name in the lookup table to get the value from.
+    LookupFallback:
+      type: object
+      description: LookupFallback specifies a fallback value source when a lookup fails.
+      properties:
+        field:
+          type: string
+          description: Field is the name of the log field to use as the fallback value.
+    MSTeamsV2Config:
+      type: object
+      required:
+        - send_resolved
+      properties:
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        send_resolved:
+          type: boolean
+        text:
+          type: string
+        title:
+          type: string
+        webhook_url:
+          type: string
+    MatchType:
+      type: integer
+      description: |-
+        Type of label matcher. Values:
+        - 0: Equals (=)
+        - 1: Not equals (!=)
+        - 2: Regular expression match (=~)
+        - 3: Regular expression not match (!~)
+      enum:
+        - 0
+        - 1
+        - 2
+        - 3
+    MetricDefinition:
+      type: object
+      description: MetricDefinition represents the definition of a metric to be created.
+      properties:
+        field:
+          type: string
+          description: |-
+            Field is the name of the log field to extract from. Only used when Type is
+            "counter" or "gauge".
+        jsonPath:
+          type: string
+          description: |-
+            JSONPath is an optional JSON path to extract a numeric value from a JSON field.
+            Only used when Type is "counter" or "gauge". Cannot be used together with Regex.
+          nullable: true
+        name:
+          type: string
+          description: |-
+            Name is the name of the metric to be created. Must match Prometheus metric naming rules.
+            See https://prometheus.io/docs/concepts/data_model/#metric-names-and-labels
+        regex:
+          type: string
+          description: |-
+            Regex is an optional regex pattern to extract a numeric value from the field.
+            Only used when Type is "counter" or "gauge". Cannot be used together with JSONPath.
+          nullable: true
+        type:
+          $ref: '#/components/schemas/MetricType'
+    MetricType:
+      type: string
+      description: |-
+        Type of metric to be created. Values:
+        - 0: Count of logs
+        - 1: Counter metric
+        - 2: Gauge metric
+        - 3: Histogram metric
+      enum:
+        - log_count
+        - counter
+        - gauge
+        - histogram
+    Monitor:
+      type: object
+      description: Monitor is a model for a monitor.
+      properties:
+        annotations:
+          type: object
+          description: Annotations are the annotations for the monitor.
+          nullable: true
+          additionalProperties:
+            type: string
+        conditions:
+          $ref: '#/components/schemas/ConditionBySeverity'
+        group_interval:
+          type: string
+          format: duration
+          description: GroupInterval is the interval at which to send alerts for the same group of alerts after the first alert.
+        group_wait:
+          type: string
+          format: duration
+          description: GroupWait is the time to wait before sending the first alert for a group of alerts.
+        grouping:
+          $ref: '#/components/schemas/Grouping'
+        id:
+          $ref: '#/components/schemas/ID'
+        interval:
+          type: string
+          format: duration
+          description: Interval is the interval at which the monitor should be evaluated.
+        label_matcher_notification_policies:
+          type: array
+          description: |-
+            Deprecated: LabelMatcherNotificationPolicies is the list of label matcher notification policies for the monitor.
+            These policies are evaluated in order, and the first matching policy is used.
+            If no policy matches, the default NotificationPolicyID is used if set.
+          nullable: true
+          deprecated: true
+          items:
+            $ref: '#/components/schemas/LabelMatcherNotifications'
+        labels:
+          type: object
+          description: Labels are the labels for the monitor.
+          nullable: true
+          additionalProperties:
+            type: string
+        name:
+          type: string
+          description: Name is the name of the monitor.
+        notification_policy_id:
+          $ref: '#/components/schemas/ID'
+        notifications:
+          type: array
+          description: |-
+            Notifications is the list of notifications for the monitor.
+            These notifications are evaluated in order, and the first matching notification is used.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LabelMatcherNotifications'
+        promql_query:
+          type: string
+          description: PromQLQuery is the Prometheus query for the monitor.
+        repeat_interval:
+          type: string
+          format: duration
+          description: |-
+            RepeatInterval is the interval at which to send alerts for the same alert after firing.
+            RepeatInterval should be a multiple of GroupInterval
+        updated_at_epoch_ms:
+          type: integer
+          description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+    MonitorState:
+      type: object
+      description: MonitorState represents the state of a monitor.
+      required:
+        - id
+        - last_evaluation
+        - evaluation_time
+        - health
+        - history
+      properties:
+        evaluation_time:
+          type: number
+        health:
+          type: string
+        history:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/MonitorTriggerInstance'
+        id:
+          $ref: '#/components/schemas/ID'
+        last_evaluation:
+          type: string
+          format: date-time
+    MonitorTrigger:
+      type: object
+      description: MonitorTrigger represents a monitor that triggers an alert.
+      required:
+        - startsAt
+        - endsAt
+        - monitorID
+        - severity
+        - updatedAt
+        - labels
+      properties:
+        endsAt:
+          type: string
+          format: date-time
+        labels:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        monitorID:
+          type: string
+        severity:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    MonitorTriggerInstance:
+      type: object
+      description: MonitorTriggerInstance is an instance of a firing monitor.
+      required:
+        - monitor_id
+        - starts_at
+        - severity
+      properties:
+        FiringInstanceLastActiveTime:
+          type: string
+          format: date-time
+          description: Used to track the last active time for a firing instance
+          nullable: true
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        monitor_id:
+          type: string
+        severity:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+    MutingRule:
+      type: object
+      description: |-
+        MutingRule allows to mute notifications.
+        When ScheduleIDs is non-empty, this is a recurring muting rule.
+        When ScheduleIDs is empty, this is a one-off muting rule.
+      required:
+        - id
+        - updatedAt
+        - startsAt
+        - endsAt
+        - matchers
+        - createdBy
+        - comment
+      properties:
+        comment:
+          type: string
+          description: 'Optional: Comment can be used to additional note along with the muting rule.'
+        createdAt:
+          type: string
+          format: date-time
+          description: CreatedAt is the creation timestamp for the muting rules. May be empty.
+        createdBy:
+          type: string
+          description: 'Optional: CreatedBy is the user who created the muting rule.'
+        endsAt:
+          type: string
+          format: date-time
+          description: 'Optional: EndsAt is the end time when muting ends. If not specified, then muting is effective forever. Only for one-off rules.'
+        id:
+          type: string
+        matchers:
+          type: array
+          description: |-
+            Matchers is the list of matchers that determine when this rule applies.
+            An alert instance is muted if it matches all the matchers.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LabelMatcher'
+        name:
+          type: string
+          description: 'Optional: Name is a human-readable name for the muting rule.'
+        scheduleIds:
+          type: array
+          description: |-
+            Optional: ScheduleIDs is a list of schedule UUIDs. When non-empty, the rule is recurring
+            and mutually exclusive with StartsAt/EndsAt. The alert is muted during ANY of the referenced schedules.
+          nullable: true
+          items:
+            type: string
+        schedules:
+          type: array
+          description: Schedules is populated on read with the full schedule objects for each ScheduleID.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Schedule'
+        startsAt:
+          type: string
+          format: date-time
+          description: 'Optional: StartsAt is the start time when muting starts. Defaults to current time. Only for one-off rules.'
+        updatedAt:
+          type: string
+          format: date-time
+          description: UpdatedAt is the timestamp of the last update of the muting rule.
+    NotificationPolicy:
+      type: object
+      description: |-
+        NotificationPolicy represents a policy for sending notifications based on severity.
+        A notification policy is associated with a monitor.
+      properties:
+        global:
+          type: boolean
+          description: Global policy is applied to all monitors in addition to any monitor specific policies.
+        id:
+          $ref: '#/components/schemas/ID'
+        mute_global:
+          type: boolean
+        mute_non_global:
+          type: boolean
+          description: |-
+            MuteNonGlobal is used to disable all non-global policies. It can only be set for a Global
+            notification policy. Global policy would still be effective when MuteNonGlobal is true.
+        name:
+          type: string
+        notifiers:
+          $ref: '#/components/schemas/NotifiersByCondition'
+        updated_at_epoch_ms:
+          type: integer
+          description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+    Notifier:
+      type: object
+      description: Notifier represents a single notification target.
+      required:
+        - type
+      properties:
+        email_config:
+          $ref: '#/components/schemas/EmailConfig'
+        googlechat_config:
+          $ref: '#/components/schemas/GoogleChatConfig'
+        id:
+          $ref: '#/components/schemas/ID'
+        msteamsv2_config:
+          $ref: '#/components/schemas/MSTeamsV2Config'
+        name:
+          type: string
+        opsgenie_config:
+          $ref: '#/components/schemas/OpsGenieConfig'
+        pagerduty_config:
+          $ref: '#/components/schemas/PagerdutyConfig'
+        slack_config:
+          $ref: '#/components/schemas/SlackConfig'
+        type:
+          type: integer
+        updated_at_epoch_ms:
+          type: integer
+          description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+        webhook_config:
+          $ref: '#/components/schemas/WebhookConfig'
+    NotifiersByCondition:
+      type: object
+      description: NotifiersByCondition represents notifiers for each severity level.
+      properties:
+        any:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ID'
+        critical:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ID'
+        no_data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ID'
+        warn:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ID'
+    OAuth2:
+      type: object
+      description: OAuth2 is the oauth2 client configuration.
+      required:
+        - client_id
+        - client_secret
+        - client_secret_file
+        - client_secret_ref
+        - token_url
+        - TLSConfig
+      properties:
+        TLSConfig:
+          $ref: '#/components/schemas/TLSConfig'
+        client_id:
+          type: string
+        client_secret:
+          type: string
+        client_secret_file:
+          type: string
+        client_secret_ref:
+          type: string
+          description: |-
+            ClientSecretRef is the name of the secret within the secret manager to use as the client
+            secret.
+        endpoint_params:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        no_proxy:
+          type: string
+          description: NoProxy contains addresses that should not use a proxy.
+        proxy_connect_header:
+          type: object
+          description: |-
+            ProxyConnectHeader optionally specifies headers to send to
+            proxies during CONNECT requests. Assume that at least _some_ of
+            these headers are going to contain secrets and use Secret as the
+            value type instead of string.
+          nullable: true
+          additionalProperties:
+            type: array
+            nullable: true
+            items:
+              type: string
+        proxy_from_environment:
+          type: boolean
+          description: |-
+            ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
+            to determine proxies.
+        proxy_url:
+          $ref: '#/components/schemas/URL'
+        scopes:
+          type: array
+          nullable: true
+          items:
+            type: string
+        token_url:
+          type: string
+    OpsGenieConfig:
+      type: object
+      description: OpsGenieConfig configures notifications via OpsGenie.
+      required:
+        - send_resolved
+      properties:
+        actions:
+          type: string
+        api_key:
+          type: string
+        api_url:
+          $ref: '#/components/schemas/URL'
+        description:
+          type: string
+        details:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        entity:
+          type: string
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        message:
+          type: string
+        note:
+          type: string
+        priority:
+          type: string
+        responders:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/OpsGenieConfigResponder'
+        send_resolved:
+          type: boolean
+        source:
+          type: string
+        tags:
+          type: string
+        update_alerts:
+          type: boolean
+    OpsGenieConfigResponder:
+      type: object
+      properties:
+        id:
+          type: string
+          description: One of those 3 should be filled.
+        name:
+          type: string
+        type:
+          type: string
+          description: team, user, escalation, schedule etc.
+        username:
+          type: string
+    PagerdutyConfig:
+      type: object
+      description: PagerdutyConfig configures notifications via PagerDuty.
+      required:
+        - send_resolved
+      properties:
+        class:
+          type: string
+        client:
+          type: string
+        client_url:
+          type: string
+        component:
+          type: string
+        description:
+          type: string
+        details:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        group:
+          type: string
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        images:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PagerdutyImage'
+        links:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PagerdutyLink'
+        routing_key:
+          type: string
+        routing_key_file:
+          type: string
+        send_resolved:
+          type: boolean
+        service_key:
+          type: string
+        severity:
+          type: string
+        source:
+          type: string
+        url:
+          $ref: '#/components/schemas/URL'
+    PagerdutyImage:
+      type: object
+      description: PagerdutyImage is an image.
+      properties:
+        alt:
+          type: string
+        href:
+          type: string
+        src:
+          type: string
+    PagerdutyLink:
+      type: object
+      description: PagerdutyLink is a link.
+      properties:
+        href:
+          type: string
+        text:
+          type: string
+    SaveDashboardRequest:
+      type: object
+      required:
+        - dashboard
+      properties:
+        dashboard:
+          type: object
+          description: Grafana-compatible dashboard JSON
+        folderUid:
+          type: string
+        message:
+          type: string
+        overwrite:
+          type: boolean
+    SaveDashboardResponse:
+      type: object
+      description: SaveDashboardResponse represents a response from saving a dashboard
+      required:
+        - id
+        - uid
+        - url
+        - status
+        - version
+        - slug
+      properties:
+        id:
+          type: integer
+        slug:
+          type: string
+        status:
+          type: string
+        uid:
+          type: string
+        url:
+          type: string
+        version:
+          type: integer
+    Schedule:
+      type: object
+      description: Schedule represents a named recurring mute timing.
+      required:
+        - id
+        - name
+        - time_intervals
+        - created_at
+        - updated_at
+      properties:
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        time_intervals:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScheduleTimeInterval'
+        updated_at:
+          type: string
+          format: date-time
+    ScheduleTimeInterval:
+      type: object
+      description: |-
+        ScheduleTimeInterval defines a recurring time window for muting.
+        YAML tags match Alertmanager's timeinterval.TimeInterval
+        so the struct can be directly marshalled for AM config.
+      properties:
+        days_of_month:
+          type: array
+          nullable: true
+          items:
+            type: string
+        location:
+          type: string
+        months:
+          type: array
+          nullable: true
+          items:
+            type: string
+        times:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScheduleTimeRange'
+        weekdays:
+          type: array
+          nullable: true
+          items:
+            type: string
+        years:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ScheduleTimeRange:
+      type: object
+      description: ScheduleTimeRange represents a time-of-day range in HH:MM format.
+      required:
+        - start_time
+        - end_time
+      properties:
+        end_time:
+          type: string
+        start_time:
+          type: string
+    SendInvitationRequest:
+      type: object
+      description: |-
+        SendInvitationRequest is the request body for sending
+        a single organization invitation.
+      required:
+        - email
+        - roles
+        - sender_email
+      properties:
+        email:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+        sender_email:
+          type: string
+    SlackAction:
+      type: object
+      description: |-
+        SlackAction configures a single Slack action that is sent with each notification.
+        See https://api.slack.com/docs/message-attachments#action_fields and https://api.slack.com/docs/message-buttons
+        for more information.
+      properties:
+        confirm:
+          $ref: '#/components/schemas/SlackConfirmationField'
+        name:
+          type: string
+        style:
+          type: string
+        text:
+          type: string
+        type:
+          type: string
+        url:
+          type: string
+        value:
+          type: string
+    SlackConfig:
+      type: object
+      description: SlackConfig configures notifications via Slack.
+      required:
+        - send_resolved
+      properties:
+        actions:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SlackAction'
+        api_url:
+          type: string
+        callback_id:
+          type: string
+        channel:
+          type: string
+          description: 'Slack channel override, (like #other-channel or @username).'
+        color:
+          type: string
+        fallback:
+          type: string
+        fields:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SlackField'
+        footer:
+          type: string
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        icon_emoji:
+          type: string
+        icon_url:
+          type: string
+        image_url:
+          type: string
+        link_names:
+          type: boolean
+        mrkdwn_in:
+          type: array
+          nullable: true
+          items:
+            type: string
+        pretext:
+          type: string
+        send_resolved:
+          type: boolean
+        short_fields:
+          type: boolean
+        text:
+          type: string
+        thumb_url:
+          type: string
+        title:
+          type: string
+        title_link:
+          type: string
+        username:
+          type: string
+    SlackConfirmationField:
+      type: object
+      description: |-
+        SlackConfirmationField protect users from destructive actions or particularly distinguished decisions
+        by asking them to confirm their button click one more time.
+        See https://api.slack.com/docs/interactive-message-field-guide#confirmation_fields for more information.
+      properties:
+        dismiss_text:
+          type: string
+        ok_text:
+          type: string
+        text:
+          type: string
+        title:
+          type: string
+    SlackField:
+      type: object
+      description: |-
+        SlackField configures a single Slack field that is sent with each notification.
+        Each field must contain a title, value, and optionally, a boolean value to indicate if the field
+        is short enough to be displayed next to other fields designated as short.
+        See https://api.slack.com/docs/message-attachments#fields for more information.
+      properties:
+        short:
+          type: boolean
+          nullable: true
+        title:
+          type: string
+        value:
+          type: string
+    SyntheticCheckResult:
+      type: object
+      description: CheckResult represents the result of a synthetic check
+      required:
+        - success
+        - timestamp
+        - duration
+        - duration_ms
+      properties:
+        avg_rtt_ms:
+          type: number
+        dns_results:
+          type: array
+          description: DNS-specific results
+          nullable: true
+          items:
+            type: string
+        duration:
+          type: string
+          format: duration
+        duration_ms:
+          type: integer
+        error_message:
+          type: string
+        hops:
+          type: array
+          description: Traceroute-specific results
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticTracerouteHop'
+        location:
+          type: string
+        max_rtt_ms:
+          type: number
+        min_rtt_ms:
+          type: number
+        packet_loss:
+          type: number
+        packets_received:
+          type: integer
+        packets_sent:
+          type: integer
+          description: Ping-specific results
+        pod_id:
+          type: string
+        request_headers:
+          type: object
+          description: HTTP headers
+          nullable: true
+          additionalProperties:
+            type: string
+        response_body:
+          type: string
+        response_headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        ssl_expiry:
+          type: string
+          format: date-time
+          description: SSL-specific results
+          nullable: true
+        status_code:
+          type: integer
+        success:
+          type: boolean
+        timestamp:
+          type: string
+          format: date-time
+    SyntheticCondition:
+      type: object
+      description: Condition defines alert conditions
+      required:
+        - op
+        - value
+      properties:
+        for:
+          type: string
+          format: duration
+        keep_firing_for:
+          type: string
+          format: duration
+        op:
+          type: string
+        value:
+          type: number
+    SyntheticConditionBySeverity:
+      type: object
+      description: ConditionBySeverity defines conditions for each severity level
+      properties:
+        critical:
+          $ref: '#/components/schemas/SyntheticCondition'
+        warn:
+          $ref: '#/components/schemas/SyntheticCondition'
+    SyntheticDNSRuleConfig:
+      type: object
+      description: DNSRuleConfig is the configuration for DNS checks
+      required:
+        - domain
+        - record_type
+        - expect_resolution
+      properties:
+        domain:
+          type: string
+        expect_resolution:
+          type: boolean
+        expected_values:
+          type: array
+          nullable: true
+          items:
+            type: string
+        nameserver:
+          type: string
+        record_type:
+          type: string
+    SyntheticHTTPRuleConfig:
+      type: object
+      required:
+        - url
+        - method
+      properties:
+        bearer_token:
+          type: string
+        body:
+          type: string
+        excluded_status_codes:
+          type: array
+          items:
+            description: Status code (number like 200) or pattern (string like "2XX")
+        expected_body:
+          type: string
+        expected_headers:
+          type: object
+          additionalProperties:
+            type: string
+        expected_status_codes:
+          type: array
+          items:
+            description: Status code (number like 200) or pattern (string like "2XX")
+        follow_redirects:
+          type: boolean
+        headers:
+          type: object
+          additionalProperties:
+            type: string
+        insecure_skip_verify:
+          type: boolean
+        max_response_time_ms:
+          type: integer
+          format: int64
+        method:
+          type: string
+        url:
+          type: string
+    SyntheticLabelMatcherNotifications:
+      type: object
+      description: LabelMatcherNotifications defines notifications with label matching
+      properties:
+        notification_policy_id:
+          type: string
+        notifiers:
+          $ref: '#/components/schemas/SyntheticNotifiersByCondition'
+    SyntheticNotifiersByCondition:
+      type: object
+      description: NotifiersByCondition defines notifiers for each condition
+      properties:
+        any:
+          type: array
+          nullable: true
+          items:
+            type: string
+        critical:
+          type: array
+          nullable: true
+          items:
+            type: string
+        warn:
+          type: array
+          nullable: true
+          items:
+            type: string
+    SyntheticPingRuleConfig:
+      type: object
+      description: PingRuleConfig is the configuration for ICMP ping checks
+      required:
+        - host
+      properties:
+        count:
+          type: integer
+        host:
+          type: string
+        interval_ms:
+          type: integer
+    SyntheticRuleConfig:
+      type: object
+      description: RuleConfig is a union type for different rule configurations
+      properties:
+        dns:
+          $ref: '#/components/schemas/SyntheticDNSRuleConfig'
+        http:
+          $ref: '#/components/schemas/SyntheticHTTPRuleConfig'
+        ping:
+          $ref: '#/components/schemas/SyntheticPingRuleConfig'
+        ssl:
+          $ref: '#/components/schemas/SyntheticSSLRuleConfig'
+        tcp:
+          $ref: '#/components/schemas/SyntheticTCPRuleConfig'
+        traceroute:
+          $ref: '#/components/schemas/SyntheticTracerouteRuleConfig'
+    SyntheticSSLRuleConfig:
+      type: object
+      description: SSLRuleConfig is the configuration for SSL certificate checks
+      required:
+        - host
+        - port
+        - warn_days_before_expiry
+        - critical_days_before_expiry
+        - insecure_skip_verify
+        - check_certificate_authority
+      properties:
+        check_certificate_authority:
+          type: boolean
+        critical_days_before_expiry:
+          type: integer
+        host:
+          type: string
+        insecure_skip_verify:
+          type: boolean
+        port:
+          type: integer
+        warn_days_before_expiry:
+          type: integer
+    SyntheticSyntheticMonitor:
+      type: object
+      description: SyntheticMonitor represents a synthetic monitoring rule
+      required:
+        - instance
+        - name
+        - enabled
+        - rule_type
+        - rule_config
+        - interval
+        - timeout
+      properties:
+        agent_name:
+          type: string
+          description: |-
+            AgentName is the optional name of the agent
+            through which to route the check.
+        annotations:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        conditions:
+          $ref: '#/components/schemas/SyntheticConditionBySeverity'
+        created_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        enabled:
+          type: boolean
+        id:
+          type: string
+        instance:
+          type: string
+        interval:
+          type: string
+          format: duration
+        labels:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        last_result:
+          $ref: '#/components/schemas/SyntheticCheckResult'
+        last_run_at:
+          type: string
+          format: date-time
+          nullable: true
+        name:
+          type: string
+        notification_policy_id:
+          type: string
+        notifications:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticLabelMatcherNotifications'
+        rule_config:
+          $ref: '#/components/schemas/SyntheticRuleConfig'
+        rule_type:
+          type: string
+        timeout:
+          type: string
+          format: duration
+        updated_at:
+          type: string
+          format: date-time
+    SyntheticTCPRuleConfig:
+      type: object
+      description: TCPRuleConfig is the configuration for TCP checks
+      required:
+        - host
+        - port
+      properties:
+        host:
+          type: string
+        port:
+          type: integer
+    SyntheticTracerouteHop:
+      type: object
+      description: TracerouteHop represents a single hop in a traceroute
+      required:
+        - hop_number
+      properties:
+        address:
+          type: string
+        hop_number:
+          type: integer
+        hostname:
+          type: string
+        rtt_ms:
+          type: number
+        timeout:
+          type: boolean
+    SyntheticTracerouteRuleConfig:
+      type: object
+      description: TracerouteRuleConfig is the configuration for traceroute checks
+      required:
+        - host
+      properties:
+        host:
+          type: string
+        max_hops:
+          type: integer
+        timeout_per_hop_ms:
+          type: integer
+    TLSConfig:
+      type: object
+      description: TLSConfig configures the options for TLS connections.
+      required:
+        - insecure_skip_verify
+      properties:
+        ca:
+          type: string
+          description: Text of the CA cert to use for the targets.
+        ca_file:
+          type: string
+          description: The CA cert to use for the targets.
+        ca_ref:
+          type: string
+          description: |-
+            CARef is the name of the secret within the secret manager to use as the CA cert for the
+            targets.
+        cert:
+          type: string
+          description: Text of the client cert file for the targets.
+        cert_file:
+          type: string
+          description: The client cert file for the targets.
+        cert_ref:
+          type: string
+          description: |-
+            CertRef is the name of the secret within the secret manager to use as the client cert for
+            the targets.
+        insecure_skip_verify:
+          type: boolean
+          description: Disable target certificate validation.
+        key:
+          type: string
+          description: Text of the client key file for the targets.
+        key_file:
+          type: string
+          description: The client key file for the targets.
+        key_ref:
+          type: string
+          description: |-
+            KeyRef is the name of the secret within the secret manager to use as the client key for
+            the targets.
+        max_version:
+          type: integer
+          description: Maximum TLS version.
+        min_version:
+          type: integer
+          description: Minimum TLS version.
+        server_name:
+          type: string
+          description: Used to verify the hostname for the targets.
+    URL:
+      type: string
+      description: URL is a custom URL type that allows validation at configuration load time.
+    UpdateDropRuleRequest:
+      type: object
+      description: UpdateDropRuleRequest is the request body for updating a drop rule.
+      required:
+        - rule_name
+        - metric_name
+        - filters
+        - type
+      properties:
+        filters:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        metric_name:
+          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+        rule_name:
+          type: string
+        type:
+          type: string
+    User:
+      type: object
+      description: User is the API representation of an org user.
+      required:
+        - user_id
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        picture:
+          type: string
+        user_id:
+          type: string
+    UserInvitation:
+      type: object
+      description: UserInvitation is the API representation of an invitation.
+      required:
+        - id
+        - email
+        - inviter
+        - roles
+        - expires_at
+        - created_at
+      properties:
+        created_at:
+          type: string
+        email:
+          type: string
+        expires_at:
+          type: string
+        id:
+          type: string
+        inviter:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ValueExtractor:
+      type: object
+      description: ValueExtractor is used to extract label values from the log fields.
+      properties:
+        field:
+          type: string
+          description: Field is the name of the field in the log to extract the value from.
+          nullable: true
+        jsonPath:
+          type: string
+          description: |-
+            JSONPath specifies a path to extract a nested value from a JSON field.
+            If not set, the entire field value is used as the label value.
+          nullable: true
+        lookup:
+          $ref: '#/components/schemas/Lookup'
+        regex:
+          type: string
+          description: |-
+            Regex is used to derive the label value by matching the
+            regex pattern. Regex pattern should be a valid Rust regex, you can use
+            https://rustexp.lpil.uk/ for trying out the pattern.
+            If not set, the entire field value is used as the label value.
+          nullable: true
+    WebhookConfig:
+      type: object
+      description: WebhookConfig configures notifications via a generic webhook.
+      required:
+        - send_resolved
+        - url
+        - max_alerts
+      properties:
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        max_alerts:
+          type: integer
+          description: |-
+            MaxAlerts is the maximum number of alerts to be sent per webhook message.
+            Alerts exceeding this threshold will be truncated. Setting this to 0
+            allows an unlimited number of alerts.
+        send_resolved:
+          type: boolean
+        url:
+          type: string
+          description: URL to send POST request to.
+    net_url_Userinfo:
+      type: string
+      description: |-
+        The Userinfo type is an immutable encapsulation of username and
+        password details for a URL. An existing Userinfo value is guaranteed
+        to have a username set (potentially empty, as allowed by RFC 2396),
+        and optionally a password.
+    oodle_thanos_pkg_store_storepb_prompb_LabelMatcher:
+      type: object
+      description: Matcher specifies a rule, which can match or set of labels or not.
+      properties:
+        name:
+          type: string
+        type:
+          type: integer
+        value:
+          type: string
+    oodle_util_httputils_models_Error:
+      type: object
+      properties:
+        cause:
+          type: string
+        code:
+          type: string
+        message:
+          type: string
+        oodleTraceId:
+          type: string
+        remedy:
+          type: string
+    oodle_util_httputils_models_Errors:
+      type: object
+      properties:
+        errors:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/oodle_util_httputils_models_Error'
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      description: API key for authentication. Create one in Oodle UI under Settings > API Keys.
+      name: X-API-Key
+      in: header
+info:
+  title: Oodle API
+  description: |-
+    The Oodle API provides programmatic access to your Oodle observability platform.
+
+    All endpoints require authentication via an API key passed in the `X-API-Key` header.
+    You can create API keys in the Oodle UI under Settings > API Keys.
+
+    Base URL varies by region:
+
+    - `https://us1.api.oodle.ai` — US (default)
+    - `https://ap1.api.oodle.ai` — AP1
+  version: 1.0.0
+paths:
+  /v1/api/instance/{instance}/api-keys:
+    get:
+      tags:
+        - API Keys
+      summary: List Api Keys
+      operationId: listApiKeys
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/ApiKey'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - API Keys
+      summary: Create Api Keys
+      operationId: createApiKeys
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateApiKeyRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/api-keys/{id}:
+    delete:
+      tags:
+        - API Keys
+      summary: Delete Api Keys
+      operationId: deleteApiKeysById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType1'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - API Keys
+      summary: Get Api Keys
+      operationId: getApiKeysById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/drop-rules:
+    get:
+      tags:
+        - Metric Drop Rules
+      summary: List Drop Rules
+      operationId: listDropRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/DropRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Metric Drop Rules
+      summary: Create Drop Rules
+      operationId: createDropRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDropRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/drop-rules/{id}:
+    delete:
+      tags:
+        - Metric Drop Rules
+      summary: Delete Drop Rules
+      operationId: deleteDropRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType2'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Metric Drop Rules
+      summary: Get Drop Rules
+      operationId: getDropRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Metric Drop Rules
+      summary: Update Drop Rules
+      operationId: updateDropRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDropRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/grafana/dashboards:
+    get:
+      tags:
+        - Dashboards
+      summary: List Dashboards
+      operationId: listDashboards
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/DashboardSearchEntry'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Dashboards
+      summary: Create Dashboards
+      operationId: createDashboards
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveDashboardRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SaveDashboardResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/grafana/dashboards/{id}:
+    delete:
+      tags:
+        - Dashboards
+      summary: Delete Dashboards
+      operationId: deleteDashboardsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType3'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Dashboards
+      summary: Get Dashboards
+      operationId: getDashboardsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetDashboardResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/grafana/folders:
+    get:
+      tags:
+        - Dashboard Folders
+      summary: List Folders
+      operationId: listFolders
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/Folder'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Dashboard Folders
+      summary: Create Folders
+      operationId: createFolders
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFolderRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Folder'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/logmetrics:
+    get:
+      tags:
+        - Log Metrics
+      summary: List Logmetrics
+      operationId: listLogmetrics
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/LogMetrics'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Log Metrics
+      summary: Create Logmetrics
+      operationId: createLogmetrics
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogMetrics'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogMetrics'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/logmetrics/{id}:
+    delete:
+      tags:
+        - Log Metrics
+      summary: Delete Logmetrics
+      operationId: deleteLogmetricsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType4'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Log Metrics
+      summary: Get Logmetrics
+      operationId: getLogmetricsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogMetrics'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Log Metrics
+      summary: Update Logmetrics
+      operationId: updateLogmetricsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogMetrics'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogMetrics'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/metrics/{metric_name}/labels:
+    get:
+      tags:
+        - Metrics
+      summary: Get Labels
+      operationId: getLabelsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: metric_name
+          in: path
+          description: Metric name to retrieve labels for
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  type: string
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/metrics/{metric_name}/labels/{label_name}/values:
+    get:
+      tags:
+        - Metrics
+      summary: Get Values
+      operationId: getValuesById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: label_name
+          in: path
+          description: Label name to get values for
+          required: true
+          schema:
+            type: string
+        - name: metric_name
+          in: path
+          description: Metric name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  type: string
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/metrics/names:
+    get:
+      tags:
+        - Metrics
+      summary: List Names
+      operationId: listNames
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  type: string
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/monitor-state/{id}:
+    get:
+      tags:
+        - Monitors
+      summary: Get Monitor State
+      operationId: getMonitorStateById
+      parameters:
+        - name: history_range
+          in: query
+          description: Time range for the monitor history in the format start-end in epoch seconds in UTC (e.g. 1705036708-1705123108), defaults to last 7 days
+          schema:
+            type: string
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MonitorState'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/monitor-triggers:
+    get:
+      tags:
+        - Monitors
+      summary: List Monitor Triggers
+      operationId: listMonitorTriggers
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/MonitorTrigger'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/monitors:
+    delete:
+      tags:
+        - Monitors
+      summary: Delete Monitors
+      operationId: deleteMonitors
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnonymousType5'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType6'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Monitors
+      summary: List Monitors
+      operationId: listMonitors
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/Monitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Monitors
+      summary: Create Monitors
+      operationId: createMonitors
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Monitor'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/monitors/{id}:
+    delete:
+      tags:
+        - Monitors
+      summary: Delete Monitors
+      operationId: deleteMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType7'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Monitors
+      summary: Get Monitors
+      operationId: getMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Monitors
+      summary: Update Monitors
+      operationId: updateMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Monitor'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Monitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/monitors/{id}/expression-insight-reports:
+    post:
+      tags:
+        - Monitors
+      summary: Create Expression Insight Reports
+      operationId: createExpressionInsightReportsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateMonitorExpressionInsightReportsReq'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType8'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/muting-rules:
+    get:
+      tags:
+        - Muting Rules
+      summary: List Muting Rules
+      operationId: listMutingRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/MutingRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Muting Rules
+      summary: Create Muting Rules
+      operationId: createMutingRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MutingRule'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MutingRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/muting-rules/{id}:
+    delete:
+      tags:
+        - Muting Rules
+      summary: Delete Muting Rules
+      operationId: deleteMutingRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType9'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Muting Rules
+      summary: Get Muting Rules
+      operationId: getMutingRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MutingRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/notification-policies:
+    get:
+      tags:
+        - Notification Policies
+      summary: List Notification Policies
+      operationId: listNotificationPolicies
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/NotificationPolicy'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Notification Policies
+      summary: Create Notification Policies
+      operationId: createNotificationPolicies
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPolicy'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPolicy'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/notification-policies/{id}:
+    delete:
+      tags:
+        - Notification Policies
+      summary: Delete Notification Policies
+      operationId: deleteNotificationPoliciesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType10'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Notification Policies
+      summary: Get Notification Policies
+      operationId: getNotificationPoliciesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPolicy'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Notification Policies
+      summary: Update Notification Policies
+      operationId: updateNotificationPoliciesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationPolicy'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationPolicy'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/notifiers:
+    get:
+      tags:
+        - Notifiers
+      summary: List Notifiers
+      operationId: listNotifiers
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                nullable: true
+                items:
+                  $ref: '#/components/schemas/Notifier'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Notifiers
+      summary: Create Notifiers
+      operationId: createNotifiers
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Notifier'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notifier'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/notifiers/{id}:
+    delete:
+      tags:
+        - Notifiers
+      summary: Delete Notifiers
+      operationId: deleteNotifiersById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType11'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Notifiers
+      summary: Get Notifiers
+      operationId: getNotifiersById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notifier'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Notifiers
+      summary: Update Notifiers
+      operationId: updateNotifiersById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Notifier'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notifier'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/synthetic-monitors:
+    get:
+      tags:
+        - Synthetic Monitors
+      summary: List Synthetic Monitors
+      operationId: listSyntheticMonitors
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  monitors:
+                    type: array
+                    nullable: true
+                    items:
+                      $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Synthetic Monitors
+      summary: Create Synthetic Monitors
+      operationId: createSyntheticMonitors
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/synthetic-monitors/{id}:
+    delete:
+      tags:
+        - Synthetic Monitors
+      summary: Delete Synthetic Monitors
+      operationId: deleteSyntheticMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType12'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    get:
+      tags:
+        - Synthetic Monitors
+      summary: Get Synthetic Monitors
+      operationId: getSyntheticMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    put:
+      tags:
+        - Synthetic Monitors
+      summary: Update Synthetic Monitors
+      operationId: updateSyntheticMonitorsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/synthetic-monitors/{id}/run:
+    post:
+      tags:
+        - Synthetic Monitors
+      summary: Create Run
+      operationId: createRunById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SyntheticCheckResult'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/template-files:
+    post:
+      tags:
+        - Monitors
+      summary: Create Template Files
+      operationId: createTemplateFiles
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
+                additionalProperties:
+                  type: string
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/traces/labels:
+    get:
+      tags:
+        - Traces
+      summary: List Labels
+      operationId: listLabels
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in epoch microseconds
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/traces/labels/{label_name}/values:
+    get:
+      tags:
+        - Traces
+      summary: Get Values
+      operationId: getTraceLabelValues
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in epoch microseconds
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: label_name
+          in: path
+          description: Label name to get values for
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/traces/traces:
+    get:
+      tags:
+        - Traces
+      summary: List Traces
+      operationId: listTraces
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in epoch microseconds
+          required: true
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          description: Maximum number of traces to return
+          schema:
+            type: integer
+        - name: maxDuration
+          in: query
+          description: Maximum trace duration (e.g. 5s, 10s)
+          schema:
+            type: string
+        - name: minDuration
+          in: query
+          description: Minimum trace duration (e.g. 100ms, 1s)
+          schema:
+            type: string
+        - name: operation
+          in: query
+          description: Filter by operation name
+          schema:
+            type: string
+        - name: search
+          in: query
+          description: Free-text search across trace data
+          schema:
+            type: string
+        - name: service
+          in: query
+          description: Filter by service name
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start of the time range in epoch microseconds
+          required: true
+          schema:
+            type: integer
+        - name: tags
+          in: query
+          description: JSON-encoded map of tag filters (e.g. {"http.method":"GET"})
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType13'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/traces/traces/{trace_id}:
+    get:
+      tags:
+        - Traces
+      summary: Get Traces
+      operationId: getTracesById
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in epoch microseconds
+          required: true
+          schema:
+            type: integer
+        - name: start
+          in: query
+          description: Start of the time range in epoch microseconds
+          required: true
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: trace_id
+          in: path
+          description: Trace ID to retrieve
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType14'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/users:
+    get:
+      tags:
+        - Users
+      summary: List Users
+      operationId: listUsersOp
+      parameters:
+        - name: query
+          in: query
+          description: Search query to filter users
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListUsersResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/users/invitations:
+    get:
+      tags:
+        - Users
+      summary: List Invitations
+      operationId: listInvitationsOp
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListInvitationsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+    post:
+      tags:
+        - Users
+      summary: Create Invitations
+      operationId: createInvitations
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendInvitationRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInvitation'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/users/invitations/{id}:
+    delete:
+      tags:
+        - Users
+      summary: Delete Invitations
+      operationId: deleteInvitationsById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType15'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+  /v1/api/instance/{instance}/users/invitations/bulk:
+    post:
+      tags:
+        - Users
+      summary: Create Bulk
+      operationId: createBulk
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkSendInvitationRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkSendInvitationResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: ""
+security:
+  - ApiKeyAuth: []
+servers:
+  - url: https://us1.api.oodle.ai
+    description: US region (default)
+  - url: https://ap1.api.oodle.ai
+    description: AP1 region
+tags:
+  - name: Monitors
+    description: Create and manage alert monitors that evaluate PromQL expressions.
+  - name: Notifiers
+    description: Configure notification channels (Slack, PagerDuty, email, webhooks).
+  - name: Notification Policies
+    description: Route alerts to the appropriate notifiers based on label matchers.
+  - name: Muting Rules
+    description: Suppress alert notifications during maintenance windows.
+  - name: Log Metrics
+    description: Define metrics derived from log data (counters, gauges, histograms).
+  - name: Synthetic Monitors
+    description: HTTP, ping, DNS, TCP, SSL, and traceroute uptime checks.
+  - name: Users
+    description: Manage users and invitations for your Oodle organization.
+  - name: API Keys
+    description: Create and manage API keys for programmatic access.
+  - name: Metric Drop Rules
+    description: Drop high-cardinality metric series to control costs.
+  - name: Dashboards
+    description: Manage Grafana-compatible metric dashboards.
+  - name: Dashboard Folders
+    description: Organize dashboards into folders.
+  - name: Traces
+    description: Query distributed traces, labels, and label values.
+  - name: Metrics
+    description: Query metric names, labels, and label values.
