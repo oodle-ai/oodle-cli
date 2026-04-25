@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/oodle-ai/oodle-cli/internal/client"
@@ -200,6 +201,27 @@ func (t *retryTransport) backoff(attempt int) time.Duration {
 	return time.Duration(d + jitter)
 }
 
+// jsonFixTransport wraps a transport and normalizes text/plain responses to
+// application/json. Some Oodle API endpoints return JSON bodies with
+// Content-Type: text/plain, which causes oapi-codegen to skip JSON parsing.
+// This transport fixes the Content-Type header so the generated client can
+// parse the response correctly.
+type jsonFixTransport struct {
+	base http.RoundTripper
+}
+
+func (t *jsonFixTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.base.RoundTrip(req)
+	if err != nil {
+		return resp, err
+	}
+	ct := resp.Header.Get("Content-Type")
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.HasPrefix(ct, "text/plain") {
+		resp.Header.Set("Content-Type", "application/json")
+	}
+	return resp, nil
+}
+
 // NewClient constructs a Client for the given config.
 func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 	if cfg == nil {
@@ -209,7 +231,7 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 		maxRetries = 0
 	}
 	httpClient := &http.Client{
-		Transport: newRetryTransport(http.DefaultTransport, maxRetries),
+		Transport: &jsonFixTransport{base: newRetryTransport(http.DefaultTransport, maxRetries)},
 		Timeout:   60 * time.Second,
 	}
 

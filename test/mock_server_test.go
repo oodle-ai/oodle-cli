@@ -34,7 +34,7 @@ func runMock(t *testing.T, serverURL string, args ...string) (stdout, stderr str
 
 	c := exec.Command(oodleBin, allArgs...)
 	// Clear real credentials from environment.
-	c.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_API_KEY=", "OODLE_INSTANCE=", "OODLE_API_URL=")
+	c.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_API_KEY=", "OODLE_INSTANCE=", "OODLE_URL=", "OODLE_API_URL=")
 	var outBuf, errBuf strings.Builder
 	c.Stdout = &outBuf
 	c.Stderr = &errBuf
@@ -73,7 +73,7 @@ func jsonSrv(payload string, statusCode int) *httptest.Server {
 // -------------------------------------------------------------------------
 
 func TestMock_MonitorsList_JSON(t *testing.T) {
-	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
+	srv := jsonSrv(`[{"name":"alpha","id":"00000000-0000-0000-0000-000000000001","promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "json")
@@ -87,7 +87,7 @@ func TestMock_MonitorsList_JSON(t *testing.T) {
 }
 
 func TestMock_MonitorsList_Table(t *testing.T) {
-	srv := jsonSrv(`[{"name":"alpha","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
+	srv := jsonSrv(`[{"name":"alpha","id":"00000000-0000-0000-0000-000000000001","promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "table")
@@ -103,7 +103,7 @@ func TestMock_MonitorsList_Table(t *testing.T) {
 }
 
 func TestMock_MonitorsList_CSV(t *testing.T) {
-	srv := jsonSrv(`[{"name":"csv-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
+	srv := jsonSrv(`[{"name":"csv-mon","id":"00000000-0000-0000-0000-000000000001","promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "csv")
@@ -123,7 +123,7 @@ func TestMock_MonitorsList_CSV(t *testing.T) {
 }
 
 func TestMock_MonitorsList_YAML(t *testing.T) {
-	srv := jsonSrv(`[{"name":"yaml-mon","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}]`, 200)
+	srv := jsonSrv(`[{"name":"yaml-mon","id":"00000000-0000-0000-0000-000000000001","promql_query":"up","interval":"60s"}]`, 200)
 	defer srv.Close()
 
 	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "yaml")
@@ -139,7 +139,7 @@ func TestMock_MonitorsList_YAML(t *testing.T) {
 }
 
 func TestMock_MonitorsGet_Valid(t *testing.T) {
-	payload := `{"name":"my-monitor","id":{"uuid":"00000000-0000-0000-0000-000000000001"},"promql_query":"up","interval":"60s"}`
+	payload := `{"name":"my-monitor","id":"00000000-0000-0000-0000-000000000001","promql_query":"up","interval":"60s"}`
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/api/instance/test-instance/monitors/00000000-0000-0000-0000-000000000001",
 		func(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +222,7 @@ func TestMock_MonitorsDelete_Single(t *testing.T) {
 		methodUsed = r.Method
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(200)
-		fmt.Fprint(w, `{"id":{"uuid":"00000000-0000-0000-0000-000000000001"}}`)
+		fmt.Fprint(w, `{"id":"00000000-0000-0000-0000-000000000001"}`)
 	}))
 	defer srv.Close()
 
@@ -265,7 +265,7 @@ func TestMock_MissingInstance(t *testing.T) {
 	defer os.RemoveAll(homeDir)
 
 	cmd := exec.Command(oodleBin, "--api-key", "test-key", "--output", "json", "monitors", "list")
-	cmd.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_INSTANCE=", "OODLE_API_KEY=", "OODLE_API_URL=")
+	cmd.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_INSTANCE=", "OODLE_API_KEY=", "OODLE_URL=", "OODLE_API_URL=")
 	var out, errBuf strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
@@ -285,7 +285,7 @@ func TestMock_MissingAPIKey(t *testing.T) {
 	defer os.RemoveAll(homeDir)
 
 	cmd := exec.Command(oodleBin, "--instance", "test-instance", "--output", "json", "monitors", "list")
-	cmd.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_INSTANCE=", "OODLE_API_KEY=", "OODLE_API_URL=")
+	cmd.Env = append(os.Environ(), "HOME="+homeDir, "OODLE_INSTANCE=", "OODLE_API_KEY=", "OODLE_URL=", "OODLE_API_URL=")
 	var out, errBuf strings.Builder
 	cmd.Stdout = &out
 	cmd.Stderr = &errBuf
@@ -379,7 +379,7 @@ func TestMock_NotifiersList(t *testing.T) {
 }
 
 func TestMock_NotificationPoliciesList(t *testing.T) {
-	srv := jsonSrv(`[{"name":"default","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	srv := jsonSrv(`[{"name":"default","id":"00000000-0000-0000-0000-000000000001"}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "notification-policies", "list", "--output", "json")
 	if code != 0 {
@@ -401,7 +401,7 @@ func TestMock_MutingRulesList(t *testing.T) {
 }
 
 func TestMock_LogMetricsList(t *testing.T) {
-	srv := jsonSrv(`[{"name":"error_rate","id":{"uuid":"00000000-0000-0000-0000-000000000001"}}]`, 200)
+	srv := jsonSrv(`[{"name":"error_rate","id":"00000000-0000-0000-0000-000000000001"}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "log-metrics", "list", "--output", "json")
 	if code != 0 {
@@ -411,8 +411,8 @@ func TestMock_LogMetricsList(t *testing.T) {
 }
 
 func TestMock_SyntheticMonitorsList(t *testing.T) {
-	// SyntheticSyntheticMonitor: id is *string, interval/rule_type/timeout/instance/name are required strings.
-	srv := jsonSrv(`[{"name":"homepage-check","id":"sm-001","enabled":true,"instance":"test","interval":"60s","timeout":"10s","rule_type":"http","rule_config":{}}]`, 200)
+	// SyntheticSyntheticMonitor: id is *string, wrapped in {"monitors":[...]}.
+	srv := jsonSrv(`{"monitors":[{"name":"homepage-check","id":"sm-001","enabled":true,"instance":"test","interval":"60s","timeout":"10s","rule_type":"http","rule_config":{}}]}`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "synthetic-monitors", "list", "--output", "json")
 	if code != 0 {
@@ -463,7 +463,7 @@ func TestMock_MetricsNames(t *testing.T) {
 }
 
 func TestMock_TracesLabels(t *testing.T) {
-	srv := jsonSrv(`["service","env"]`, 200)
+	srv := jsonSrv(`{"data":["service","env"],"total":2,"limit":0,"offset":0}`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "traces", "labels", "--output", "json")
 	if code != 0 {
@@ -534,19 +534,22 @@ func TestMock_Configure_SavesConfig(t *testing.T) {
 // Mock: Content-Type requirement
 // -------------------------------------------------------------------------
 
-func TestMock_NoContentType_ReturnsError(t *testing.T) {
-	// Omit Content-Type header — oapi-codegen won't populate JSON200.
+func TestMock_NoContentType_StillParsesJSON(t *testing.T) {
+	// Server omits Content-Type header (Go auto-detects as text/plain).
+	// The jsonFixTransport normalizes text/plain responses to
+	// application/json so oapi-codegen can parse them.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(200)
 		fmt.Fprint(w, `[{"name":"test"}]`)
 	}))
 	defer srv.Close()
 
-	_, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when server omits Content-Type: application/json")
+	stdout, stderr, code := runMock(t, srv.URL, "monitors", "list", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 (jsonFixTransport should normalize Content-Type), got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(stderr, "Error:") {
-		t.Errorf("expected 'Error:' in stderr, got: %s", stderr)
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "test") {
+		t.Errorf("expected 'test' in output, got: %s", stdout)
 	}
 }

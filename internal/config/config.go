@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -44,12 +45,15 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	if v := os.Getenv("OODLE_INSTANCE"); v != "" {
 		cfg.Instance = v
 	}
-	// OODLE_DEPLOYMENT takes precedence over OODLE_API_URL (alias).
+	// OODLE_URL / OODLE_API_URL / OODLE_DEPLOYMENT — later entries win.
+	if v := os.Getenv("OODLE_URL"); v != "" {
+		cfg.APIURL = strings.TrimRight(v, "/")
+	}
 	if v := os.Getenv("OODLE_API_URL"); v != "" {
-		cfg.APIURL = v
+		cfg.APIURL = strings.TrimRight(v, "/")
 	}
 	if v := os.Getenv("OODLE_DEPLOYMENT"); v != "" {
-		cfg.APIURL = v
+		cfg.APIURL = strings.TrimRight(v, "/")
 	}
 
 	// Flags override env vars.

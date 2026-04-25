@@ -1,6 +1,4 @@
 # AUTO-GENERATED — do not edit manually.
-# Source: src/go/oodle/api-server/cmd/apispec/apis.go
-# Regenerate: make generate_api_spec
 
 openapi: 3.0.0
 components:
@@ -568,25 +566,12 @@ components:
           nullable: true
           additionalProperties: null
     HostPort:
-      type: object
+      type: string
       description: HostPort represents a "host:port" network address.
-      required:
-        - Host
-        - Port
-      properties:
-        Host:
-          type: string
-        Port:
-          type: string
     ID:
-      type: object
-      description: ID is a model for a unique identifier used in all alert related models.
-      required:
-        - UUID
-      properties:
-        UUID:
-          type: string
-          format: uuid
+      type: string
+      format: uuid
+      description: ID is a unique identifier (UUID string) used in all alert related models.
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -1918,42 +1903,8 @@ components:
           type: string
           description: Used to verify the hostname for the targets.
     URL:
-      type: object
+      type: string
       description: URL is a custom URL type that allows validation at configuration load time.
-      required:
-        - Scheme
-        - Opaque
-        - Host
-        - Path
-        - RawPath
-        - OmitHost
-        - ForceQuery
-        - RawQuery
-        - Fragment
-        - RawFragment
-      properties:
-        ForceQuery:
-          type: boolean
-        Fragment:
-          type: string
-        Host:
-          type: string
-        OmitHost:
-          type: boolean
-        Opaque:
-          type: string
-        Path:
-          type: string
-        RawFragment:
-          type: string
-        RawPath:
-          type: string
-        RawQuery:
-          type: string
-        Scheme:
-          type: string
-        User:
-          $ref: '#/components/schemas/net_url_Userinfo'
     UpdateDropRuleRequest:
       type: object
       description: UpdateDropRuleRequest is the request body for updating a drop rule.
@@ -2060,10 +2011,10 @@ components:
           type: string
           description: URL to send POST request to.
     net_url_Userinfo:
-      type: object
+      type: string
       description: |-
         The Userinfo type is an immutable encapsulation of username and
-        password details for a [URL]. An existing Userinfo value is guaranteed
+        password details for a URL. An existing Userinfo value is guaranteed
         to have a username set (potentially empty, as allowed by RFC 2396),
         and optionally a password.
     oodle_thanos_pkg_store_storepb_prompb_LabelMatcher:
@@ -4227,10 +4178,13 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                nullable: true
-                items:
-                  $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+                type: object
+                properties:
+                  monitors:
+                    type: array
+                    nullable: true
+                    items:
+                      $ref: '#/components/schemas/SyntheticSyntheticMonitor'
         "401":
           description: ""
           content:
@@ -4549,10 +4503,19 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                nullable: true
-                items:
-                  type: string
+                type: object
+                properties:
+                  data:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         "400":
           description: ""
           content:
@@ -4603,10 +4566,19 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                nullable: true
-                items:
-                  type: string
+                type: object
+                properties:
+                  data:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                  total:
+                    type: integer
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
         "400":
           description: ""
           content:

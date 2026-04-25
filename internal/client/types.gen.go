@@ -431,15 +431,10 @@ type Headers struct {
 }
 
 // HostPort HostPort represents a "host:port" network address.
-type HostPort struct {
-	Host string `json:"Host"`
-	Port string `json:"Port"`
-}
+type HostPort = string
 
-// ID ID is a model for a unique identifier used in all alert related models.
-type ID struct {
-	UUID openapi_types.UUID `json:"UUID"`
-}
+// ID ID is a unique identifier (UUID string) used in all alert related models.
+type ID = openapi_types.UUID
 
 // Label Label represents a name-value pair for a metric label.
 type Label struct {
@@ -473,7 +468,7 @@ type LabelMatcherNotifications struct {
 	// Matchers Matchers are the label matchers that determine when this policy applies
 	Matchers *[]LabelMatcher `json:"matchers"`
 
-	// NotificationPolicyId ID is a model for a unique identifier used in all alert related models.
+	// NotificationPolicyId ID is a unique identifier (UUID string) used in all alert related models.
 	NotificationPolicyId *ID `json:"notification_policy_id,omitempty"`
 
 	// Notifiers NotifiersByCondition represents notifiers for each severity level.
@@ -517,7 +512,7 @@ type LogMetrics struct {
 	// Filter LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.
 	Filter *LogFilter `json:"filter,omitempty"`
 
-	// Id ID is a model for a unique identifier used in all alert related models.
+	// Id ID is a unique identifier (UUID string) used in all alert related models.
 	Id *ID `json:"id,omitempty"`
 
 	// Labels Labels are the labels that will be added to all metrics created
@@ -622,7 +617,7 @@ type Monitor struct {
 	// Grouping Grouping is a model for grouping alerts.
 	Grouping *Grouping `json:"grouping,omitempty"`
 
-	// Id ID is a model for a unique identifier used in all alert related models.
+	// Id ID is a unique identifier (UUID string) used in all alert related models.
 	Id *ID `json:"id,omitempty"`
 
 	// Interval Interval is the interval at which the monitor should be evaluated.
@@ -640,7 +635,7 @@ type Monitor struct {
 	// Name Name is the name of the monitor.
 	Name *string `json:"name,omitempty"`
 
-	// NotificationPolicyId ID is a model for a unique identifier used in all alert related models.
+	// NotificationPolicyId ID is a unique identifier (UUID string) used in all alert related models.
 	NotificationPolicyId *ID `json:"notification_policy_id,omitempty"`
 
 	// Notifications Notifications is the list of notifications for the monitor.
@@ -664,7 +659,7 @@ type MonitorState struct {
 	Health         string                    `json:"health"`
 	History        *[]MonitorTriggerInstance `json:"history"`
 
-	// Id ID is a model for a unique identifier used in all alert related models.
+	// Id ID is a unique identifier (UUID string) used in all alert related models.
 	Id             ID        `json:"id"`
 	LastEvaluation time.Time `json:"last_evaluation"`
 }
@@ -733,7 +728,7 @@ type NotificationPolicy struct {
 	// Global Global policy is applied to all monitors in addition to any monitor specific policies.
 	Global *bool `json:"global,omitempty"`
 
-	// Id ID is a model for a unique identifier used in all alert related models.
+	// Id ID is a unique identifier (UUID string) used in all alert related models.
 	Id         *ID   `json:"id,omitempty"`
 	MuteGlobal *bool `json:"mute_global,omitempty"`
 
@@ -757,7 +752,7 @@ type Notifier struct {
 	// GooglechatConfig GoogleChatConfig configures notifications via Google Chat.
 	GooglechatConfig *GoogleChatConfig `json:"googlechat_config,omitempty"`
 
-	// Id ID is a model for a unique identifier used in all alert related models.
+	// Id ID is a unique identifier (UUID string) used in all alert related models.
 	Id              *ID              `json:"id,omitempty"`
 	Msteamsv2Config *MSTeamsV2Config `json:"msteamsv2_config,omitempty"`
 	Name            *string          `json:"name,omitempty"`
@@ -1238,24 +1233,7 @@ type TLSConfig struct {
 }
 
 // URL URL is a custom URL type that allows validation at configuration load time.
-type URL struct {
-	ForceQuery  bool   `json:"ForceQuery"`
-	Fragment    string `json:"Fragment"`
-	Host        string `json:"Host"`
-	OmitHost    bool   `json:"OmitHost"`
-	Opaque      string `json:"Opaque"`
-	Path        string `json:"Path"`
-	RawFragment string `json:"RawFragment"`
-	RawPath     string `json:"RawPath"`
-	RawQuery    string `json:"RawQuery"`
-	Scheme      string `json:"Scheme"`
-
-	// User The Userinfo type is an immutable encapsulation of username and
-	// password details for a [URL]. An existing Userinfo value is guaranteed
-	// to have a username set (potentially empty, as allowed by RFC 2396),
-	// and optionally a password.
-	User *NetUrlUserinfo `json:"User,omitempty"`
-}
+type URL = string
 
 // UpdateDropRuleRequest UpdateDropRuleRequest is the request body for updating a drop rule.
 type UpdateDropRuleRequest struct {
@@ -1318,12 +1296,6 @@ type WebhookConfig struct {
 	// Url URL to send POST request to.
 	Url string `json:"url"`
 }
-
-// NetUrlUserinfo The Userinfo type is an immutable encapsulation of username and
-// password details for a [URL]. An existing Userinfo value is guaranteed
-// to have a username set (potentially empty, as allowed by RFC 2396),
-// and optionally a password.
-type NetUrlUserinfo = map[string]interface{}
 
 // OodleThanosPkgStoreStorepbPrompbLabelMatcher Matcher specifies a rule, which can match or set of labels or not.
 type OodleThanosPkgStoreStorepbPrompbLabelMatcher struct {

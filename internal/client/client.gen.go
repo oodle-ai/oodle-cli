@@ -5581,9 +5581,11 @@ func (r UpdateNotifiersByIdResponse) StatusCode() int {
 type ListSyntheticMonitorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]SyntheticSyntheticMonitor
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON200      *struct {
+		Monitors *[]SyntheticSyntheticMonitor `json:"monitors,omitempty"`
+	}
+	JSON401 *OodleUtilHttputilsModelsErrors
+	JSON500 *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5756,10 +5758,15 @@ func (r CreateTemplateFilesResponse) StatusCode() int {
 type ListLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]string
-	JSON400      *OodleUtilHttputilsModelsErrors
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON200      *struct {
+		Data   *[]string `json:"data,omitempty"`
+		Limit  *int      `json:"limit,omitempty"`
+		Offset *int      `json:"offset,omitempty"`
+		Total  *int      `json:"total,omitempty"`
+	}
+	JSON400 *OodleUtilHttputilsModelsErrors
+	JSON401 *OodleUtilHttputilsModelsErrors
+	JSON500 *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5781,10 +5788,15 @@ func (r ListLabelsResponse) StatusCode() int {
 type GetTraceLabelValuesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]string
-	JSON400      *OodleUtilHttputilsModelsErrors
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON200      *struct {
+		Data   *[]string `json:"data,omitempty"`
+		Limit  *int      `json:"limit,omitempty"`
+		Offset *int      `json:"offset,omitempty"`
+		Total  *int      `json:"total,omitempty"`
+	}
+	JSON400 *OodleUtilHttputilsModelsErrors
+	JSON401 *OodleUtilHttputilsModelsErrors
+	JSON500 *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -8865,7 +8877,9 @@ func ParseListSyntheticMonitorsResponse(rsp *http.Response) (*ListSyntheticMonit
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []SyntheticSyntheticMonitor
+		var dest struct {
+			Monitors *[]SyntheticSyntheticMonitor `json:"monitors,omitempty"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9194,7 +9208,12 @@ func ParseListLabelsResponse(rsp *http.Response) (*ListLabelsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []string
+		var dest struct {
+			Data   *[]string `json:"data,omitempty"`
+			Limit  *int      `json:"limit,omitempty"`
+			Offset *int      `json:"offset,omitempty"`
+			Total  *int      `json:"total,omitempty"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9241,7 +9260,12 @@ func ParseGetTraceLabelValuesResponse(rsp *http.Response) (*GetTraceLabelValuesR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []string
+		var dest struct {
+			Data   *[]string `json:"data,omitempty"`
+			Limit  *int      `json:"limit,omitempty"`
+			Offset *int      `json:"offset,omitempty"`
+			Total  *int      `json:"total,omitempty"`
+		}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -11,7 +11,7 @@ import (
 // restores the previous values afterwards.
 func withCleanEnv(t *testing.T) {
 	t.Helper()
-	keys := []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_API_URL", "OODLE_DEPLOYMENT", "OODLE_CONFIG"}
+	keys := []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_URL", "OODLE_API_URL", "OODLE_DEPLOYMENT", "OODLE_CONFIG"}
 	for _, k := range keys {
 		old, ok := os.LookupEnv(k)
 		os.Unsetenv(k)

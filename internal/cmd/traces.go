@@ -191,10 +191,10 @@ func newTracesLabelsCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
+			if resp.JSON200 == nil || resp.JSON200.Data == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200, "Label")
+			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
 		},
 	}
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
@@ -229,10 +229,10 @@ func newTracesLabelValuesCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
+			if resp.JSON200 == nil || resp.JSON200.Data == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200, "Value")
+			return printStringSlice(cmd, format, *resp.JSON200.Data, "Value")
 		},
 	}
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
