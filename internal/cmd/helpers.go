@@ -102,52 +102,43 @@ func readInputFile(path string, v any) error {
 //   - "-1h", "-30m"    => relative durations (Go's time.ParseDuration)
 //   - "-7d"            => days; converted to hours
 //   - integer          => epoch microseconds, returned as-is
+//
+// See parseTimeFlagMs for the millisecond-precision variant used by
+// endpoints that expect epoch ms (e.g. metrics).
 func parseTimeFlag(value string) (int64, error) {
-	v := strings.TrimSpace(value)
-	if v == "" {
-		return 0, fmt.Errorf("empty time value")
-	}
-	if strings.EqualFold(v, "now") {
-		return time.Now().UnixMicro(), nil
-	}
-	// Relative duration. Allow leading +/-; map "d" suffix to hours.
-	if v[0] == '+' || v[0] == '-' {
-		dur, err := parseRelativeDuration(v)
-		if err == nil {
-			return time.Now().Add(dur).UnixMicro(), nil
-		}
-		// Fall through to int parsing in case it's a negative epoch (rare).
-	}
-	// Integer: epoch microseconds.
-	n, err := strconv.ParseInt(v, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch microseconds, 'now', or relative duration like -1h, -7d", value)
-	}
-	return n, nil
+	return parseTimeFlagAs(value, "microseconds", time.Time.UnixMicro)
 }
 
 // parseTimeFlagMs is like parseTimeFlag but returns epoch milliseconds.
 // Use this for endpoints (e.g. metrics) that expect millisecond timestamps.
 func parseTimeFlagMs(value string) (int64, error) {
+	return parseTimeFlagAs(value, "milliseconds", time.Time.UnixMilli)
+}
+
+// parseTimeFlagAs is the shared core for parseTimeFlag and parseTimeFlagMs.
+// unitName is the human-readable unit used in error messages ("microseconds",
+// "milliseconds"). toEpoch converts a time.Time to the desired epoch unit
+// (e.g. time.Time.UnixMicro). Integer literals are passed through verbatim
+// and are assumed to be in the requested unit already.
+func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
 		return 0, fmt.Errorf("empty time value")
 	}
 	if strings.EqualFold(v, "now") {
-		return time.Now().UnixMilli(), nil
+		return toEpoch(time.Now()), nil
 	}
 	// Relative duration. Allow leading +/-; map "d" suffix to hours.
 	if v[0] == '+' || v[0] == '-' {
-		dur, err := parseRelativeDuration(v)
-		if err == nil {
-			return time.Now().Add(dur).UnixMilli(), nil
+		if dur, err := parseRelativeDuration(v); err == nil {
+			return toEpoch(time.Now().Add(dur)), nil
 		}
 		// Fall through to int parsing in case it's a negative epoch (rare).
 	}
-	// Integer: epoch milliseconds.
+	// Integer literal: assumed to already be in the requested unit.
 	n, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch milliseconds, 'now', or relative duration like -1h, -7d", value)
+		return 0, fmt.Errorf("invalid time %q: expected epoch %s, 'now', or relative duration like -1h, -7d", value, unitName)
 	}
 	return n, nil
 }

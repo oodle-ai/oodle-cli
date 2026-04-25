@@ -1321,28 +1321,28 @@ type OodleUtilHttputilsModelsErrors struct {
 // ListNamesParams defines parameters for ListNames.
 type ListNamesParams struct {
 	// Start Start of the time range in epoch milliseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 
 	// End End of the time range in epoch milliseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 }
 
 // GetLabelsByIdParams defines parameters for GetLabelsById.
 type GetLabelsByIdParams struct {
 	// Start Start of the time range in epoch milliseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 
 	// End End of the time range in epoch milliseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 }
 
 // GetValuesByIdParams defines parameters for GetValuesById.
 type GetValuesByIdParams struct {
 	// Start Start of the time range in epoch milliseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 
 	// End End of the time range in epoch milliseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 }
 
 // GetMonitorStateByIdParams defines parameters for GetMonitorStateById.

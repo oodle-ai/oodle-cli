@@ -553,3 +553,140 @@ func TestMock_NoContentType_StillParsesJSON(t *testing.T) {
 		t.Errorf("expected 'test' in output, got: %s", stdout)
 	}
 }
+
+func TestMock_MetricsLabels(t *testing.T) {
+	srv := jsonSrv(`["job","instance","env"]`, 200)
+	defer srv.Close()
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "labels", "up", "--start", "-1h", "--end", "now", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "job") {
+		t.Errorf("expected 'job' in output, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsLabelValues(t *testing.T) {
+	srv := jsonSrv(`["prometheus","grafana","oodle"]`, 200)
+	defer srv.Close()
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "label-values", "up", "job", "--start", "-1h", "--end", "now", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "prometheus") {
+		t.Errorf("expected 'prometheus' in output, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsNames_MissingStartFlag(t *testing.T) {
+	srv := jsonSrv(`["up"]`, 200)
+	defer srv.Close()
+	_, stderr, code := runMock(t, srv.URL, "metrics", "names", "--end", "now", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --start is missing")
+	}
+	if !strings.Contains(stderr, "start") {
+		t.Errorf("expected 'start' in error, got: %s", stderr)
+	}
+}
+
+func TestMock_MetricsLabels_MissingEndFlag(t *testing.T) {
+	srv := jsonSrv(`["job"]`, 200)
+	defer srv.Close()
+	_, stderr, code := runMock(t, srv.URL, "metrics", "labels", "up", "--start", "-1h", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --end is missing")
+	}
+	if !strings.Contains(stderr, "end") {
+		t.Errorf("expected 'end' in error, got: %s", stderr)
+	}
+}
+
+func TestMock_MetricsLabelValues_MissingBothFlags(t *testing.T) {
+	srv := jsonSrv(`["val"]`, 200)
+	defer srv.Close()
+	_, stderr, code := runMock(t, srv.URL, "metrics", "label-values", "up", "job", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --start and --end are missing")
+	}
+	if !strings.Contains(stderr, "start") && !strings.Contains(stderr, "end") {
+		t.Errorf("expected 'start' or 'end' in error, got: %s", stderr)
+	}
+}
+
+// metricsQueryServer returns an httptest.Server that captures the request
+// query string and path, and responds with the given JSON body. It is used
+// to verify that the CLI wires --start/--end through to the wire request.
+func metricsQueryServer(body string) (*httptest.Server, *string, *string) {
+	var capturedQuery, capturedPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.RawQuery
+		capturedPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, body)
+	}))
+	return srv, &capturedQuery, &capturedPath
+}
+
+func TestMock_MetricsNames_SendsQueryParams(t *testing.T) {
+	srv, capturedQuery, _ := metricsQueryServer(`["up"]`)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "names",
+		"--start", "1700000000000", "--end", "1700003600000", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(*capturedQuery, "start=1700000000000") {
+		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "end=1700003600000") {
+		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	}
+}
+
+func TestMock_MetricsLabels_SendsQueryParams(t *testing.T) {
+	srv, capturedQuery, capturedPath := metricsQueryServer(`["job"]`)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "labels", "up",
+		"--start", "1700000000000", "--end", "1700003600000", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(*capturedQuery, "start=1700000000000") {
+		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "end=1700003600000") {
+		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	}
+	// Sanity-check that the metric name is in the path so we know we hit
+	// the labels endpoint (and not, say, names) with the right routing.
+	if !strings.Contains(*capturedPath, "up") {
+		t.Errorf("expected metric name 'up' in path %q", *capturedPath)
+	}
+}
+
+func TestMock_MetricsLabelValues_SendsQueryParams(t *testing.T) {
+	srv, capturedQuery, capturedPath := metricsQueryServer(`["prometheus"]`)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "label-values", "up", "job",
+		"--start", "1700000000000", "--end", "1700003600000", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(*capturedQuery, "start=1700000000000") {
+		t.Errorf("expected start=1700000000000 in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "end=1700003600000") {
+		t.Errorf("expected end=1700003600000 in query %q", *capturedQuery)
+	}
+	// Both metric name and label name should appear in the path.
+	if !strings.Contains(*capturedPath, "up") || !strings.Contains(*capturedPath, "job") {
+		t.Errorf("expected metric 'up' and label 'job' in path %q", *capturedPath)
+	}
+}

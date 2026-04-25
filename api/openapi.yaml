@@ -2986,12 +2986,14 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: end
           in: query
           description: End of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
+            format: int64
       responses:
         "200":
           description: ""
@@ -3047,12 +3049,14 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: end
           in: query
           description: End of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
+            format: int64
       responses:
         "200":
           description: ""
@@ -3096,12 +3100,14 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: end
           in: query
           description: End of the time range in epoch milliseconds
           required: true
           schema:
             type: integer
+            format: int64
       responses:
         "200":
           description: ""
