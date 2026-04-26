@@ -124,7 +124,7 @@ func newTracesGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <trace_id>",
 		Short: "Get a trace by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -206,7 +206,7 @@ func newTracesLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <label_name>",
 		Short: "List values for a trace label",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

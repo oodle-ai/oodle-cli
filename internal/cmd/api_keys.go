@@ -65,7 +65,7 @@ func newApiKeysGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get an API key by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -136,7 +136,7 @@ func newApiKeysDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete an API key",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

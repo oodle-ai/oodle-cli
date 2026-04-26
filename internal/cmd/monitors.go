@@ -77,7 +77,7 @@ func newMonitorsGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a monitor by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -143,7 +143,7 @@ func newMonitorsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a monitor from a JSON/YAML file",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -248,7 +248,7 @@ func newMonitorsStateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "state <id>",
 		Short: "Get a monitor's state",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -307,7 +307,7 @@ func newMonitorsExpressionInsightsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "expression-insights <id>",
 		Short: "Create an expression insight report for a monitor",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

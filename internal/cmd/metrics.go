@@ -100,7 +100,7 @@ func newMetricsLabelsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "labels <metric_name>",
 		Short: "List label names for a metric",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -135,7 +135,7 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <metric_name> <label_name>",
 		Short: "List values for a label of a metric",
-		Args:  cobra.ExactArgs(2),
+		Args:  exactArgs(2),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

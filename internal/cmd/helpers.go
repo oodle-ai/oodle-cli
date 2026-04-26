@@ -18,6 +18,21 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
+// exactArgs returns a cobra.PositionalArgs validator that requires exactly n
+// arguments, producing a user-friendly error message that includes the
+// command's Use line so the user can see the expected syntax.
+func exactArgs(n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) == n {
+			return nil
+		}
+		if len(args) < n {
+			return fmt.Errorf("missing required argument(s). Usage: %s", cmd.UseLine())
+		}
+		return fmt.Errorf("too many arguments. Usage: %s", cmd.UseLine())
+	}
+}
+
 // ctxKey is an unexported type for context keys defined in this package.
 type ctxKey int
 

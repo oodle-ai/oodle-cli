@@ -59,7 +59,7 @@ func newDashboardsGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <uid>",
 		Short: "Get a dashboard by UID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -125,7 +125,7 @@ func newDashboardsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <uid>",
 		Short: "Delete a dashboard",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
