@@ -50,6 +50,30 @@ func TestShouldSkipConfig_OtherCommands(t *testing.T) {
 	}
 }
 
+// TestShouldSkipConfig_RootCommand verifies that the root command itself
+// skips config loading so that bare "oodle" (no subcommand) shows help
+// without requiring credentials.  This guards against the regression where
+// adding RunE to the root caused PersistentPreRunE to fire and error out.
+func TestShouldSkipConfig_RootCommand(t *testing.T) {
+	root := NewRootCmd()
+	if !shouldSkipConfig(root) {
+		t.Error("shouldSkipConfig(root) = false, want true (bare 'oodle' must work without credentials)")
+	}
+}
+
+// TestShouldSkipConfig_RootDoesNotAffectChildren confirms the root-command
+// exemption above does not cascade: subcommands still load config.
+func TestShouldSkipConfig_RootDoesNotAffectChildren(t *testing.T) {
+	root := NewRootCmd()
+	monitorsGet, _, err := root.Find([]string{"monitors", "get"})
+	if err != nil {
+		t.Fatalf("Find(monitors get): %v", err)
+	}
+	if shouldSkipConfig(monitorsGet) {
+		t.Error("shouldSkipConfig(monitors get) = true, want false")
+	}
+}
+
 func TestExactArgs_Correct(t *testing.T) {
 	cmd := &cobra.Command{Use: "test <id>"}
 	if err := exactArgs(1)(cmd, []string{"abc"}); err != nil {

@@ -102,8 +102,13 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 }
 
 // shouldSkipConfig returns true if the command (or any ancestor) is in the
-// skip list.
+// skip list, or if the command IS the root (invoked bare, e.g. just "oodle"
+// with no subcommand — its RunE shows help and needs no credentials).
 func shouldSkipConfig(cmd *cobra.Command) bool {
+	if cmd.Parent() == nil {
+		// Root command itself: bare "oodle" shows help, no API needed.
+		return true
+	}
 	for c := cmd; c != nil; c = c.Parent() {
 		if commandsSkippingConfig[c.Name()] {
 			return true
