@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"net/http"
+	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -9,6 +12,19 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
+
+// withTimeRange returns a RequestEditorFn that appends startTimeEpochMs and
+// endTimeEpochMs query parameters to the outgoing request. This is used for
+// metrics endpoints whose OpenAPI spec does not (yet) declare these params.
+func withTimeRange(start, end int64) client.RequestEditorFn {
+	return func(_ context.Context, req *http.Request) error {
+		q := req.URL.Query()
+		q.Set("startTimeEpochMs", strconv.FormatInt(start, 10))
+		q.Set("endTimeEpochMs", strconv.FormatInt(end, 10))
+		req.URL.RawQuery = q.Encode()
+		return nil
+	}
+}
 
 // nameEntry wraps a string value so output.Print can render it as a single
 // column for table/CSV output. JSON/YAML output is unaffected because we
@@ -78,10 +94,7 @@ func newMetricsNamesCmd() *cobra.Command {
 			return err
 		}
 
-		resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance, &client.ListNamesParams{
-			StartTimeEpochMs: start,
-			EndTimeEpochMs:   end,
-		})
+		resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance, withTimeRange(start, end))
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
 		}
@@ -113,10 +126,7 @@ func newMetricsLabelsCmd() *cobra.Command {
 			return err
 		}
 
-		resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0], &client.GetLabelsByIdParams{
-			StartTimeEpochMs: start,
-			EndTimeEpochMs:   end,
-		})
+		resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0], withTimeRange(start, end))
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
 		}
@@ -148,10 +158,7 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 			return err
 		}
 
-		resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1], &client.GetValuesByIdParams{
-			StartTimeEpochMs: start,
-			EndTimeEpochMs:   end,
-		})
+		resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1], withTimeRange(start, end))
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
 		}
