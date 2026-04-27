@@ -60,7 +60,7 @@ func newLogMetricsGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a log metrics rule by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -127,7 +127,7 @@ func newLogMetricsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a log metrics rule from a JSON or YAML file",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -163,11 +163,10 @@ func newLogMetricsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a log metrics rule",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			if !confirmAction(fmt.Sprintf("Delete log metrics rule %q?", args[0]), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
@@ -179,11 +178,8 @@ func newLogMetricsDeleteCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "Deleted log metrics rule %s\n", args[0])
-				return nil
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted log metrics rule %s\n", args[0])
+			return nil
 		},
 	}
 }

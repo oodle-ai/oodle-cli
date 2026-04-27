@@ -45,6 +45,10 @@ Configure credentials with 'oodle configure' or via the OODLE_API_KEY,
 OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
+		// Show help when invoked without a subcommand or with an unknown one.
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			if shouldSkipConfig(cmd) {
 				// Even commands that skip config benefit from output format
@@ -98,8 +102,13 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 }
 
 // shouldSkipConfig returns true if the command (or any ancestor) is in the
-// skip list.
+// skip list, or if the command IS the root (invoked bare, e.g. just "oodle"
+// with no subcommand — its RunE shows help and needs no credentials).
 func shouldSkipConfig(cmd *cobra.Command) bool {
+	if cmd.Parent() == nil {
+		// Root command itself: bare "oodle" shows help, no API needed.
+		return true
+	}
 	for c := cmd; c != nil; c = c.Parent() {
 		if commandsSkippingConfig[c.Name()] {
 			return true
@@ -120,10 +129,31 @@ func forceFlag(cmd *cobra.Command) bool {
 
 // Execute is the package entry point invoked by main.
 func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
-		// Strip leading "Error: " so we don't repeat it.
+	root := NewRootCmd()
+	if err := root.Execute(); err != nil {
 		msg := strings.TrimPrefix(err.Error(), "Error: ")
 		fmt.Fprintln(os.Stderr, "Error: "+msg)
+
+		// Show usage hint when the error is about an unknown command or
+		// missing/wrong arguments so the user can see what's available.
+		if isUsageError(err) {
+			fmt.Fprintln(os.Stderr)
+			// Find the deepest matched command to show its usage.
+			cmd, _, _ := root.Find(os.Args[1:])
+			if cmd != nil {
+				cmd.Usage()
+			}
+		}
 		os.Exit(1)
 	}
+}
+
+// isUsageError returns true for errors where showing usage/help would be
+// helpful: unknown commands, wrong number of arguments, missing required flags.
+func isUsageError(err error) bool {
+	msg := err.Error()
+	return strings.Contains(msg, "unknown command") ||
+		strings.Contains(msg, "missing required argument") ||
+		strings.Contains(msg, "too many arguments") ||
+		strings.Contains(msg, "required flag")
 }

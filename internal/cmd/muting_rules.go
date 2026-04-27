@@ -64,7 +64,7 @@ func newMutingRulesGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
 		Short: "Get a muting rule by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -129,11 +129,10 @@ func newMutingRulesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a muting rule",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			id := args[0]
 			if !confirmAction("Delete muting rule "+id+"?", forceFlag(cmd)) {
@@ -146,7 +145,8 @@ func newMutingRulesDeleteCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted muting rule %s\n", id)
+			return nil
 		},
 	}
 }

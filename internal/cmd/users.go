@@ -165,11 +165,10 @@ func newInvitationsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete a user invitation",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			if !confirmAction(fmt.Sprintf("Delete invitation %q?", args[0]), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
@@ -181,11 +180,8 @@ func newInvitationsDeleteCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "Deleted invitation %s\n", args[0])
-				return nil
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted invitation %s\n", args[0])
+			return nil
 		},
 	}
 }

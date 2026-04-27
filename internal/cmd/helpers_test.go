@@ -57,60 +57,133 @@ func TestReadInputFile_UnknownExtensionFallback(t *testing.T) {
 	}
 }
 
-func TestParseTimeFlag_Epoch(t *testing.T) {
-	got, err := parseTimeFlag("1700000000000000")
-	if err != nil {
-		t.Fatal(err)
+// timeFlagVariant captures the unit-specific knobs that distinguish
+// parseTimeFlag (microseconds) from parseTimeFlagMs (milliseconds). Each
+// table case below runs the same checks against both parsers so they cannot
+// drift out of sync.
+type timeFlagVariant struct {
+	name      string
+	parse     func(string) (int64, error)
+	now       func() int64                                  // current epoch in the variant's unit
+	epochLit  string                                        // a sample integer literal
+	epochInt  int64                                         // the same literal, parsed
+	tolerance int64                                         // ±tolerance for relative-time checks
+	durToUnit func(d time.Duration) int64                   // convert a duration to the variant's unit
+}
+
+func timeFlagVariants() []timeFlagVariant {
+	return []timeFlagVariant{
+		{
+			name:      "Micro",
+			parse:     parseTimeFlag,
+			now:       func() int64 { return time.Now().UnixMicro() },
+			epochLit:  "1700000000000000",
+			epochInt:  1700000000000000,
+			tolerance: int64(time.Second / time.Microsecond),
+			durToUnit: func(d time.Duration) int64 { return int64(d / time.Microsecond) },
+		},
+		{
+			name:      "Milli",
+			parse:     parseTimeFlagMs,
+			now:       func() int64 { return time.Now().UnixMilli() },
+			epochLit:  "1700000000000",
+			epochInt:  1700000000000,
+			tolerance: int64(time.Second / time.Millisecond),
+			durToUnit: func(d time.Duration) int64 { return int64(d / time.Millisecond) },
+		},
 	}
-	if got != 1700000000000000 {
-		t.Errorf("got %d", got)
+}
+
+func TestParseTimeFlag_Epoch(t *testing.T) {
+	for _, v := range timeFlagVariants() {
+		t.Run(v.name, func(t *testing.T) {
+			got, err := v.parse(v.epochLit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != v.epochInt {
+				t.Errorf("got %d, want %d", got, v.epochInt)
+			}
+		})
 	}
 }
 
 func TestParseTimeFlag_Now(t *testing.T) {
-	before := time.Now().UnixMicro()
-	got, err := parseTimeFlag("now")
-	if err != nil {
-		t.Fatal(err)
-	}
-	after := time.Now().UnixMicro()
-	if got < before || got > after {
-		t.Errorf("now = %d not in [%d, %d]", got, before, after)
+	for _, v := range timeFlagVariants() {
+		t.Run(v.name, func(t *testing.T) {
+			before := v.now()
+			got, err := v.parse("now")
+			if err != nil {
+				t.Fatal(err)
+			}
+			after := v.now()
+			if got < before || got > after {
+				t.Errorf("now = %d not in [%d, %d]", got, before, after)
+			}
+		})
 	}
 }
 
 func TestParseTimeFlag_Relative1h(t *testing.T) {
-	now := time.Now().UnixMicro()
-	got, err := parseTimeFlag("-1h")
-	if err != nil {
-		t.Fatal(err)
-	}
-	delta := now - got
-	expected := int64(time.Hour / time.Microsecond)
-	if delta < expected-int64(time.Second/time.Microsecond) || delta > expected+int64(time.Second/time.Microsecond) {
-		t.Errorf("delta = %d, want ~%d", delta, expected)
+	for _, v := range timeFlagVariants() {
+		t.Run(v.name, func(t *testing.T) {
+			now := v.now()
+			got, err := v.parse("-1h")
+			if err != nil {
+				t.Fatal(err)
+			}
+			delta := now - got
+			expected := v.durToUnit(time.Hour)
+			if delta < expected-v.tolerance || delta > expected+v.tolerance {
+				t.Errorf("delta = %d, want ~%d", delta, expected)
+			}
+		})
 	}
 }
 
 func TestParseTimeFlag_Relative7d(t *testing.T) {
-	now := time.Now().UnixMicro()
-	got, err := parseTimeFlag("-7d")
-	if err != nil {
-		t.Fatal(err)
-	}
-	delta := now - got
-	expected := int64(7 * 24 * time.Hour / time.Microsecond)
-	if delta < expected-int64(time.Second/time.Microsecond) || delta > expected+int64(time.Second/time.Microsecond) {
-		t.Errorf("delta = %d, want ~%d", delta, expected)
+	for _, v := range timeFlagVariants() {
+		t.Run(v.name, func(t *testing.T) {
+			now := v.now()
+			got, err := v.parse("-7d")
+			if err != nil {
+				t.Fatal(err)
+			}
+			delta := now - got
+			expected := v.durToUnit(7 * 24 * time.Hour)
+			if delta < expected-v.tolerance || delta > expected+v.tolerance {
+				t.Errorf("delta = %d, want ~%d", delta, expected)
+			}
+		})
 	}
 }
 
 func TestParseTimeFlag_Invalid(t *testing.T) {
-	if _, err := parseTimeFlag("garbage"); err == nil {
-		t.Error("expected error")
+	for _, v := range timeFlagVariants() {
+		t.Run(v.name, func(t *testing.T) {
+			if _, err := v.parse("garbage"); err == nil {
+				t.Error("expected error")
+			}
+			if _, err := v.parse(""); err == nil {
+				t.Error("expected error for empty")
+			}
+		})
 	}
-	if _, err := parseTimeFlag(""); err == nil {
-		t.Error("expected error for empty")
+}
+
+// TestParseTimeFlagMs_UnitConversion confirms that the millisecond variant
+// returns ms (not µs) for the "now" path, guarding against accidentally
+// swapping the unit converter in parseTimeFlagAs.
+func TestParseTimeFlagMs_UnitConversion(t *testing.T) {
+	got, err := parseTimeFlagMs("now")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nowMs := time.Now().UnixMilli()
+	// got should be within ~1s of nowMs; if the converter were UnixMicro
+	// this would be off by ~1000x.
+	if got < nowMs-1000 || got > nowMs+1000 {
+		t.Errorf("parseTimeFlagMs(\"now\") = %d not within 1s of %d (likely wrong unit)", got, nowMs)
 	}
 }
 

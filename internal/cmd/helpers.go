@@ -18,6 +18,21 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
+// exactArgs returns a cobra.PositionalArgs validator that requires exactly n
+// arguments, producing a user-friendly error message that includes the
+// command's Use line so the user can see the expected syntax.
+func exactArgs(n int) cobra.PositionalArgs {
+	return func(cmd *cobra.Command, args []string) error {
+		if len(args) == n {
+			return nil
+		}
+		if len(args) < n {
+			return fmt.Errorf("missing required argument(s). Usage: %s", cmd.UseLine())
+		}
+		return fmt.Errorf("too many arguments. Usage: %s", cmd.UseLine())
+	}
+}
+
 // ctxKey is an unexported type for context keys defined in this package.
 type ctxKey int
 
@@ -102,26 +117,43 @@ func readInputFile(path string, v any) error {
 //   - "-1h", "-30m"    => relative durations (Go's time.ParseDuration)
 //   - "-7d"            => days; converted to hours
 //   - integer          => epoch microseconds, returned as-is
+//
+// See parseTimeFlagMs for the millisecond-precision variant used by
+// endpoints that expect epoch ms (e.g. metrics).
 func parseTimeFlag(value string) (int64, error) {
+	return parseTimeFlagAs(value, "microseconds", time.Time.UnixMicro)
+}
+
+// parseTimeFlagMs is like parseTimeFlag but returns epoch milliseconds.
+// Use this for endpoints (e.g. metrics) that expect millisecond timestamps.
+func parseTimeFlagMs(value string) (int64, error) {
+	return parseTimeFlagAs(value, "milliseconds", time.Time.UnixMilli)
+}
+
+// parseTimeFlagAs is the shared core for parseTimeFlag and parseTimeFlagMs.
+// unitName is the human-readable unit used in error messages ("microseconds",
+// "milliseconds"). toEpoch converts a time.Time to the desired epoch unit
+// (e.g. time.Time.UnixMicro). Integer literals are passed through verbatim
+// and are assumed to be in the requested unit already.
+func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
 		return 0, fmt.Errorf("empty time value")
 	}
 	if strings.EqualFold(v, "now") {
-		return time.Now().UnixMicro(), nil
+		return toEpoch(time.Now()), nil
 	}
 	// Relative duration. Allow leading +/-; map "d" suffix to hours.
 	if v[0] == '+' || v[0] == '-' {
-		dur, err := parseRelativeDuration(v)
-		if err == nil {
-			return time.Now().Add(dur).UnixMicro(), nil
+		if dur, err := parseRelativeDuration(v); err == nil {
+			return toEpoch(time.Now().Add(dur)), nil
 		}
 		// Fall through to int parsing in case it's a negative epoch (rare).
 	}
-	// Integer: epoch microseconds.
+	// Integer literal: assumed to already be in the requested unit.
 	n, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch microseconds, 'now', or relative duration like -1h, -7d", value)
+		return 0, fmt.Errorf("invalid time %q: expected epoch %s, 'now', or relative duration like -1h, -7d", value, unitName)
 	}
 	return n, nil
 }

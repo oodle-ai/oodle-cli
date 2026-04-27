@@ -167,7 +167,7 @@ Aliases: `monitor`, `mon`.
 | `delete <id>`         | Delete a monitor (single ID) or many via `--ids`           |
 | `state <id>`          | Get a monitor's state                                      |
 | `triggers`            | List monitor triggers                                      |
-| `expression-insights` | Create an expression insight report for a monitor          |
+
 | `template-files`      | Create monitor template files                              |
 
 ```bash

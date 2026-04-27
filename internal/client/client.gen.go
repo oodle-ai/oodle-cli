@@ -164,13 +164,13 @@ type ClientInterface interface {
 	UpdateLogmetricsById(ctx context.Context, instance string, id string, body UpdateLogmetricsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListNames request
-	ListNames(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListNames(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetLabelsById request
-	GetLabelsById(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLabelsById(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetValuesById request
-	GetValuesById(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetValuesById(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetMonitorStateById request
 	GetMonitorStateById(ctx context.Context, instance string, id string, params *GetMonitorStateByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -201,11 +201,6 @@ type ClientInterface interface {
 	UpdateMonitorsByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateMonitorsById(ctx context.Context, instance string, id string, body UpdateMonitorsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateExpressionInsightReportsByIdWithBody request with any body
-	CreateExpressionInsightReportsByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateExpressionInsightReportsById(ctx context.Context, instance string, id string, body CreateExpressionInsightReportsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListMutingRules request
 	ListMutingRules(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -259,8 +254,8 @@ type ClientInterface interface {
 
 	UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListSyntheticMonitors request
-	ListSyntheticMonitors(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// ListSyntheticMonitorsOp request
+	ListSyntheticMonitorsOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateSyntheticMonitorsWithBody request with any body
 	CreateSyntheticMonitorsWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -287,8 +282,8 @@ type ClientInterface interface {
 	// ListLabels request
 	ListLabels(ctx context.Context, instance string, params *ListLabelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// GetTraceLabelValues request
-	GetTraceLabelValues(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetTraceLabelValuesById request
+	GetTraceLabelValuesById(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTraces request
 	ListTraces(ctx context.Context, instance string, params *ListTracesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -640,8 +635,8 @@ func (c *Client) UpdateLogmetricsById(ctx context.Context, instance string, id s
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListNames(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListNamesRequest(c.Server, instance)
+func (c *Client) ListNames(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListNamesRequest(c.Server, instance, params)
 	if err != nil {
 		return nil, err
 	}
@@ -652,8 +647,8 @@ func (c *Client) ListNames(ctx context.Context, instance string, reqEditors ...R
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLabelsByIdRequest(c.Server, instance, metricName)
+func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLabelsByIdRequest(c.Server, instance, metricName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -664,8 +659,8 @@ func (c *Client) GetLabelsById(ctx context.Context, instance string, metricName 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetValuesById(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetValuesByIdRequest(c.Server, instance, metricName, labelName)
+func (c *Client) GetValuesById(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetValuesByIdRequest(c.Server, instance, metricName, labelName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -798,30 +793,6 @@ func (c *Client) UpdateMonitorsByIdWithBody(ctx context.Context, instance string
 
 func (c *Client) UpdateMonitorsById(ctx context.Context, instance string, id string, body UpdateMonitorsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMonitorsByIdRequest(c.Server, instance, id, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateExpressionInsightReportsByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateExpressionInsightReportsByIdRequestWithBody(c.Server, instance, id, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateExpressionInsightReportsById(ctx context.Context, instance string, id string, body CreateExpressionInsightReportsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateExpressionInsightReportsByIdRequest(c.Server, instance, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1060,8 +1031,8 @@ func (c *Client) UpdateNotifiersById(ctx context.Context, instance string, id st
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListSyntheticMonitors(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListSyntheticMonitorsRequest(c.Server, instance)
+func (c *Client) ListSyntheticMonitorsOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSyntheticMonitorsOpRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -1180,8 +1151,8 @@ func (c *Client) ListLabels(ctx context.Context, instance string, params *ListLa
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetTraceLabelValues(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetTraceLabelValuesRequest(c.Server, instance, labelName, params)
+func (c *Client) GetTraceLabelValuesById(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTraceLabelValuesByIdRequest(c.Server, instance, labelName, params)
 	if err != nil {
 		return nil, err
 	}
@@ -2142,7 +2113,7 @@ func NewUpdateLogmetricsByIdRequestWithBody(server string, instance string, id s
 }
 
 // NewListNamesRequest generates requests for ListNames
-func NewListNamesRequest(server string, instance string) (*http.Request, error) {
+func NewListNamesRequest(server string, instance string, params *ListNamesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2167,6 +2138,52 @@ func NewListNamesRequest(server string, instance string) (*http.Request, error) 
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Filters != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filters", *params.Filters, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -2176,7 +2193,7 @@ func NewListNamesRequest(server string, instance string) (*http.Request, error) 
 }
 
 // NewGetLabelsByIdRequest generates requests for GetLabelsById
-func NewGetLabelsByIdRequest(server string, instance string, metricName string) (*http.Request, error) {
+func NewGetLabelsByIdRequest(server string, instance string, metricName string, params *GetLabelsByIdParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2208,6 +2225,52 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string) 
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Filters != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filters", *params.Filters, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
@@ -2217,7 +2280,7 @@ func NewGetLabelsByIdRequest(server string, instance string, metricName string) 
 }
 
 // NewGetValuesByIdRequest generates requests for GetValuesById
-func NewGetValuesByIdRequest(server string, instance string, metricName string, labelName string) (*http.Request, error) {
+func NewGetValuesByIdRequest(server string, instance string, metricName string, labelName string, params *GetValuesByIdParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -2254,6 +2317,52 @@ func NewGetValuesByIdRequest(server string, instance string, metricName string, 
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "endTimeEpochMs", params.EndTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Filters != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "filters", *params.Filters, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "startTimeEpochMs", params.StartTimeEpochMs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -2616,60 +2725,6 @@ func NewUpdateMonitorsByIdRequestWithBody(server string, instance string, id str
 	}
 
 	req, err := http.NewRequest("PUT", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewCreateExpressionInsightReportsByIdRequest calls the generic CreateExpressionInsightReportsById builder with application/json body
-func NewCreateExpressionInsightReportsByIdRequest(server string, instance string, id string, body CreateExpressionInsightReportsByIdJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateExpressionInsightReportsByIdRequestWithBody(server, instance, id, "application/json", bodyReader)
-}
-
-// NewCreateExpressionInsightReportsByIdRequestWithBody generates requests for CreateExpressionInsightReportsById with any type of body
-func NewCreateExpressionInsightReportsByIdRequestWithBody(server string, instance string, id string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	var pathParam1 string
-
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/api/instance/%s/monitors/%s/expression-insight-reports", pathParam0, pathParam1)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -3276,8 +3331,8 @@ func NewUpdateNotifiersByIdRequestWithBody(server string, instance string, id st
 	return req, nil
 }
 
-// NewListSyntheticMonitorsRequest generates requests for ListSyntheticMonitors
-func NewListSyntheticMonitorsRequest(server string, instance string) (*http.Request, error) {
+// NewListSyntheticMonitorsOpRequest generates requests for ListSyntheticMonitorsOp
+func NewListSyntheticMonitorsOpRequest(server string, instance string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3599,7 +3654,23 @@ func NewListLabelsRequest(server string, instance string, params *ListLabelsPara
 
 		if params.End != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", *params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", *params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Start != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", *params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -3624,8 +3695,8 @@ func NewListLabelsRequest(server string, instance string, params *ListLabelsPara
 	return req, nil
 }
 
-// NewGetTraceLabelValuesRequest generates requests for GetTraceLabelValues
-func NewGetTraceLabelValuesRequest(server string, instance string, labelName string, params *GetTraceLabelValuesParams) (*http.Request, error) {
+// NewGetTraceLabelValuesByIdRequest generates requests for GetTraceLabelValuesById
+func NewGetTraceLabelValuesByIdRequest(server string, instance string, labelName string, params *GetTraceLabelValuesByIdParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -3662,7 +3733,23 @@ func NewGetTraceLabelValuesRequest(server string, instance string, labelName str
 
 		if params.End != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", *params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", *params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Start != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", *params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -3716,7 +3803,7 @@ func NewListTracesRequest(server string, instance string, params *ListTracesPara
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -3824,7 +3911,7 @@ func NewListTracesRequest(server string, instance string, params *ListTracesPara
 
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -3899,7 +3986,7 @@ func NewGetTracesByIdRequest(server string, instance string, traceId string, par
 	if params != nil {
 		queryValues := queryURL.Query()
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -3911,7 +3998,7 @@ func NewGetTracesByIdRequest(server string, instance string, traceId string, par
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -4277,13 +4364,13 @@ type ClientWithResponsesInterface interface {
 	UpdateLogmetricsByIdWithResponse(ctx context.Context, instance string, id string, body UpdateLogmetricsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLogmetricsByIdResponse, error)
 
 	// ListNamesWithResponse request
-	ListNamesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListNamesResponse, error)
+	ListNamesWithResponse(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*ListNamesResponse, error)
 
 	// GetLabelsByIdWithResponse request
-	GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error)
+	GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error)
 
 	// GetValuesByIdWithResponse request
-	GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error)
+	GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error)
 
 	// GetMonitorStateByIdWithResponse request
 	GetMonitorStateByIdWithResponse(ctx context.Context, instance string, id string, params *GetMonitorStateByIdParams, reqEditors ...RequestEditorFn) (*GetMonitorStateByIdResponse, error)
@@ -4314,11 +4401,6 @@ type ClientWithResponsesInterface interface {
 	UpdateMonitorsByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMonitorsByIdResponse, error)
 
 	UpdateMonitorsByIdWithResponse(ctx context.Context, instance string, id string, body UpdateMonitorsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMonitorsByIdResponse, error)
-
-	// CreateExpressionInsightReportsByIdWithBodyWithResponse request with any body
-	CreateExpressionInsightReportsByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateExpressionInsightReportsByIdResponse, error)
-
-	CreateExpressionInsightReportsByIdWithResponse(ctx context.Context, instance string, id string, body CreateExpressionInsightReportsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateExpressionInsightReportsByIdResponse, error)
 
 	// ListMutingRulesWithResponse request
 	ListMutingRulesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListMutingRulesResponse, error)
@@ -4372,8 +4454,8 @@ type ClientWithResponsesInterface interface {
 
 	UpdateNotifiersByIdWithResponse(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
 
-	// ListSyntheticMonitorsWithResponse request
-	ListSyntheticMonitorsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsResponse, error)
+	// ListSyntheticMonitorsOpWithResponse request
+	ListSyntheticMonitorsOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsOpResponse, error)
 
 	// CreateSyntheticMonitorsWithBodyWithResponse request with any body
 	CreateSyntheticMonitorsWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateSyntheticMonitorsResponse, error)
@@ -4400,8 +4482,8 @@ type ClientWithResponsesInterface interface {
 	// ListLabelsWithResponse request
 	ListLabelsWithResponse(ctx context.Context, instance string, params *ListLabelsParams, reqEditors ...RequestEditorFn) (*ListLabelsResponse, error)
 
-	// GetTraceLabelValuesWithResponse request
-	GetTraceLabelValuesWithResponse(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesParams, reqEditors ...RequestEditorFn) (*GetTraceLabelValuesResponse, error)
+	// GetTraceLabelValuesByIdWithResponse request
+	GetTraceLabelValuesByIdWithResponse(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesByIdParams, reqEditors ...RequestEditorFn) (*GetTraceLabelValuesByIdResponse, error)
 
 	// ListTracesWithResponse request
 	ListTracesWithResponse(ctx context.Context, instance string, params *ListTracesParams, reqEditors ...RequestEditorFn) (*ListTracesResponse, error)
@@ -4435,6 +4517,7 @@ type ListApiKeysResponse struct {
 	JSON200      *[]ApiKey
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4460,6 +4543,7 @@ type CreateApiKeysResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4481,10 +4565,10 @@ func (r CreateApiKeysResponse) StatusCode() int {
 type DeleteApiKeysByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType1
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4510,6 +4594,7 @@ type GetApiKeysByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4534,6 +4619,7 @@ type ListDropRulesResponse struct {
 	JSON200      *[]DropRule
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4559,6 +4645,7 @@ type CreateDropRulesResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4580,10 +4667,10 @@ func (r CreateDropRulesResponse) StatusCode() int {
 type DeleteDropRulesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType2
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4609,6 +4696,7 @@ type GetDropRulesByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4635,6 +4723,7 @@ type UpdateDropRulesByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4659,6 +4748,7 @@ type ListDashboardsResponse struct {
 	JSON200      *[]DashboardSearchEntry
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4684,6 +4774,7 @@ type CreateDashboardsResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4705,10 +4796,11 @@ func (r CreateDashboardsResponse) StatusCode() int {
 type DeleteDashboardsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType3
+	JSON200      *DeleteDashboardResponse
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4734,6 +4826,7 @@ type GetDashboardsByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4758,6 +4851,7 @@ type ListFoldersResponse struct {
 	JSON200      *[]Folder
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4783,6 +4877,7 @@ type CreateFoldersResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4807,6 +4902,7 @@ type ListLogmetricsResponse struct {
 	JSON200      *[]LogMetrics
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4832,6 +4928,7 @@ type CreateLogmetricsResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4853,11 +4950,11 @@ func (r CreateLogmetricsResponse) StatusCode() int {
 type DeleteLogmetricsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType4
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4884,6 +4981,7 @@ type GetLogmetricsByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4910,6 +5008,7 @@ type UpdateLogmetricsByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4932,8 +5031,10 @@ type ListNamesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]string
+	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4956,8 +5057,10 @@ type GetLabelsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]string
+	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -4980,8 +5083,10 @@ type GetValuesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]string
+	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5006,7 +5111,9 @@ type GetMonitorStateByIdResponse struct {
 	JSON200      *MonitorState
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5031,6 +5138,7 @@ type ListMonitorTriggersResponse struct {
 	JSON200      *[]MonitorTrigger
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5052,10 +5160,10 @@ func (r ListMonitorTriggersResponse) StatusCode() int {
 type DeleteMonitorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType6
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5078,9 +5186,9 @@ type ListMonitorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]Monitor
-	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5106,6 +5214,7 @@ type CreateMonitorsResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5127,10 +5236,11 @@ func (r CreateMonitorsResponse) StatusCode() int {
 type DeleteMonitorsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType7
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5157,6 +5267,7 @@ type GetMonitorsByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5183,6 +5294,7 @@ type UpdateMonitorsByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5201,37 +5313,13 @@ func (r UpdateMonitorsByIdResponse) StatusCode() int {
 	return 0
 }
 
-type CreateExpressionInsightReportsByIdResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *AnonymousType8
-	JSON400      *OodleUtilHttputilsModelsErrors
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateExpressionInsightReportsByIdResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateExpressionInsightReportsByIdResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ListMutingRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *[]MutingRule
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5257,6 +5345,7 @@ type CreateMutingRulesResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5278,10 +5367,10 @@ func (r CreateMutingRulesResponse) StatusCode() int {
 type DeleteMutingRulesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType9
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5307,6 +5396,7 @@ type GetMutingRulesByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5331,6 +5421,7 @@ type ListNotificationPoliciesResponse struct {
 	JSON200      *[]NotificationPolicy
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5356,6 +5447,7 @@ type CreateNotificationPoliciesResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5377,10 +5469,11 @@ func (r CreateNotificationPoliciesResponse) StatusCode() int {
 type DeleteNotificationPoliciesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType10
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5407,6 +5500,7 @@ type GetNotificationPoliciesByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5433,6 +5527,7 @@ type UpdateNotificationPoliciesByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5457,6 +5552,7 @@ type ListNotifiersResponse struct {
 	JSON200      *[]Notifier
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5482,6 +5578,7 @@ type CreateNotifiersResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5503,11 +5600,12 @@ func (r CreateNotifiersResponse) StatusCode() int {
 type DeleteNotifiersByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType11
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON409      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5534,6 +5632,7 @@ type GetNotifiersByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5560,6 +5659,7 @@ type UpdateNotifiersByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5578,18 +5678,17 @@ func (r UpdateNotifiersByIdResponse) StatusCode() int {
 	return 0
 }
 
-type ListSyntheticMonitorsResponse struct {
+type ListSyntheticMonitorsOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Monitors *[]SyntheticSyntheticMonitor `json:"monitors,omitempty"`
-	}
-	JSON401 *OodleUtilHttputilsModelsErrors
-	JSON500 *OodleUtilHttputilsModelsErrors
+	JSON200      *ListSyntheticMonitorsResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
-func (r ListSyntheticMonitorsResponse) Status() string {
+func (r ListSyntheticMonitorsOpResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5597,7 +5696,7 @@ func (r ListSyntheticMonitorsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ListSyntheticMonitorsResponse) StatusCode() int {
+func (r ListSyntheticMonitorsOpResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5607,10 +5706,11 @@ func (r ListSyntheticMonitorsResponse) StatusCode() int {
 type CreateSyntheticMonitorsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *SyntheticSyntheticMonitor
+	JSON200      *SyntheticMonitor
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5632,10 +5732,10 @@ func (r CreateSyntheticMonitorsResponse) StatusCode() int {
 type DeleteSyntheticMonitorsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON204      *AnonymousType12
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5657,10 +5757,11 @@ func (r DeleteSyntheticMonitorsByIdResponse) StatusCode() int {
 type GetSyntheticMonitorsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *SyntheticSyntheticMonitor
+	JSON200      *SyntheticMonitor
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5682,11 +5783,12 @@ func (r GetSyntheticMonitorsByIdResponse) StatusCode() int {
 type UpdateSyntheticMonitorsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *SyntheticSyntheticMonitor
+	JSON200      *SyntheticMonitor
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5712,6 +5814,7 @@ type CreateRunByIdResponse struct {
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5737,6 +5840,7 @@ type CreateTemplateFilesResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5758,15 +5862,11 @@ func (r CreateTemplateFilesResponse) StatusCode() int {
 type ListLabelsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data   *[]string `json:"data,omitempty"`
-		Limit  *int      `json:"limit,omitempty"`
-		Offset *int      `json:"offset,omitempty"`
-		Total  *int      `json:"total,omitempty"`
-	}
-	JSON400 *OodleUtilHttputilsModelsErrors
-	JSON401 *OodleUtilHttputilsModelsErrors
-	JSON500 *OodleUtilHttputilsModelsErrors
+	JSON200      *TraceLabelsResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5785,22 +5885,18 @@ func (r ListLabelsResponse) StatusCode() int {
 	return 0
 }
 
-type GetTraceLabelValuesResponse struct {
+type GetTraceLabelValuesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *struct {
-		Data   *[]string `json:"data,omitempty"`
-		Limit  *int      `json:"limit,omitempty"`
-		Offset *int      `json:"offset,omitempty"`
-		Total  *int      `json:"total,omitempty"`
-	}
-	JSON400 *OodleUtilHttputilsModelsErrors
-	JSON401 *OodleUtilHttputilsModelsErrors
-	JSON500 *OodleUtilHttputilsModelsErrors
+	JSON200      *TraceLabelsResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
-func (r GetTraceLabelValuesResponse) Status() string {
+func (r GetTraceLabelValuesByIdResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -5808,7 +5904,7 @@ func (r GetTraceLabelValuesResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetTraceLabelValuesResponse) StatusCode() int {
+func (r GetTraceLabelValuesByIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5818,10 +5914,11 @@ func (r GetTraceLabelValuesResponse) StatusCode() int {
 type ListTracesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType13
+	JSON200      *TracesResponse
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5843,11 +5940,12 @@ func (r ListTracesResponse) StatusCode() int {
 type GetTracesByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType14
+	JSON200      *TracesResponse
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5871,7 +5969,9 @@ type ListUsersOpResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ListUsersResponse
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5895,7 +5995,9 @@ type ListInvitationsOpResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *ListInvitationsResponse
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5920,7 +6022,9 @@ type CreateInvitationsResponse struct {
 	JSON200      *UserInvitation
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5945,7 +6049,9 @@ type CreateBulkResponse struct {
 	JSON200      *BulkSendInvitationResponse
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -5967,10 +6073,11 @@ func (r CreateBulkResponse) StatusCode() int {
 type DeleteInvitationsByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *AnonymousType15
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
 // Status returns HTTPResponse.Status
@@ -6226,8 +6333,8 @@ func (c *ClientWithResponses) UpdateLogmetricsByIdWithResponse(ctx context.Conte
 }
 
 // ListNamesWithResponse request returning *ListNamesResponse
-func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListNamesResponse, error) {
-	rsp, err := c.ListNames(ctx, instance, reqEditors...)
+func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instance string, params *ListNamesParams, reqEditors ...RequestEditorFn) (*ListNamesResponse, error) {
+	rsp, err := c.ListNames(ctx, instance, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6235,8 +6342,8 @@ func (c *ClientWithResponses) ListNamesWithResponse(ctx context.Context, instanc
 }
 
 // GetLabelsByIdWithResponse request returning *GetLabelsByIdResponse
-func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error) {
-	rsp, err := c.GetLabelsById(ctx, instance, metricName, reqEditors...)
+func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, instance string, metricName string, params *GetLabelsByIdParams, reqEditors ...RequestEditorFn) (*GetLabelsByIdResponse, error) {
+	rsp, err := c.GetLabelsById(ctx, instance, metricName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6244,8 +6351,8 @@ func (c *ClientWithResponses) GetLabelsByIdWithResponse(ctx context.Context, ins
 }
 
 // GetValuesByIdWithResponse request returning *GetValuesByIdResponse
-func (c *ClientWithResponses) GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error) {
-	rsp, err := c.GetValuesById(ctx, instance, metricName, labelName, reqEditors...)
+func (c *ClientWithResponses) GetValuesByIdWithResponse(ctx context.Context, instance string, metricName string, labelName string, params *GetValuesByIdParams, reqEditors ...RequestEditorFn) (*GetValuesByIdResponse, error) {
+	rsp, err := c.GetValuesById(ctx, instance, metricName, labelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -6346,23 +6453,6 @@ func (c *ClientWithResponses) UpdateMonitorsByIdWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseUpdateMonitorsByIdResponse(rsp)
-}
-
-// CreateExpressionInsightReportsByIdWithBodyWithResponse request with arbitrary body returning *CreateExpressionInsightReportsByIdResponse
-func (c *ClientWithResponses) CreateExpressionInsightReportsByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateExpressionInsightReportsByIdResponse, error) {
-	rsp, err := c.CreateExpressionInsightReportsByIdWithBody(ctx, instance, id, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateExpressionInsightReportsByIdResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateExpressionInsightReportsByIdWithResponse(ctx context.Context, instance string, id string, body CreateExpressionInsightReportsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateExpressionInsightReportsByIdResponse, error) {
-	rsp, err := c.CreateExpressionInsightReportsById(ctx, instance, id, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateExpressionInsightReportsByIdResponse(rsp)
 }
 
 // ListMutingRulesWithResponse request returning *ListMutingRulesResponse
@@ -6531,13 +6621,13 @@ func (c *ClientWithResponses) UpdateNotifiersByIdWithResponse(ctx context.Contex
 	return ParseUpdateNotifiersByIdResponse(rsp)
 }
 
-// ListSyntheticMonitorsWithResponse request returning *ListSyntheticMonitorsResponse
-func (c *ClientWithResponses) ListSyntheticMonitorsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsResponse, error) {
-	rsp, err := c.ListSyntheticMonitors(ctx, instance, reqEditors...)
+// ListSyntheticMonitorsOpWithResponse request returning *ListSyntheticMonitorsOpResponse
+func (c *ClientWithResponses) ListSyntheticMonitorsOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsOpResponse, error) {
+	rsp, err := c.ListSyntheticMonitorsOp(ctx, instance, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseListSyntheticMonitorsResponse(rsp)
+	return ParseListSyntheticMonitorsOpResponse(rsp)
 }
 
 // CreateSyntheticMonitorsWithBodyWithResponse request with arbitrary body returning *CreateSyntheticMonitorsResponse
@@ -6619,13 +6709,13 @@ func (c *ClientWithResponses) ListLabelsWithResponse(ctx context.Context, instan
 	return ParseListLabelsResponse(rsp)
 }
 
-// GetTraceLabelValuesWithResponse request returning *GetTraceLabelValuesResponse
-func (c *ClientWithResponses) GetTraceLabelValuesWithResponse(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesParams, reqEditors ...RequestEditorFn) (*GetTraceLabelValuesResponse, error) {
-	rsp, err := c.GetTraceLabelValues(ctx, instance, labelName, params, reqEditors...)
+// GetTraceLabelValuesByIdWithResponse request returning *GetTraceLabelValuesByIdResponse
+func (c *ClientWithResponses) GetTraceLabelValuesByIdWithResponse(ctx context.Context, instance string, labelName string, params *GetTraceLabelValuesByIdParams, reqEditors ...RequestEditorFn) (*GetTraceLabelValuesByIdResponse, error) {
+	rsp, err := c.GetTraceLabelValuesById(ctx, instance, labelName, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetTraceLabelValuesResponse(rsp)
+	return ParseGetTraceLabelValuesByIdResponse(rsp)
 }
 
 // ListTracesWithResponse request returning *ListTracesResponse
@@ -6742,6 +6832,13 @@ func ParseListApiKeysResponse(rsp *http.Response) (*ListApiKeysResponse, error) 
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -6789,6 +6886,13 @@ func ParseCreateApiKeysResponse(rsp *http.Response) (*CreateApiKeysResponse, err
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -6808,13 +6912,6 @@ func ParseDeleteApiKeysByIdResponse(rsp *http.Response) (*DeleteApiKeysByIdRespo
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType1
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -6835,6 +6932,13 @@ func ParseDeleteApiKeysByIdResponse(rsp *http.Response) (*DeleteApiKeysByIdRespo
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -6883,6 +6987,13 @@ func ParseGetApiKeysByIdResponse(rsp *http.Response) (*GetApiKeysByIdResponse, e
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -6922,6 +7033,13 @@ func ParseListDropRulesResponse(rsp *http.Response) (*ListDropRulesResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -6970,6 +7088,13 @@ func ParseCreateDropRulesResponse(rsp *http.Response) (*CreateDropRulesResponse,
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -6989,13 +7114,6 @@ func ParseDeleteDropRulesByIdResponse(rsp *http.Response) (*DeleteDropRulesByIdR
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType2
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7016,6 +7134,13 @@ func ParseDeleteDropRulesByIdResponse(rsp *http.Response) (*DeleteDropRulesByIdR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7063,6 +7188,13 @@ func ParseGetDropRulesByIdResponse(rsp *http.Response) (*GetDropRulesByIdRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7118,6 +7250,13 @@ func ParseUpdateDropRulesByIdResponse(rsp *http.Response) (*UpdateDropRulesByIdR
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7157,6 +7296,13 @@ func ParseListDashboardsResponse(rsp *http.Response) (*ListDashboardsResponse, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7205,6 +7351,13 @@ func ParseCreateDashboardsResponse(rsp *http.Response) (*CreateDashboardsRespons
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7225,7 +7378,7 @@ func ParseDeleteDashboardsByIdResponse(rsp *http.Response) (*DeleteDashboardsByI
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType3
+		var dest DeleteDashboardResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -7251,6 +7404,13 @@ func ParseDeleteDashboardsByIdResponse(rsp *http.Response) (*DeleteDashboardsByI
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7299,6 +7459,13 @@ func ParseGetDashboardsByIdResponse(rsp *http.Response) (*GetDashboardsByIdRespo
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7338,6 +7505,13 @@ func ParseListFoldersResponse(rsp *http.Response) (*ListFoldersResponse, error) 
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7386,6 +7560,13 @@ func ParseCreateFoldersResponse(rsp *http.Response) (*CreateFoldersResponse, err
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7425,6 +7606,13 @@ func ParseListLogmetricsResponse(rsp *http.Response) (*ListLogmetricsResponse, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7473,6 +7661,13 @@ func ParseCreateLogmetricsResponse(rsp *http.Response) (*CreateLogmetricsRespons
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7492,13 +7687,6 @@ func ParseDeleteLogmetricsByIdResponse(rsp *http.Response) (*DeleteLogmetricsByI
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType4
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7526,6 +7714,13 @@ func ParseDeleteLogmetricsByIdResponse(rsp *http.Response) (*DeleteLogmetricsByI
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7581,6 +7776,13 @@ func ParseGetLogmetricsByIdResponse(rsp *http.Response) (*GetLogmetricsByIdRespo
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7635,6 +7837,13 @@ func ParseUpdateLogmetricsByIdResponse(rsp *http.Response) (*UpdateLogmetricsByI
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7661,6 +7870,13 @@ func ParseListNamesResponse(rsp *http.Response) (*ListNamesResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7674,6 +7890,13 @@ func ParseListNamesResponse(rsp *http.Response) (*ListNamesResponse, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7701,6 +7924,13 @@ func ParseGetLabelsByIdResponse(rsp *http.Response) (*GetLabelsByIdResponse, err
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7714,6 +7944,13 @@ func ParseGetLabelsByIdResponse(rsp *http.Response) (*GetLabelsByIdResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7741,6 +7978,13 @@ func ParseGetValuesByIdResponse(rsp *http.Response) (*GetValuesByIdResponse, err
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7754,6 +7998,13 @@ func ParseGetValuesByIdResponse(rsp *http.Response) (*GetValuesByIdResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7795,12 +8046,26 @@ func ParseGetMonitorStateByIdResponse(rsp *http.Response) (*GetMonitorStateByIdR
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7842,6 +8107,13 @@ func ParseListMonitorTriggersResponse(rsp *http.Response) (*ListMonitorTriggersR
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -7861,13 +8133,6 @@ func ParseDeleteMonitorsResponse(rsp *http.Response) (*DeleteMonitorsResponse, e
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType6
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7888,6 +8153,13 @@ func ParseDeleteMonitorsResponse(rsp *http.Response) (*DeleteMonitorsResponse, e
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7915,13 +8187,6 @@ func ParseListMonitorsResponse(rsp *http.Response) (*ListMonitorsResponse, error
 		}
 		response.JSON200 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -7935,6 +8200,13 @@ func ParseListMonitorsResponse(rsp *http.Response) (*ListMonitorsResponse, error
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -7983,6 +8255,13 @@ func ParseCreateMonitorsResponse(rsp *http.Response) (*CreateMonitorsResponse, e
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8002,13 +8281,6 @@ func ParseDeleteMonitorsByIdResponse(rsp *http.Response) (*DeleteMonitorsByIdRes
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType7
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8023,12 +8295,26 @@ func ParseDeleteMonitorsByIdResponse(rsp *http.Response) (*DeleteMonitorsByIdRes
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8084,6 +8370,13 @@ func ParseGetMonitorsByIdResponse(rsp *http.Response) (*GetMonitorsByIdResponse,
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8138,52 +8431,12 @@ func ParseUpdateMonitorsByIdResponse(rsp *http.Response) (*UpdateMonitorsByIdRes
 		}
 		response.JSON500 = &dest
 
-	}
-
-	return response, nil
-}
-
-// ParseCreateExpressionInsightReportsByIdResponse parses an HTTP response from a CreateExpressionInsightReportsByIdWithResponse call
-func ParseCreateExpressionInsightReportsByIdResponse(rsp *http.Response) (*CreateExpressionInsightReportsByIdResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateExpressionInsightReportsByIdResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType8
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
+		response.JSONDefault = &dest
 
 	}
 
@@ -8224,6 +8477,13 @@ func ParseListMutingRulesResponse(rsp *http.Response) (*ListMutingRulesResponse,
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8272,6 +8532,13 @@ func ParseCreateMutingRulesResponse(rsp *http.Response) (*CreateMutingRulesRespo
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8291,13 +8558,6 @@ func ParseDeleteMutingRulesByIdResponse(rsp *http.Response) (*DeleteMutingRulesB
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType9
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8318,6 +8578,13 @@ func ParseDeleteMutingRulesByIdResponse(rsp *http.Response) (*DeleteMutingRulesB
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8366,6 +8633,13 @@ func ParseGetMutingRulesByIdResponse(rsp *http.Response) (*GetMutingRulesByIdRes
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8405,6 +8679,13 @@ func ParseListNotificationPoliciesResponse(rsp *http.Response) (*ListNotificatio
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8453,6 +8734,13 @@ func ParseCreateNotificationPoliciesResponse(rsp *http.Response) (*CreateNotific
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8472,13 +8760,6 @@ func ParseDeleteNotificationPoliciesByIdResponse(rsp *http.Response) (*DeleteNot
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType10
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8493,12 +8774,26 @@ func ParseDeleteNotificationPoliciesByIdResponse(rsp *http.Response) (*DeleteNot
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8554,6 +8849,13 @@ func ParseGetNotificationPoliciesByIdResponse(rsp *http.Response) (*GetNotificat
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8608,6 +8910,13 @@ func ParseUpdateNotificationPoliciesByIdResponse(rsp *http.Response) (*UpdateNot
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8647,6 +8956,13 @@ func ParseListNotifiersResponse(rsp *http.Response) (*ListNotifiersResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8695,6 +9011,13 @@ func ParseCreateNotifiersResponse(rsp *http.Response) (*CreateNotifiersResponse,
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8714,13 +9037,6 @@ func ParseDeleteNotifiersByIdResponse(rsp *http.Response) (*DeleteNotifiersByIdR
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType11
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8735,6 +9051,13 @@ func ParseDeleteNotifiersByIdResponse(rsp *http.Response) (*DeleteNotifiersByIdR
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8748,6 +9071,13 @@ func ParseDeleteNotifiersByIdResponse(rsp *http.Response) (*DeleteNotifiersByIdR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8803,6 +9133,13 @@ func ParseGetNotifiersByIdResponse(rsp *http.Response) (*GetNotifiersByIdRespons
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8857,29 +9194,34 @@ func ParseUpdateNotifiersByIdResponse(rsp *http.Response) (*UpdateNotifiersByIdR
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
 }
 
-// ParseListSyntheticMonitorsResponse parses an HTTP response from a ListSyntheticMonitorsWithResponse call
-func ParseListSyntheticMonitorsResponse(rsp *http.Response) (*ListSyntheticMonitorsResponse, error) {
+// ParseListSyntheticMonitorsOpResponse parses an HTTP response from a ListSyntheticMonitorsOpWithResponse call
+func ParseListSyntheticMonitorsOpResponse(rsp *http.Response) (*ListSyntheticMonitorsOpResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ListSyntheticMonitorsResponse{
+	response := &ListSyntheticMonitorsOpResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Monitors *[]SyntheticSyntheticMonitor `json:"monitors,omitempty"`
-		}
+		var dest ListSyntheticMonitorsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8898,6 +9240,13 @@ func ParseListSyntheticMonitorsResponse(rsp *http.Response) (*ListSyntheticMonit
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8919,7 +9268,7 @@ func ParseCreateSyntheticMonitorsResponse(rsp *http.Response) (*CreateSyntheticM
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SyntheticSyntheticMonitor
+		var dest SyntheticMonitor
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8946,6 +9295,13 @@ func ParseCreateSyntheticMonitorsResponse(rsp *http.Response) (*CreateSyntheticM
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -8965,13 +9321,6 @@ func ParseDeleteSyntheticMonitorsByIdResponse(rsp *http.Response) (*DeleteSynthe
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
-		var dest AnonymousType12
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON204 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -8992,6 +9341,13 @@ func ParseDeleteSyntheticMonitorsByIdResponse(rsp *http.Response) (*DeleteSynthe
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9013,7 +9369,7 @@ func ParseGetSyntheticMonitorsByIdResponse(rsp *http.Response) (*GetSyntheticMon
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SyntheticSyntheticMonitor
+		var dest SyntheticMonitor
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9040,6 +9396,13 @@ func ParseGetSyntheticMonitorsByIdResponse(rsp *http.Response) (*GetSyntheticMon
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -9060,7 +9423,7 @@ func ParseUpdateSyntheticMonitorsByIdResponse(rsp *http.Response) (*UpdateSynthe
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest SyntheticSyntheticMonitor
+		var dest SyntheticMonitor
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9093,6 +9456,13 @@ func ParseUpdateSyntheticMonitorsByIdResponse(rsp *http.Response) (*UpdateSynthe
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9141,6 +9511,13 @@ func ParseCreateRunByIdResponse(rsp *http.Response) (*CreateRunByIdResponse, err
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -9188,6 +9565,13 @@ func ParseCreateTemplateFilesResponse(rsp *http.Response) (*CreateTemplateFilesR
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -9208,12 +9592,7 @@ func ParseListLabelsResponse(rsp *http.Response) (*ListLabelsResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data   *[]string `json:"data,omitempty"`
-			Limit  *int      `json:"limit,omitempty"`
-			Offset *int      `json:"offset,omitempty"`
-			Total  *int      `json:"total,omitempty"`
-		}
+		var dest TraceLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9239,33 +9618,35 @@ func ParseListLabelsResponse(rsp *http.Response) (*ListLabelsResponse, error) {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
 	return response, nil
 }
 
-// ParseGetTraceLabelValuesResponse parses an HTTP response from a GetTraceLabelValuesWithResponse call
-func ParseGetTraceLabelValuesResponse(rsp *http.Response) (*GetTraceLabelValuesResponse, error) {
+// ParseGetTraceLabelValuesByIdResponse parses an HTTP response from a GetTraceLabelValuesByIdWithResponse call
+func ParseGetTraceLabelValuesByIdResponse(rsp *http.Response) (*GetTraceLabelValuesByIdResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetTraceLabelValuesResponse{
+	response := &GetTraceLabelValuesByIdResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest struct {
-			Data   *[]string `json:"data,omitempty"`
-			Limit  *int      `json:"limit,omitempty"`
-			Offset *int      `json:"offset,omitempty"`
-			Total  *int      `json:"total,omitempty"`
-		}
+		var dest TraceLabelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9291,6 +9672,13 @@ func ParseGetTraceLabelValuesResponse(rsp *http.Response) (*GetTraceLabelValuesR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9312,7 +9700,7 @@ func ParseListTracesResponse(rsp *http.Response) (*ListTracesResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType13
+		var dest TracesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9339,6 +9727,13 @@ func ParseListTracesResponse(rsp *http.Response) (*ListTracesResponse, error) {
 		}
 		response.JSON500 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
 	}
 
 	return response, nil
@@ -9359,7 +9754,7 @@ func ParseGetTracesByIdResponse(rsp *http.Response) (*GetTracesByIdResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType14
+		var dest TracesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -9392,6 +9787,13 @@ func ParseGetTracesByIdResponse(rsp *http.Response) (*GetTracesByIdResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9426,12 +9828,26 @@ func ParseListUsersOpResponse(rsp *http.Response) (*ListUsersOpResponse, error) 
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9466,12 +9882,26 @@ func ParseListInvitationsOpResponse(rsp *http.Response) (*ListInvitationsOpRespo
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9513,12 +9943,26 @@ func ParseCreateInvitationsResponse(rsp *http.Response) (*CreateInvitationsRespo
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9560,12 +10004,26 @@ func ParseCreateBulkResponse(rsp *http.Response) (*CreateBulkResponse, error) {
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -9586,19 +10044,19 @@ func ParseDeleteInvitationsByIdResponse(rsp *http.Response) (*DeleteInvitationsB
 	}
 
 	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest AnonymousType15
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
@@ -9613,6 +10071,13 @@ func ParseDeleteInvitationsByIdResponse(rsp *http.Response) (*DeleteInvitationsB
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

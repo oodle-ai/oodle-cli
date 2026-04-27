@@ -55,8 +55,8 @@ func newTracesListCmd() *cobra.Command {
 			}
 
 			params := &client.ListTracesParams{
-				Start: int(start),
-				End:   int(end),
+				Start: start,
+				End:   end,
 			}
 			if cmd.Flags().Changed("service") {
 				v := service
@@ -124,7 +124,7 @@ func newTracesGetCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get <trace_id>",
 		Short: "Get a trace by ID",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -140,8 +140,8 @@ func newTracesGetCmd() *cobra.Command {
 			}
 
 			params := &client.GetTracesByIdParams{
-				Start: int(start),
-				End:   int(end),
+				Start: start,
+				End:   end,
 			}
 			resp, err := c.Inner.GetTracesByIdWithResponse(cmd.Context(), instance, args[0], params)
 			if err != nil {
@@ -180,8 +180,7 @@ func newTracesLabelsCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("--end: %w", err)
 				}
-				v := int(end)
-				params.End = &v
+				params.End = &end
 			}
 
 			resp, err := c.Inner.ListLabelsWithResponse(cmd.Context(), instance, params)
@@ -206,23 +205,22 @@ func newTracesLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <label_name>",
 		Short: "List values for a trace label",
-		Args:  cobra.ExactArgs(1),
+		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			params := &client.GetTraceLabelValuesParams{}
+			params := &client.GetTraceLabelValuesByIdParams{}
 			if cmd.Flags().Changed("end") {
 				end, err := parseTimeFlag(endStr)
 				if err != nil {
 					return fmt.Errorf("--end: %w", err)
 				}
-				v := int(end)
-				params.End = &v
+				params.End = &end
 			}
 
-			resp, err := c.Inner.GetTraceLabelValuesWithResponse(cmd.Context(), instance, args[0], params)
+			resp, err := c.Inner.GetTraceLabelValuesByIdWithResponse(cmd.Context(), instance, args[0], params)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}

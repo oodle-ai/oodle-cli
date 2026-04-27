@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -24,6 +25,29 @@ type valueEntry struct {
 	Value string
 }
 
+// addTimeRangeFlagsMs registers required --start/--end flags on cmd and
+// returns a closure the RunE can invoke to parse them as epoch milliseconds.
+// All three metrics subcommands share the exact same flag wiring, so this
+// helper keeps them in lockstep.
+func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error) {
+	var startStr, endStr string
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h)")
+	_ = cmd.MarkFlagRequired("start")
+	_ = cmd.MarkFlagRequired("end")
+	return func() (int64, int64, error) {
+		start, err := parseTimeFlagMs(startStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--start: %w", err)
+		}
+		end, err := parseTimeFlagMs(endStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--end: %w", err)
+		}
+		return start, end, nil
+	}
+}
+
 // newMetricsCmd returns the `oodle metrics` command tree.
 func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -38,78 +62,108 @@ func newMetricsCmd() *cobra.Command {
 }
 
 func newMetricsNamesCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "names",
 		Short: "List metric names",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
-			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
-
-			resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance)
-			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
-			}
-			if resp.StatusCode() >= 300 {
-				return api.CheckResponse(resp.HTTPResponse, resp.Body)
-			}
-			if resp.JSON200 == nil {
-				return fmt.Errorf("unexpected empty response")
-			}
-			return printStringSlice(cmd, format, *resp.JSON200, "Name")
-		},
 	}
+	parseTimeRange := addTimeRangeFlagsMs(cmd)
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		c := getClient(cmd)
+		instance := getInstance(cmd)
+		format := getOutputFormat(cmd)
+
+		start, end, err := parseTimeRange()
+		if err != nil {
+			return err
+		}
+
+		resp, err := c.Inner.ListNamesWithResponse(cmd.Context(), instance, &client.ListNamesParams{
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
+		})
+		if err != nil {
+			return fmt.Errorf("API request failed: %w", err)
+		}
+		if resp.StatusCode() >= 300 {
+			return api.CheckResponse(resp.HTTPResponse, resp.Body)
+		}
+		if resp.JSON200 == nil {
+			return fmt.Errorf("unexpected empty response")
+		}
+		return printStringSlice(cmd, format, *resp.JSON200, "Name")
+	}
+	return cmd
 }
 
 func newMetricsLabelsCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "labels <metric_name>",
 		Short: "List label names for a metric",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
-			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
-
-			resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0])
-			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
-			}
-			if resp.StatusCode() >= 300 {
-				return api.CheckResponse(resp.HTTPResponse, resp.Body)
-			}
-			if resp.JSON200 == nil {
-				return fmt.Errorf("unexpected empty response")
-			}
-			return printStringSlice(cmd, format, *resp.JSON200, "Label")
-		},
+		Args:  exactArgs(1),
 	}
+	parseTimeRange := addTimeRangeFlagsMs(cmd)
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		c := getClient(cmd)
+		instance := getInstance(cmd)
+		format := getOutputFormat(cmd)
+
+		start, end, err := parseTimeRange()
+		if err != nil {
+			return err
+		}
+
+		resp, err := c.Inner.GetLabelsByIdWithResponse(cmd.Context(), instance, args[0], &client.GetLabelsByIdParams{
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
+		})
+		if err != nil {
+			return fmt.Errorf("API request failed: %w", err)
+		}
+		if resp.StatusCode() >= 300 {
+			return api.CheckResponse(resp.HTTPResponse, resp.Body)
+		}
+		if resp.JSON200 == nil {
+			return fmt.Errorf("unexpected empty response")
+		}
+		return printStringSlice(cmd, format, *resp.JSON200, "Label")
+	}
+	return cmd
 }
 
 func newMetricsLabelValuesCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "label-values <metric_name> <label_name>",
 		Short: "List values for a label of a metric",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
-			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
-
-			resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1])
-			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
-			}
-			if resp.StatusCode() >= 300 {
-				return api.CheckResponse(resp.HTTPResponse, resp.Body)
-			}
-			if resp.JSON200 == nil {
-				return fmt.Errorf("unexpected empty response")
-			}
-			return printStringSlice(cmd, format, *resp.JSON200, "Value")
-		},
+		Args:  exactArgs(2),
 	}
+	parseTimeRange := addTimeRangeFlagsMs(cmd)
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		c := getClient(cmd)
+		instance := getInstance(cmd)
+		format := getOutputFormat(cmd)
+
+		start, end, err := parseTimeRange()
+		if err != nil {
+			return err
+		}
+
+		resp, err := c.Inner.GetValuesByIdWithResponse(cmd.Context(), instance, args[0], args[1], &client.GetValuesByIdParams{
+			StartTimeEpochMs: start,
+			EndTimeEpochMs:   end,
+		})
+		if err != nil {
+			return fmt.Errorf("API request failed: %w", err)
+		}
+		if resp.StatusCode() >= 300 {
+			return api.CheckResponse(resp.HTTPResponse, resp.Body)
+		}
+		if resp.JSON200 == nil {
+			return fmt.Errorf("unexpected empty response")
+		}
+		return printStringSlice(cmd, format, *resp.JSON200, "Value")
+	}
+	return cmd
 }
 
 // printStringSlice renders a []string in the desired format. For JSON/YAML

@@ -4,8 +4,10 @@
 package client
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -85,53 +87,6 @@ func (e MetricType) Valid() bool {
 	}
 }
 
-// AnonymousType1 defines model for AnonymousType1.
-type AnonymousType1 = map[string]interface{}
-
-// AnonymousType10 defines model for AnonymousType10.
-type AnonymousType10 = map[string]interface{}
-
-// AnonymousType11 defines model for AnonymousType11.
-type AnonymousType11 = map[string]interface{}
-
-// AnonymousType12 defines model for AnonymousType12.
-type AnonymousType12 = map[string]interface{}
-
-// AnonymousType13 defines model for AnonymousType13.
-type AnonymousType13 = map[string]interface{}
-
-// AnonymousType14 defines model for AnonymousType14.
-type AnonymousType14 = map[string]interface{}
-
-// AnonymousType15 defines model for AnonymousType15.
-type AnonymousType15 = map[string]interface{}
-
-// AnonymousType2 defines model for AnonymousType2.
-type AnonymousType2 = map[string]interface{}
-
-// AnonymousType3 defines model for AnonymousType3.
-type AnonymousType3 = map[string]interface{}
-
-// AnonymousType4 defines model for AnonymousType4.
-type AnonymousType4 = map[string]interface{}
-
-// AnonymousType5 defines model for AnonymousType5.
-type AnonymousType5 struct {
-	Ids *[]string `json:"ids"`
-}
-
-// AnonymousType6 defines model for AnonymousType6.
-type AnonymousType6 = map[string]interface{}
-
-// AnonymousType7 defines model for AnonymousType7.
-type AnonymousType7 = map[string]interface{}
-
-// AnonymousType8 defines model for AnonymousType8.
-type AnonymousType8 = map[string]interface{}
-
-// AnonymousType9 defines model for AnonymousType9.
-type AnonymousType9 = map[string]interface{}
-
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -169,6 +124,14 @@ type BasicAuth struct {
 
 	// UsernameRef UsernameRef is the name of the secret within the secret manager to use as the username.
 	UsernameRef *string `json:"username_ref,omitempty"`
+}
+
+// BulkDeleteMonitorsRequest BulkDeleteMonitorsRequest is the JSON body of `DELETE /monitors`.
+//
+// Clients pass the monitor IDs to delete via the `ids` field. An empty
+// or missing list is rejected by the handler.
+type BulkDeleteMonitorsRequest struct {
+	Ids *[]string `json:"ids"`
 }
 
 // BulkSendInvitationItem BulkSendInvitationItem represents a single invitee
@@ -241,12 +204,12 @@ type CreateApiKeyRequest struct {
 
 // CreateDropRuleRequest CreateDropRuleRequest is the request body for creating a drop rule.
 type CreateDropRuleRequest struct {
-	Filters *[]OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"filters"`
+	Filters *[]MetricLabelMatcher `json:"filters"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
-	MetricName OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"metric_name"`
-	RuleName   string                                       `json:"rule_name"`
-	Type       string                                       `json:"type"`
+	MetricName MetricLabelMatcher `json:"metric_name"`
+	RuleName   string             `json:"rule_name"`
+	Type       string             `json:"type"`
 }
 
 // CreateFolderRequest CreateFolderRequest represents a request to create a folder
@@ -271,15 +234,23 @@ type DashboardSearchEntry struct {
 	Url         string    `json:"url"`
 }
 
+// DeleteDashboardResponse DeleteDashboardResponse is the JSON body of a successful
+// `DELETE /grafana/dashboards/{id}`. Unlike most DELETEs (which return
+// 204 No Content) this endpoint returns the upstream Grafana status
+// string for backward compatibility.
+type DeleteDashboardResponse struct {
+	Status string `json:"status"`
+}
+
 // DropRule DropRule is the API model for a metric drop rule.
 type DropRule struct {
-	Filters *[]OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"filters"`
-	Id      string                                          `json:"id"`
+	Filters *[]MetricLabelMatcher `json:"filters"`
+	Id      string                `json:"id"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
-	MetricName OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"metric_name"`
-	RuleName   string                                       `json:"rule_name"`
-	Type       string                                       `json:"type"`
+	MetricName MetricLabelMatcher `json:"metric_name"`
+	RuleName   string             `json:"rule_name"`
+	Type       string             `json:"type"`
 }
 
 // EmailConfig EmailConfig configures notifications via mail.
@@ -294,10 +265,8 @@ type EmailConfig struct {
 	Html         *string            `json:"html,omitempty"`
 	RequireTls   *bool              `json:"require_tls,omitempty"`
 	SendResolved bool               `json:"send_resolved"`
-
-	// Smarthost HostPort represents a "host:port" network address.
-	Smarthost *HostPort `json:"smarthost,omitempty"`
-	Text      *string   `json:"text,omitempty"`
+	Smarthost    *string            `json:"smarthost,omitempty"`
+	Text         *string            `json:"text,omitempty"`
 
 	// TlsConfig TLSConfig configures the options for TLS connections.
 	TlsConfig *TLSConfig `json:"tls_config,omitempty"`
@@ -314,30 +283,8 @@ type Folder struct {
 	Title     string  `json:"title"`
 	Uid       string  `json:"uid"`
 	Updated   *string `json:"updated,omitempty"`
-	Url       string  `json:"url"`
-	Version   int     `json:"version"`
-}
-
-// GenerateMonitorExpressionInsightReportsReq GenerateMonitorExpressionInsightReportsReq is the request body for the generate monitor expression insight reports endpoint.
-type GenerateMonitorExpressionInsightReportsReq struct {
-	DoNotReturnAllValues bool `json:"do_not_return_all_values"`
-
-	// EndTimeEpochMillis End time of the report in epoch milliseconds
-	EndTimeEpochMillis int `json:"end_time_epoch_millis"`
-
-	// MonitorInstanceEndsAtTimeEpochMillis The end time of the alert instance in epoch milliseconds for which
-	// this report is being generated.
-	MonitorInstanceEndsAtTimeEpochMillis int `json:"monitor_instance_ends_at_time_epoch_millis"`
-
-	// MonitorInstanceStartTimeEpochMillis The start time of the alert instance in epoch milliseconds for which
-	// this report is being generated.
-	MonitorInstanceStartTimeEpochMillis int `json:"monitor_instance_start_time_epoch_millis"`
-
-	// Severity Severity of the alert instance for which this report is being generated.
-	Severity string `json:"severity"`
-
-	// StartTimeEpochMillis Start time of the report in epoch milliseconds
-	StartTimeEpochMillis int `json:"start_time_epoch_millis"`
+	Url       *string `json:"url,omitempty"`
+	Version   *int    `json:"version,omitempty"`
 }
 
 // GetDashboardResponse defines model for GetDashboardResponse.
@@ -418,23 +365,14 @@ type HTTPClientConfig struct {
 	// to determine proxies.
 	ProxyFromEnvironment *bool `json:"proxy_from_environment,omitempty"`
 
-	// ProxyUrl URL is a custom URL type that allows validation at configuration load time.
-	ProxyUrl *URL `json:"proxy_url,omitempty"`
-
 	// TlsConfig TLSConfig configures the options for TLS connections.
 	TlsConfig *TLSConfig `json:"tls_config,omitempty"`
 }
 
 // Headers Headers represents the configuration for HTTP headers.
 type Headers struct {
-	Headers *map[string]interface{} `json:"Headers"`
+	Headers *map[string]string `json:"Headers"`
 }
-
-// HostPort HostPort represents a "host:port" network address.
-type HostPort = string
-
-// ID ID is a unique identifier (UUID string) used in all alert related models.
-type ID = openapi_types.UUID
 
 // Label Label represents a name-value pair for a metric label.
 type Label struct {
@@ -468,8 +406,8 @@ type LabelMatcherNotifications struct {
 	// Matchers Matchers are the label matchers that determine when this policy applies
 	Matchers *[]LabelMatcher `json:"matchers"`
 
-	// NotificationPolicyId ID is a unique identifier (UUID string) used in all alert related models.
-	NotificationPolicyId *ID `json:"notification_policy_id,omitempty"`
+	// NotificationPolicyId NotificationPolicyID references the notification policy to use when labels match
+	NotificationPolicyId *openapi_types.UUID `json:"notification_policy_id,omitempty"`
 
 	// Notifiers NotifiersByCondition represents notifiers for each severity level.
 	Notifiers *NotifiersByCondition `json:"notifiers,omitempty"`
@@ -479,6 +417,13 @@ type LabelMatcherNotifications struct {
 // invitations.
 type ListInvitationsResponse struct {
 	Invitations *[]UserInvitation `json:"invitations"`
+}
+
+// ListSyntheticMonitorsResponse ListSyntheticMonitorsResponse is the response body for listing synthetic
+// monitors.
+type ListSyntheticMonitorsResponse struct {
+	Monitors *[]SyntheticMonitor `json:"monitors"`
+	Total    int                 `json:"total"`
 }
 
 // ListUsersResponse ListUsersResponse is the response for listing users.
@@ -512,8 +457,8 @@ type LogMetrics struct {
 	// Filter LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.
 	Filter *LogFilter `json:"filter,omitempty"`
 
-	// Id ID is a unique identifier (UUID string) used in all alert related models.
-	Id *ID `json:"id,omitempty"`
+	// Id ID is the unique identifier.
+	Id *openapi_types.UUID `json:"id,omitempty"`
 
 	// Labels Labels are the labels that will be added to all metrics created
 	// by this configuration.
@@ -593,6 +538,13 @@ type MetricDefinition struct {
 	Type *MetricType `json:"type,omitempty"`
 }
 
+// MetricLabelMatcher Matcher specifies a rule, which can match or set of labels or not.
+type MetricLabelMatcher struct {
+	Name  *string `json:"name,omitempty"`
+	Type  *int    `json:"type,omitempty"`
+	Value *string `json:"value,omitempty"`
+}
+
 // MetricType Type of metric to be created. Values:
 // - 0: Count of logs
 // - 1: Counter metric
@@ -615,10 +567,8 @@ type Monitor struct {
 	GroupWait *string `json:"group_wait,omitempty"`
 
 	// Grouping Grouping is a model for grouping alerts.
-	Grouping *Grouping `json:"grouping,omitempty"`
-
-	// Id ID is a unique identifier (UUID string) used in all alert related models.
-	Id *ID `json:"id,omitempty"`
+	Grouping *Grouping           `json:"grouping,omitempty"`
+	Id       *openapi_types.UUID `json:"id,omitempty"`
 
 	// Interval Interval is the interval at which the monitor should be evaluated.
 	Interval *string `json:"interval,omitempty"`
@@ -633,17 +583,19 @@ type Monitor struct {
 	Labels *map[string]string `json:"labels,omitempty"`
 
 	// Name Name is the name of the monitor.
-	Name *string `json:"name,omitempty"`
+	Name string `json:"name"`
 
-	// NotificationPolicyId ID is a unique identifier (UUID string) used in all alert related models.
-	NotificationPolicyId *ID `json:"notification_policy_id,omitempty"`
+	// NotificationPolicyId Deprecated: NotificationPolicyID is the ID of the notification policy associated with the monitor.
+	// It is an optional field.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	NotificationPolicyId *openapi_types.UUID `json:"notification_policy_id,omitempty"`
 
 	// Notifications Notifications is the list of notifications for the monitor.
 	// These notifications are evaluated in order, and the first matching notification is used.
 	Notifications *[]LabelMatcherNotifications `json:"notifications,omitempty"`
 
 	// PromqlQuery PromQLQuery is the Prometheus query for the monitor.
-	PromqlQuery *string `json:"promql_query,omitempty"`
+	PromqlQuery string `json:"promql_query"`
 
 	// RepeatInterval RepeatInterval is the interval at which to send alerts for the same alert after firing.
 	// RepeatInterval should be a multiple of GroupInterval
@@ -658,13 +610,16 @@ type MonitorState struct {
 	EvaluationTime float32                   `json:"evaluation_time"`
 	Health         string                    `json:"health"`
 	History        *[]MonitorTriggerInstance `json:"history"`
-
-	// Id ID is a unique identifier (UUID string) used in all alert related models.
-	Id             ID        `json:"id"`
-	LastEvaluation time.Time `json:"last_evaluation"`
+	Id             openapi_types.UUID        `json:"id"`
+	LastEvaluation time.Time                 `json:"last_evaluation"`
 }
 
 // MonitorTrigger MonitorTrigger represents a monitor that triggers an alert.
+//
+// JSON field names use camelCase (monitorID, startsAt, endsAt, updatedAt) for
+// historical reasons — most other Oodle API schemas use snake_case. The
+// camelCase casing is preserved here to avoid breaking existing HTTP clients
+// that depend on the current field names. New schemas should use snake_case.
 type MonitorTrigger struct {
 	EndsAt    time.Time          `json:"endsAt"`
 	Labels    *map[string]string `json:"labels"`
@@ -689,17 +644,17 @@ type MonitorTriggerInstance struct {
 // When ScheduleIDs is empty, this is a one-off muting rule.
 type MutingRule struct {
 	// Comment Optional: Comment can be used to additional note along with the muting rule.
-	Comment string `json:"comment"`
+	Comment *string `json:"comment,omitempty"`
 
 	// CreatedAt CreatedAt is the creation timestamp for the muting rules. May be empty.
 	CreatedAt *time.Time `json:"createdAt,omitempty"`
 
 	// CreatedBy Optional: CreatedBy is the user who created the muting rule.
-	CreatedBy string `json:"createdBy"`
+	CreatedBy *string `json:"createdBy,omitempty"`
 
 	// EndsAt Optional: EndsAt is the end time when muting ends. If not specified, then muting is effective forever. Only for one-off rules.
-	EndsAt time.Time `json:"endsAt"`
-	Id     string    `json:"id"`
+	EndsAt *time.Time `json:"endsAt,omitempty"`
+	Id     string     `json:"id"`
 
 	// Matchers Matchers is the list of matchers that determine when this rule applies.
 	// An alert instance is muted if it matches all the matchers.
@@ -716,21 +671,19 @@ type MutingRule struct {
 	Schedules *[]Schedule `json:"schedules,omitempty"`
 
 	// StartsAt Optional: StartsAt is the start time when muting starts. Defaults to current time. Only for one-off rules.
-	StartsAt time.Time `json:"startsAt"`
+	StartsAt *time.Time `json:"startsAt,omitempty"`
 
 	// UpdatedAt UpdatedAt is the timestamp of the last update of the muting rule.
-	UpdatedAt time.Time `json:"updatedAt"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
 // NotificationPolicy NotificationPolicy represents a policy for sending notifications based on severity.
 // A notification policy is associated with a monitor.
 type NotificationPolicy struct {
 	// Global Global policy is applied to all monitors in addition to any monitor specific policies.
-	Global *bool `json:"global,omitempty"`
-
-	// Id ID is a unique identifier (UUID string) used in all alert related models.
-	Id         *ID   `json:"id,omitempty"`
-	MuteGlobal *bool `json:"mute_global,omitempty"`
+	Global     *bool               `json:"global,omitempty"`
+	Id         *openapi_types.UUID `json:"id,omitempty"`
+	MuteGlobal *bool               `json:"mute_global,omitempty"`
 
 	// MuteNonGlobal MuteNonGlobal is used to disable all non-global policies. It can only be set for a Global
 	// notification policy. Global policy would still be effective when MuteNonGlobal is true.
@@ -750,12 +703,10 @@ type Notifier struct {
 	EmailConfig *EmailConfig `json:"email_config,omitempty"`
 
 	// GooglechatConfig GoogleChatConfig configures notifications via Google Chat.
-	GooglechatConfig *GoogleChatConfig `json:"googlechat_config,omitempty"`
-
-	// Id ID is a unique identifier (UUID string) used in all alert related models.
-	Id              *ID              `json:"id,omitempty"`
-	Msteamsv2Config *MSTeamsV2Config `json:"msteamsv2_config,omitempty"`
-	Name            *string          `json:"name,omitempty"`
+	GooglechatConfig *GoogleChatConfig   `json:"googlechat_config,omitempty"`
+	Id               *openapi_types.UUID `json:"id,omitempty"`
+	Msteamsv2Config  *MSTeamsV2Config    `json:"msteamsv2_config,omitempty"`
+	Name             *string             `json:"name,omitempty"`
 
 	// OpsgenieConfig OpsGenieConfig configures notifications via OpsGenie.
 	OpsgenieConfig *OpsGenieConfig `json:"opsgenie_config,omitempty"`
@@ -776,23 +727,23 @@ type Notifier struct {
 
 // NotifiersByCondition NotifiersByCondition represents notifiers for each severity level.
 type NotifiersByCondition struct {
-	Any      *[]ID `json:"any,omitempty"`
-	Critical *[]ID `json:"critical,omitempty"`
-	NoData   *[]ID `json:"no_data,omitempty"`
-	Warn     *[]ID `json:"warn,omitempty"`
+	Any      *[]openapi_types.UUID `json:"any,omitempty"`
+	Critical *[]openapi_types.UUID `json:"critical,omitempty"`
+	NoData   *[]openapi_types.UUID `json:"no_data,omitempty"`
+	Warn     *[]openapi_types.UUID `json:"warn,omitempty"`
 }
 
 // OAuth2 OAuth2 is the oauth2 client configuration.
 type OAuth2 struct {
 	// TLSConfig TLSConfig configures the options for TLS connections.
-	TLSConfig        TLSConfig `json:"TLSConfig"`
-	ClientId         string    `json:"client_id"`
-	ClientSecret     string    `json:"client_secret"`
-	ClientSecretFile string    `json:"client_secret_file"`
+	TLSConfig        *TLSConfig `json:"TLSConfig,omitempty"`
+	ClientId         string     `json:"client_id"`
+	ClientSecret     *string    `json:"client_secret,omitempty"`
+	ClientSecretFile *string    `json:"client_secret_file,omitempty"`
 
 	// ClientSecretRef ClientSecretRef is the name of the secret within the secret manager to use as the client
 	// secret.
-	ClientSecretRef string             `json:"client_secret_ref"`
+	ClientSecretRef *string            `json:"client_secret_ref,omitempty"`
 	EndpointParams  *map[string]string `json:"endpoint_params,omitempty"`
 
 	// NoProxy NoProxy contains addresses that should not use a proxy.
@@ -806,12 +757,9 @@ type OAuth2 struct {
 
 	// ProxyFromEnvironment ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
 	// to determine proxies.
-	ProxyFromEnvironment *bool `json:"proxy_from_environment,omitempty"`
-
-	// ProxyUrl URL is a custom URL type that allows validation at configuration load time.
-	ProxyUrl *URL      `json:"proxy_url,omitempty"`
-	Scopes   *[]string `json:"scopes,omitempty"`
-	TokenUrl string    `json:"token_url"`
+	ProxyFromEnvironment *bool     `json:"proxy_from_environment,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	TokenUrl             string    `json:"token_url"`
 }
 
 // OpsGenieConfig OpsGenieConfig configures notifications via OpsGenie.
@@ -1091,6 +1039,37 @@ type SyntheticLabelMatcherNotifications struct {
 	Notifiers *SyntheticNotifiersByCondition `json:"notifiers,omitempty"`
 }
 
+// SyntheticMonitor SyntheticMonitor represents a synthetic monitoring rule
+type SyntheticMonitor struct {
+	// AgentName AgentName is the optional name of the agent
+	// through which to route the check.
+	AgentName   *string            `json:"agent_name,omitempty"`
+	Annotations *map[string]string `json:"annotations,omitempty"`
+
+	// Conditions ConditionBySeverity defines conditions for each severity level
+	Conditions  *SyntheticConditionBySeverity `json:"conditions,omitempty"`
+	CreatedAt   *time.Time                    `json:"created_at,omitempty"`
+	Description *string                       `json:"description,omitempty"`
+	Enabled     bool                          `json:"enabled"`
+	Id          *string                       `json:"id,omitempty"`
+	Instance    string                        `json:"instance"`
+	Interval    string                        `json:"interval"`
+	Labels      *map[string]string            `json:"labels,omitempty"`
+
+	// LastResult CheckResult represents the result of a synthetic check
+	LastResult           *SyntheticCheckResult                 `json:"last_result,omitempty"`
+	LastRunAt            *time.Time                            `json:"last_run_at,omitempty"`
+	Name                 string                                `json:"name"`
+	NotificationPolicyId *string                               `json:"notification_policy_id,omitempty"`
+	Notifications        *[]SyntheticLabelMatcherNotifications `json:"notifications,omitempty"`
+
+	// RuleConfig RuleConfig is a union type for different rule configurations
+	RuleConfig SyntheticRuleConfig `json:"rule_config"`
+	RuleType   string              `json:"rule_type"`
+	Timeout    string              `json:"timeout"`
+	UpdatedAt  *time.Time          `json:"updated_at,omitempty"`
+}
+
 // SyntheticNotifiersByCondition NotifiersByCondition defines notifiers for each condition
 type SyntheticNotifiersByCondition struct {
 	Any      *[]string `json:"any,omitempty"`
@@ -1132,37 +1111,6 @@ type SyntheticSSLRuleConfig struct {
 	InsecureSkipVerify        bool   `json:"insecure_skip_verify"`
 	Port                      int    `json:"port"`
 	WarnDaysBeforeExpiry      int    `json:"warn_days_before_expiry"`
-}
-
-// SyntheticSyntheticMonitor SyntheticMonitor represents a synthetic monitoring rule
-type SyntheticSyntheticMonitor struct {
-	// AgentName AgentName is the optional name of the agent
-	// through which to route the check.
-	AgentName   *string            `json:"agent_name,omitempty"`
-	Annotations *map[string]string `json:"annotations,omitempty"`
-
-	// Conditions ConditionBySeverity defines conditions for each severity level
-	Conditions  *SyntheticConditionBySeverity `json:"conditions,omitempty"`
-	CreatedAt   *time.Time                    `json:"created_at,omitempty"`
-	Description *string                       `json:"description,omitempty"`
-	Enabled     bool                          `json:"enabled"`
-	Id          *string                       `json:"id,omitempty"`
-	Instance    string                        `json:"instance"`
-	Interval    string                        `json:"interval"`
-	Labels      *map[string]string            `json:"labels,omitempty"`
-
-	// LastResult CheckResult represents the result of a synthetic check
-	LastResult           *SyntheticCheckResult                 `json:"last_result,omitempty"`
-	LastRunAt            *time.Time                            `json:"last_run_at,omitempty"`
-	Name                 string                                `json:"name"`
-	NotificationPolicyId *string                               `json:"notification_policy_id,omitempty"`
-	Notifications        *[]SyntheticLabelMatcherNotifications `json:"notifications,omitempty"`
-
-	// RuleConfig RuleConfig is a union type for different rule configurations
-	RuleConfig SyntheticRuleConfig `json:"rule_config"`
-	RuleType   string              `json:"rule_type"`
-	Timeout    string              `json:"timeout"`
-	UpdatedAt  *time.Time          `json:"updated_at,omitempty"`
 }
 
 // SyntheticTCPRuleConfig TCPRuleConfig is the configuration for TCP checks
@@ -1232,17 +1180,136 @@ type TLSConfig struct {
 	ServerName *string `json:"server_name,omitempty"`
 }
 
+// Trace defines model for Trace.
+type Trace struct {
+	Processes *map[string]TraceProcess `json:"processes"`
+	Spans     *[]TraceSpan             `json:"spans"`
+	TraceID   string                   `json:"traceID"`
+	Warnings  *string                  `json:"warnings,omitempty"`
+}
+
+// TraceLabelsResponse defines model for TraceLabelsResponse.
+type TraceLabelsResponse struct {
+	Data   *[]string `json:"data"`
+	Errors *string   `json:"errors,omitempty"`
+	Limit  int       `json:"limit"`
+	Offset int       `json:"offset"`
+	Total  int       `json:"total"`
+}
+
+// TraceProcess defines model for TraceProcess.
+type TraceProcess struct {
+	ServiceName string          `json:"serviceName"`
+	Tags        *[]TraceSpanTag `json:"tags"`
+}
+
+// TraceSpan defines model for TraceSpan.
+type TraceSpan struct {
+	Duration      int                   `json:"duration"`
+	EndTime       int                   `json:"endTime"`
+	Logs          *[]TraceSpanLog       `json:"logs"`
+	OperationName string                `json:"operationName"`
+	ParentSpanID  string                `json:"parentSpanID"`
+	ProcessID     string                `json:"processID"`
+	References    *[]TraceSpanReference `json:"references"`
+	SpanID        string                `json:"spanID"`
+	StartTime     int                   `json:"startTime"`
+	Tags          *[]TraceSpanTag       `json:"tags"`
+	TraceID       string                `json:"traceID"`
+	Warning       *string               `json:"warning,omitempty"`
+}
+
+// TraceSpanLog defines model for TraceSpanLog.
+type TraceSpanLog struct {
+	Fields    *[]TraceSpanTag `json:"fields"`
+	Timestamp int             `json:"timestamp"`
+}
+
+// TraceSpanReference defines model for TraceSpanReference.
+type TraceSpanReference struct {
+	RefType string `json:"refType"`
+	SpanID  string `json:"spanID"`
+	TraceID string `json:"traceID"`
+}
+
+// TraceSpanTag Tag represents a single key/value attribute attached to a Span,
+// Process, or Log.
+//
+// FilterLabel is the fully-qualified storage-column name this tag was
+// derived from (e.g. "span::http.method", "resource::k8s.cluster.name",
+// "scope_name"). When set, clients can use it directly as a label name
+// for trace filtering without having to guess which bucket (span vs
+// resource) the attribute came from or which prefix to prepend.
+//
+// FilterLabel is empty for synthesised tags that don't correspond to a
+// single indexed label (e.g. "otel.status_code" derived from span_status,
+// "span.kind" from span_kind) and for internal counter columns like
+// dropped_attributes_count and flags that aren't meaningful to filter on.
+type TraceSpanTag struct {
+	FilterLabel *string `json:"filterLabel,omitempty"`
+	Key         string  `json:"key"`
+	Type        string  `json:"type"`
+
+	// Value Value carries the tag's data. Its concrete JSON type (string,
+	// integer, number, or boolean) is declared by the sibling Type field.
+	Value TraceSpanTag_Value `json:"value"`
+}
+
+// TraceSpanTagValue0 defines model for .
+type TraceSpanTagValue0 = string
+
+// TraceSpanTagValue1 defines model for .
+type TraceSpanTagValue1 = int64
+
+// TraceSpanTagValue2 defines model for .
+type TraceSpanTagValue2 = float32
+
+// TraceSpanTagValue3 defines model for .
+type TraceSpanTagValue3 = bool
+
+// TraceSpanTag_Value Value carries the tag's data. Its concrete JSON type (string,
+// integer, number, or boolean) is declared by the sibling Type field.
+type TraceSpanTag_Value struct {
+	union json.RawMessage
+}
+
+// TracesResponse defines model for TracesResponse.
+type TracesResponse struct {
+	Data   *[]Trace `json:"data"`
+	Errors *string  `json:"errors,omitempty"`
+	Limit  int      `json:"limit"`
+	Offset int      `json:"offset"`
+	Total  int      `json:"total"`
+}
+
 // URL URL is a custom URL type that allows validation at configuration load time.
-type URL = string
+type URL struct {
+	ForceQuery  bool   `json:"ForceQuery"`
+	Fragment    string `json:"Fragment"`
+	Host        string `json:"Host"`
+	OmitHost    bool   `json:"OmitHost"`
+	Opaque      string `json:"Opaque"`
+	Path        string `json:"Path"`
+	RawFragment string `json:"RawFragment"`
+	RawPath     string `json:"RawPath"`
+	RawQuery    string `json:"RawQuery"`
+	Scheme      string `json:"Scheme"`
+
+	// User The Userinfo type is an immutable encapsulation of username and
+	// password details for a [URL]. An existing Userinfo value is guaranteed
+	// to have a username set (potentially empty, as allowed by RFC 2396),
+	// and optionally a password.
+	User *NetUrlUserinfo `json:"User,omitempty"`
+}
 
 // UpdateDropRuleRequest UpdateDropRuleRequest is the request body for updating a drop rule.
 type UpdateDropRuleRequest struct {
-	Filters *[]OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"filters"`
+	Filters *[]MetricLabelMatcher `json:"filters"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
-	MetricName OodleThanosPkgStoreStorepbPrompbLabelMatcher `json:"metric_name"`
-	RuleName   string                                       `json:"rule_name"`
-	Type       string                                       `json:"type"`
+	MetricName MetricLabelMatcher `json:"metric_name"`
+	RuleName   string             `json:"rule_name"`
+	Type       string             `json:"type"`
 }
 
 // User User is the API representation of an org user.
@@ -1297,12 +1364,11 @@ type WebhookConfig struct {
 	Url string `json:"url"`
 }
 
-// OodleThanosPkgStoreStorepbPrompbLabelMatcher Matcher specifies a rule, which can match or set of labels or not.
-type OodleThanosPkgStoreStorepbPrompbLabelMatcher struct {
-	Name  *string `json:"name,omitempty"`
-	Type  *int    `json:"type,omitempty"`
-	Value *string `json:"value,omitempty"`
-}
+// NetUrlUserinfo The Userinfo type is an immutable encapsulation of username and
+// password details for a [URL]. An existing Userinfo value is guaranteed
+// to have a username set (potentially empty, as allowed by RFC 2396),
+// and optionally a password.
+type NetUrlUserinfo = map[string]interface{}
 
 // OodleUtilHttputilsModelsError defines model for oodle_util_httputils_models_Error.
 type OodleUtilHttputilsModelsError struct {
@@ -1318,6 +1384,42 @@ type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
 }
 
+// ListNamesParams defines parameters for ListNames.
+type ListNamesParams struct {
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+
+	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
+	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
+
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+}
+
+// GetLabelsByIdParams defines parameters for GetLabelsById.
+type GetLabelsByIdParams struct {
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+
+	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
+	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
+
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+}
+
+// GetValuesByIdParams defines parameters for GetValuesById.
+type GetValuesByIdParams struct {
+	// EndTimeEpochMs End of the time range in epoch milliseconds
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+
+	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
+	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
+
+	// StartTimeEpochMs Start of the time range in epoch milliseconds
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+}
+
 // GetMonitorStateByIdParams defines parameters for GetMonitorStateById.
 type GetMonitorStateByIdParams struct {
 	// HistoryRange Time range for the monitor history in the format start-end in epoch seconds in UTC (e.g. 1705036708-1705123108), defaults to last 7 days
@@ -1327,19 +1429,25 @@ type GetMonitorStateByIdParams struct {
 // ListLabelsParams defines parameters for ListLabels.
 type ListLabelsParams struct {
 	// End End of the time range in epoch microseconds
-	End *int `form:"end,omitempty" json:"end,omitempty"`
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Start Start of the time range in epoch microseconds
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
 }
 
-// GetTraceLabelValuesParams defines parameters for GetTraceLabelValues.
-type GetTraceLabelValuesParams struct {
+// GetTraceLabelValuesByIdParams defines parameters for GetTraceLabelValuesById.
+type GetTraceLabelValuesByIdParams struct {
 	// End End of the time range in epoch microseconds
-	End *int `form:"end,omitempty" json:"end,omitempty"`
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Start Start of the time range in epoch microseconds
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
 }
 
 // ListTracesParams defines parameters for ListTraces.
 type ListTracesParams struct {
 	// End End of the time range in epoch microseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 
 	// Limit Maximum number of traces to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1360,7 +1468,7 @@ type ListTracesParams struct {
 	Service *string `form:"service,omitempty" json:"service,omitempty"`
 
 	// Start Start of the time range in epoch microseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 
 	// Tags JSON-encoded map of tag filters (e.g. {"http.method":"GET"})
 	Tags *string `form:"tags,omitempty" json:"tags,omitempty"`
@@ -1369,10 +1477,10 @@ type ListTracesParams struct {
 // GetTracesByIdParams defines parameters for GetTracesById.
 type GetTracesByIdParams struct {
 	// End End of the time range in epoch microseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 
 	// Start Start of the time range in epoch microseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 }
 
 // ListUsersOpParams defines parameters for ListUsersOp.
@@ -1403,16 +1511,13 @@ type CreateLogmetricsJSONRequestBody = LogMetrics
 type UpdateLogmetricsByIdJSONRequestBody = LogMetrics
 
 // DeleteMonitorsJSONRequestBody defines body for DeleteMonitors for application/json ContentType.
-type DeleteMonitorsJSONRequestBody = AnonymousType5
+type DeleteMonitorsJSONRequestBody = BulkDeleteMonitorsRequest
 
 // CreateMonitorsJSONRequestBody defines body for CreateMonitors for application/json ContentType.
 type CreateMonitorsJSONRequestBody = Monitor
 
 // UpdateMonitorsByIdJSONRequestBody defines body for UpdateMonitorsById for application/json ContentType.
 type UpdateMonitorsByIdJSONRequestBody = Monitor
-
-// CreateExpressionInsightReportsByIdJSONRequestBody defines body for CreateExpressionInsightReportsById for application/json ContentType.
-type CreateExpressionInsightReportsByIdJSONRequestBody = GenerateMonitorExpressionInsightReportsReq
 
 // CreateMutingRulesJSONRequestBody defines body for CreateMutingRules for application/json ContentType.
 type CreateMutingRulesJSONRequestBody = MutingRule
@@ -1430,13 +1535,127 @@ type CreateNotifiersJSONRequestBody = Notifier
 type UpdateNotifiersByIdJSONRequestBody = Notifier
 
 // CreateSyntheticMonitorsJSONRequestBody defines body for CreateSyntheticMonitors for application/json ContentType.
-type CreateSyntheticMonitorsJSONRequestBody = SyntheticSyntheticMonitor
+type CreateSyntheticMonitorsJSONRequestBody = SyntheticMonitor
 
 // UpdateSyntheticMonitorsByIdJSONRequestBody defines body for UpdateSyntheticMonitorsById for application/json ContentType.
-type UpdateSyntheticMonitorsByIdJSONRequestBody = SyntheticSyntheticMonitor
+type UpdateSyntheticMonitorsByIdJSONRequestBody = SyntheticMonitor
 
 // CreateInvitationsJSONRequestBody defines body for CreateInvitations for application/json ContentType.
 type CreateInvitationsJSONRequestBody = SendInvitationRequest
 
 // CreateBulkJSONRequestBody defines body for CreateBulk for application/json ContentType.
 type CreateBulkJSONRequestBody = BulkSendInvitationRequest
+
+// AsTraceSpanTagValue0 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue0
+func (t TraceSpanTag_Value) AsTraceSpanTagValue0() (TraceSpanTagValue0, error) {
+	var body TraceSpanTagValue0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue0 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue0
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue0(v TraceSpanTagValue0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue0 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue0
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue0(v TraceSpanTagValue0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue1 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue1
+func (t TraceSpanTag_Value) AsTraceSpanTagValue1() (TraceSpanTagValue1, error) {
+	var body TraceSpanTagValue1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue1 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue1
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue1(v TraceSpanTagValue1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue1 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue1
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue1(v TraceSpanTagValue1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue2 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue2
+func (t TraceSpanTag_Value) AsTraceSpanTagValue2() (TraceSpanTagValue2, error) {
+	var body TraceSpanTagValue2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue2 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue2
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue2(v TraceSpanTagValue2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue2 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue2
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue2(v TraceSpanTagValue2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue3 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue3
+func (t TraceSpanTag_Value) AsTraceSpanTagValue3() (TraceSpanTagValue3, error) {
+	var body TraceSpanTagValue3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue3 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue3
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue3(v TraceSpanTagValue3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue3 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue3
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue3(v TraceSpanTagValue3) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t TraceSpanTag_Value) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *TraceSpanTag_Value) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
