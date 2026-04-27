@@ -411,8 +411,8 @@ func TestMock_LogMetricsList(t *testing.T) {
 }
 
 func TestMock_SyntheticMonitorsList(t *testing.T) {
-	// SyntheticSyntheticMonitor: id is *string, wrapped in {"monitors":[...]}.
-	srv := jsonSrv(`{"monitors":[{"name":"homepage-check","id":"sm-001","enabled":true,"instance":"test","interval":"60s","timeout":"10s","rule_type":"http","rule_config":{}}]}`, 200)
+	// SyntheticMonitor: the API now returns a raw array.
+	srv := jsonSrv(`[{"name":"homepage-check","id":"sm-001","enabled":true,"instance":"test","interval":"60s","timeout":"10s","rule_type":"http","rule_config":{}}]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "synthetic-monitors", "list", "--output", "json")
 	if code != 0 {
@@ -463,7 +463,7 @@ func TestMock_MetricsNames(t *testing.T) {
 }
 
 func TestMock_TracesLabels(t *testing.T) {
-	srv := jsonSrv(`{"data":["service","env"],"total":2,"limit":0,"offset":0}`, 200)
+	srv := jsonSrv(`["service","env"]`, 200)
 	defer srv.Close()
 	stdout, stderr, code := runMock(t, srv.URL, "traces", "labels", "--output", "json")
 	if code != 0 {

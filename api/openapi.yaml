@@ -1,46 +1,10 @@
 # AUTO-GENERATED — do not edit manually.
+# Source: src/go/oodle/api-server/cmd/apispec/apis.go
+# Regenerate: make generate_api_spec
 
 openapi: 3.0.0
 components:
   schemas:
-    AnonymousType1:
-      type: object
-    AnonymousType2:
-      type: object
-    AnonymousType3:
-      type: object
-    AnonymousType4:
-      type: object
-    AnonymousType5:
-      type: object
-      required:
-        - ids
-      properties:
-        ids:
-          type: array
-          nullable: true
-          items:
-            type: string
-    AnonymousType6:
-      type: object
-    AnonymousType7:
-      type: object
-    AnonymousType8:
-      type: object
-    AnonymousType9:
-      type: object
-    AnonymousType10:
-      type: object
-    AnonymousType11:
-      type: object
-    AnonymousType12:
-      type: object
-    AnonymousType13:
-      type: object
-    AnonymousType14:
-      type: object
-    AnonymousType15:
-      type: object
     ApiKey:
       type: object
       required:
@@ -115,6 +79,16 @@ components:
         username_ref:
           type: string
           description: UsernameRef is the name of the secret within the secret manager to use as the username.
+    BulkDeleteMonitorsRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          nullable: true
+          items:
+            type: string
     BulkSendInvitationItem:
       type: object
       description: |-
@@ -245,9 +219,9 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+            $ref: '#/components/schemas/MetricLabelMatcher'
         metric_name:
-          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+          $ref: '#/components/schemas/MetricLabelMatcher'
         rule_name:
           type: string
         type:
@@ -300,6 +274,8 @@ components:
           type: string
         url:
           type: string
+    DeleteResponse:
+      type: object
     DropRule:
       type: object
       description: DropRule is the API model for a metric drop rule.
@@ -314,11 +290,11 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+            $ref: '#/components/schemas/MetricLabelMatcher'
         id:
           type: string
         metric_name:
-          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+          $ref: '#/components/schemas/MetricLabelMatcher'
         rule_name:
           type: string
         type:
@@ -362,6 +338,8 @@ components:
         to:
           type: string
           description: Email address to notify.
+    ExpressionInsightReportResponse:
+      type: object
     Folder:
       type: object
       description: Folder represents a Grafana folder
@@ -369,8 +347,6 @@ components:
         - id
         - uid
         - title
-        - url
-        - version
       properties:
         created:
           type: string
@@ -564,14 +540,19 @@ components:
         Headers:
           type: object
           nullable: true
-          additionalProperties: null
+          additionalProperties:
+            type: string
     HostPort:
-      type: string
+      type: object
       description: HostPort represents a "host:port" network address.
-    ID:
-      type: string
-      format: uuid
-      description: ID is a unique identifier (UUID string) used in all alert related models.
+      required:
+        - Host
+        - Port
+      properties:
+        Host:
+          type: string
+        Port:
+          type: string
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -615,7 +596,9 @@ components:
           items:
             $ref: '#/components/schemas/LabelMatcher'
         notification_policy_id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          description: NotificationPolicyID references the notification policy to use when labels match
         notifiers:
           $ref: '#/components/schemas/NotifiersByCondition'
     ListInvitationsResponse:
@@ -691,7 +674,10 @@ components:
         filter:
           $ref: '#/components/schemas/LogFilter'
         id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          description: ID is the unique identifier.
+          readOnly: true
         labels:
           type: array
           description: |-
@@ -790,6 +776,16 @@ components:
           nullable: true
         type:
           $ref: '#/components/schemas/MetricType'
+    MetricLabelMatcher:
+      type: object
+      description: Matcher specifies a rule, which can match or set of labels or not.
+      properties:
+        name:
+          type: string
+        type:
+          type: integer
+        value:
+          type: string
     MetricType:
       type: string
       description: |-
@@ -806,6 +802,9 @@ components:
     Monitor:
       type: object
       description: Monitor is a model for a monitor.
+      required:
+        - name
+        - promql_query
       properties:
         annotations:
           type: object
@@ -826,7 +825,9 @@ components:
         grouping:
           $ref: '#/components/schemas/Grouping'
         id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          readOnly: true
         interval:
           type: string
           format: duration
@@ -851,7 +852,13 @@ components:
           type: string
           description: Name is the name of the monitor.
         notification_policy_id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          description: |-
+            Deprecated: NotificationPolicyID is the ID of the notification policy associated with the monitor.
+            It is an optional field.
+          nullable: true
+          deprecated: true
         notifications:
           type: array
           description: |-
@@ -872,6 +879,7 @@ components:
         updated_at_epoch_ms:
           type: integer
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+          readOnly: true
     MonitorState:
       type: object
       description: MonitorState represents the state of a monitor.
@@ -892,13 +900,20 @@ components:
           items:
             $ref: '#/components/schemas/MonitorTriggerInstance'
         id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
         last_evaluation:
           type: string
           format: date-time
     MonitorTrigger:
       type: object
-      description: MonitorTrigger represents a monitor that triggers an alert.
+      description: |-
+        MonitorTrigger represents a monitor that triggers an alert.
+
+        JSON field names use camelCase (monitorID, startsAt, endsAt, updatedAt) for
+        historical reasons — most other Oodle API schemas use snake_case. The
+        camelCase casing is preserved here to avoid breaking existing HTTP clients
+        that depend on the current field names. New schemas should use snake_case.
       required:
         - startsAt
         - endsAt
@@ -957,12 +972,7 @@ components:
         When ScheduleIDs is empty, this is a one-off muting rule.
       required:
         - id
-        - updatedAt
-        - startsAt
-        - endsAt
         - matchers
-        - createdBy
-        - comment
       properties:
         comment:
           type: string
@@ -1023,7 +1033,9 @@ components:
           type: boolean
           description: Global policy is applied to all monitors in addition to any monitor specific policies.
         id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          readOnly: true
         mute_global:
           type: boolean
         mute_non_global:
@@ -1038,6 +1050,7 @@ components:
         updated_at_epoch_ms:
           type: integer
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+          readOnly: true
     Notifier:
       type: object
       description: Notifier represents a single notification target.
@@ -1049,7 +1062,9 @@ components:
         googlechat_config:
           $ref: '#/components/schemas/GoogleChatConfig'
         id:
-          $ref: '#/components/schemas/ID'
+          type: string
+          format: uuid
+          readOnly: true
         msteamsv2_config:
           $ref: '#/components/schemas/MSTeamsV2Config'
         name:
@@ -1075,32 +1090,32 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/ID'
+            type: string
+            format: uuid
         critical:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/ID'
+            type: string
+            format: uuid
         no_data:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/ID'
+            type: string
+            format: uuid
         warn:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/ID'
+            type: string
+            format: uuid
     OAuth2:
       type: object
       description: OAuth2 is the oauth2 client configuration.
       required:
         - client_id
-        - client_secret
-        - client_secret_file
-        - client_secret_ref
         - token_url
-        - TLSConfig
       properties:
         TLSConfig:
           $ref: '#/components/schemas/TLSConfig'
@@ -1674,6 +1689,74 @@ components:
           type: string
         notifiers:
           $ref: '#/components/schemas/SyntheticNotifiersByCondition'
+    SyntheticMonitor:
+      type: object
+      description: SyntheticMonitor represents a synthetic monitoring rule
+      required:
+        - instance
+        - name
+        - enabled
+        - rule_type
+        - rule_config
+        - interval
+        - timeout
+      properties:
+        agent_name:
+          type: string
+          description: |-
+            AgentName is the optional name of the agent
+            through which to route the check.
+        annotations:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        conditions:
+          $ref: '#/components/schemas/SyntheticConditionBySeverity'
+        created_at:
+          type: string
+          format: date-time
+        description:
+          type: string
+        enabled:
+          type: boolean
+        id:
+          type: string
+        instance:
+          type: string
+        interval:
+          type: string
+          format: duration
+        labels:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        last_result:
+          $ref: '#/components/schemas/SyntheticCheckResult'
+        last_run_at:
+          type: string
+          format: date-time
+          nullable: true
+        name:
+          type: string
+        notification_policy_id:
+          type: string
+        notifications:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticLabelMatcherNotifications'
+        rule_config:
+          $ref: '#/components/schemas/SyntheticRuleConfig'
+        rule_type:
+          type: string
+        timeout:
+          type: string
+          format: duration
+        updated_at:
+          type: string
+          format: date-time
     SyntheticNotifiersByCondition:
       type: object
       description: NotifiersByCondition defines notifiers for each condition
@@ -1744,74 +1827,6 @@ components:
           type: integer
         warn_days_before_expiry:
           type: integer
-    SyntheticSyntheticMonitor:
-      type: object
-      description: SyntheticMonitor represents a synthetic monitoring rule
-      required:
-        - instance
-        - name
-        - enabled
-        - rule_type
-        - rule_config
-        - interval
-        - timeout
-      properties:
-        agent_name:
-          type: string
-          description: |-
-            AgentName is the optional name of the agent
-            through which to route the check.
-        annotations:
-          type: object
-          nullable: true
-          additionalProperties:
-            type: string
-        conditions:
-          $ref: '#/components/schemas/SyntheticConditionBySeverity'
-        created_at:
-          type: string
-          format: date-time
-        description:
-          type: string
-        enabled:
-          type: boolean
-        id:
-          type: string
-        instance:
-          type: string
-        interval:
-          type: string
-          format: duration
-        labels:
-          type: object
-          nullable: true
-          additionalProperties:
-            type: string
-        last_result:
-          $ref: '#/components/schemas/SyntheticCheckResult'
-        last_run_at:
-          type: string
-          format: date-time
-          nullable: true
-        name:
-          type: string
-        notification_policy_id:
-          type: string
-        notifications:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/SyntheticLabelMatcherNotifications'
-        rule_config:
-          $ref: '#/components/schemas/SyntheticRuleConfig'
-        rule_type:
-          type: string
-        timeout:
-          type: string
-          format: duration
-        updated_at:
-          type: string
-          format: date-time
     SyntheticTCPRuleConfig:
       type: object
       description: TCPRuleConfig is the configuration for TCP checks
@@ -1902,9 +1917,49 @@ components:
         server_name:
           type: string
           description: Used to verify the hostname for the targets.
+    TraceDetailResponse:
+      type: object
+      description: Tempo-compatible trace payload. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
+    TraceListResponse:
+      type: object
+      description: Tempo-compatible search response. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
     URL:
-      type: string
+      type: object
       description: URL is a custom URL type that allows validation at configuration load time.
+      required:
+        - Scheme
+        - Opaque
+        - Host
+        - Path
+        - RawPath
+        - OmitHost
+        - ForceQuery
+        - RawQuery
+        - Fragment
+        - RawFragment
+      properties:
+        ForceQuery:
+          type: boolean
+        Fragment:
+          type: string
+        Host:
+          type: string
+        OmitHost:
+          type: boolean
+        Opaque:
+          type: string
+        Path:
+          type: string
+        RawFragment:
+          type: string
+        RawPath:
+          type: string
+        RawQuery:
+          type: string
+        Scheme:
+          type: string
+        User:
+          $ref: '#/components/schemas/net_url_Userinfo'
     UpdateDropRuleRequest:
       type: object
       description: UpdateDropRuleRequest is the request body for updating a drop rule.
@@ -1918,9 +1973,9 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+            $ref: '#/components/schemas/MetricLabelMatcher'
         metric_name:
-          $ref: '#/components/schemas/oodle_thanos_pkg_store_storepb_prompb_LabelMatcher'
+          $ref: '#/components/schemas/MetricLabelMatcher'
         rule_name:
           type: string
         type:
@@ -2011,22 +2066,12 @@ components:
           type: string
           description: URL to send POST request to.
     net_url_Userinfo:
-      type: string
+      type: object
       description: |-
         The Userinfo type is an immutable encapsulation of username and
-        password details for a URL. An existing Userinfo value is guaranteed
+        password details for a [URL]. An existing Userinfo value is guaranteed
         to have a username set (potentially empty, as allowed by RFC 2396),
         and optionally a password.
-    oodle_thanos_pkg_store_storepb_prompb_LabelMatcher:
-      type: object
-      description: Matcher specifies a rule, which can match or set of labels or not.
-      properties:
-        name:
-          type: string
-        type:
-          type: integer
-        value:
-          type: string
     oodle_util_httputils_models_Error:
       type: object
       properties:
@@ -2088,7 +2133,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/ApiKey'
         "401":
@@ -2104,7 +2148,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - API Keys
@@ -2148,7 +2196,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/api-keys/{id}:
     delete:
       tags:
@@ -2174,7 +2226,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType1'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
           description: ""
           content:
@@ -2194,7 +2246,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - API Keys
@@ -2239,7 +2295,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/drop-rules:
     get:
       tags:
@@ -2260,7 +2320,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/DropRule'
         "401":
@@ -2276,7 +2335,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Metric Drop Rules
@@ -2320,7 +2383,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/drop-rules/{id}:
     delete:
       tags:
@@ -2346,7 +2413,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType2'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
           description: ""
           content:
@@ -2366,7 +2433,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Metric Drop Rules
@@ -2411,7 +2482,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Metric Drop Rules
@@ -2467,7 +2542,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/grafana/dashboards:
     get:
       tags:
@@ -2488,7 +2567,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/DashboardSearchEntry'
         "401":
@@ -2504,7 +2582,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Dashboards
@@ -2548,7 +2630,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/grafana/dashboards/{id}:
     delete:
       tags:
@@ -2574,7 +2660,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType3'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
           description: ""
           content:
@@ -2594,7 +2680,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Dashboards
@@ -2639,7 +2729,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/grafana/folders:
     get:
       tags:
@@ -2660,7 +2754,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/Folder'
         "401":
@@ -2676,7 +2769,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Dashboard Folders
@@ -2720,7 +2817,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/logmetrics:
     get:
       tags:
@@ -2741,7 +2842,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/LogMetrics'
         "401":
@@ -2757,7 +2857,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Log Metrics
@@ -2801,7 +2905,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/logmetrics/{id}:
     delete:
       tags:
@@ -2827,7 +2935,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType4'
+                $ref: '#/components/schemas/DeleteResponse'
         "400":
           description: ""
           content:
@@ -2853,7 +2961,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Log Metrics
@@ -2904,7 +3016,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Log Metrics
@@ -2960,7 +3076,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/metrics/{metric_name}/labels:
     get:
       tags:
@@ -2968,6 +3088,23 @@ paths:
       summary: Get Labels
       operationId: getLabelsById
       parameters:
+        - name: endTimeEpochMs
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: filters
+          in: query
+          description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
+          schema:
+            type: string
+        - name: startTimeEpochMs
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
         - name: instance
           in: path
           description: Oodle instance ID
@@ -2987,9 +3124,14 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   type: string
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
           description: ""
           content:
@@ -3003,7 +3145,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/metrics/{metric_name}/labels/{label_name}/values:
     get:
       tags:
@@ -3011,6 +3157,23 @@ paths:
       summary: Get Values
       operationId: getValuesById
       parameters:
+        - name: endTimeEpochMs
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: filters
+          in: query
+          description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
+          schema:
+            type: string
+        - name: startTimeEpochMs
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
         - name: instance
           in: path
           description: Oodle instance ID
@@ -3036,9 +3199,14 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   type: string
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
           description: ""
           content:
@@ -3052,7 +3220,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/metrics/names:
     get:
       tags:
@@ -3060,6 +3232,23 @@ paths:
       summary: List Names
       operationId: listNames
       parameters:
+        - name: endTimeEpochMs
+          in: query
+          description: End of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
+        - name: filters
+          in: query
+          description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
+          schema:
+            type: string
+        - name: startTimeEpochMs
+          in: query
+          description: Start of the time range in epoch milliseconds
+          required: true
+          schema:
+            type: integer
         - name: instance
           in: path
           description: Oodle instance ID
@@ -3073,9 +3262,14 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   type: string
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
           description: ""
           content:
@@ -3089,7 +3283,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/monitor-state/{id}:
     get:
       tags:
@@ -3133,6 +3331,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -3140,7 +3344,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/monitor-triggers:
     get:
       tags:
@@ -3161,7 +3369,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/MonitorTrigger'
         "401":
@@ -3177,7 +3384,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/monitors:
     delete:
       tags:
@@ -3195,14 +3406,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AnonymousType5'
+              $ref: '#/components/schemas/BulkDeleteMonitorsRequest'
       responses:
         "200":
           description: ""
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType6'
+                $ref: '#/components/schemas/DeleteResponse'
         "400":
           description: ""
           content:
@@ -3222,7 +3433,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Monitors
@@ -3242,15 +3457,8 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/Monitor'
-        "400":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
           description: ""
           content:
@@ -3264,7 +3472,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Monitors
@@ -3308,7 +3520,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/monitors/{id}:
     delete:
       tags:
@@ -3334,7 +3550,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType7'
+                $ref: '#/components/schemas/DeleteResponse'
         "400":
           description: ""
           content:
@@ -3347,6 +3563,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -3354,7 +3576,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Monitors
@@ -3405,7 +3631,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Monitors
@@ -3461,7 +3691,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/monitors/{id}/expression-insight-reports:
     post:
       tags:
@@ -3492,7 +3726,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType8'
+                $ref: '#/components/schemas/ExpressionInsightReportResponse'
         "400":
           description: ""
           content:
@@ -3505,6 +3739,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -3512,7 +3752,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/muting-rules:
     get:
       tags:
@@ -3533,7 +3777,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/MutingRule'
         "401":
@@ -3549,7 +3792,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Muting Rules
@@ -3593,7 +3840,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/muting-rules/{id}:
     delete:
       tags:
@@ -3619,7 +3870,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType9'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
           description: ""
           content:
@@ -3639,7 +3890,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Muting Rules
@@ -3684,7 +3939,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/notification-policies:
     get:
       tags:
@@ -3705,7 +3964,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/NotificationPolicy'
         "401":
@@ -3721,7 +3979,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Notification Policies
@@ -3765,7 +4027,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/notification-policies/{id}:
     delete:
       tags:
@@ -3791,7 +4057,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType10'
+                $ref: '#/components/schemas/DeleteResponse'
         "400":
           description: ""
           content:
@@ -3804,6 +4070,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -3811,7 +4083,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Notification Policies
@@ -3862,7 +4138,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Notification Policies
@@ -3918,7 +4198,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/notifiers:
     get:
       tags:
@@ -3939,7 +4223,6 @@ paths:
             application/json:
               schema:
                 type: array
-                nullable: true
                 items:
                   $ref: '#/components/schemas/Notifier'
         "401":
@@ -3955,7 +4238,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Notifiers
@@ -3999,7 +4286,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/notifiers/{id}:
     delete:
       tags:
@@ -4025,7 +4316,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType11'
+                $ref: '#/components/schemas/DeleteResponse'
         "400":
           description: ""
           content:
@@ -4033,6 +4324,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
           description: ""
           content:
             application/json:
@@ -4051,7 +4348,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Notifiers
@@ -4102,7 +4403,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Notifiers
@@ -4158,7 +4463,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/synthetic-monitors:
     get:
       tags:
@@ -4178,13 +4487,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  monitors:
-                    type: array
-                    nullable: true
-                    items:
-                      $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+                type: array
+                items:
+                  $ref: '#/components/schemas/SyntheticMonitor'
         "401":
           description: ""
           content:
@@ -4198,7 +4503,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Synthetic Monitors
@@ -4215,14 +4524,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+              $ref: '#/components/schemas/SyntheticMonitor'
       responses:
         "200":
           description: ""
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+                $ref: '#/components/schemas/SyntheticMonitor'
         "400":
           description: ""
           content:
@@ -4242,7 +4551,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/synthetic-monitors/{id}:
     delete:
       tags:
@@ -4263,12 +4576,12 @@ paths:
           schema:
             type: string
       responses:
-        "204":
+        "200":
           description: ""
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType12'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
           description: ""
           content:
@@ -4288,7 +4601,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Synthetic Monitors
@@ -4313,7 +4630,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+                $ref: '#/components/schemas/SyntheticMonitor'
         "401":
           description: ""
           content:
@@ -4333,7 +4650,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     put:
       tags:
         - Synthetic Monitors
@@ -4356,14 +4677,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+              $ref: '#/components/schemas/SyntheticMonitor'
       responses:
         "200":
           description: ""
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/SyntheticSyntheticMonitor'
+                $ref: '#/components/schemas/SyntheticMonitor'
         "400":
           description: ""
           content:
@@ -4389,7 +4710,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/synthetic-monitors/{id}/run:
     post:
       tags:
@@ -4435,7 +4760,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/template-files:
     post:
       tags:
@@ -4478,7 +4807,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/traces/labels:
     get:
       tags:
@@ -4489,6 +4822,11 @@ paths:
         - name: end
           in: query
           description: End of the time range in epoch microseconds
+          schema:
+            type: integer
+        - name: start
+          in: query
+          description: Start of the time range in epoch microseconds
           schema:
             type: integer
         - name: instance
@@ -4503,19 +4841,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    nullable: true
-                    items:
-                      type: string
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
+                type: array
+                items:
+                  type: string
         "400":
           description: ""
           content:
@@ -4535,17 +4863,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/traces/labels/{label_name}/values:
     get:
       tags:
         - Traces
       summary: Get Values
-      operationId: getTraceLabelValues
+      operationId: getTraceLabelValuesById
       parameters:
         - name: end
           in: query
           description: End of the time range in epoch microseconds
+          schema:
+            type: integer
+        - name: start
+          in: query
+          description: Start of the time range in epoch microseconds
           schema:
             type: integer
         - name: instance
@@ -4566,19 +4903,9 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  data:
-                    type: array
-                    nullable: true
-                    items:
-                      type: string
-                  total:
-                    type: integer
-                  limit:
-                    type: integer
-                  offset:
-                    type: integer
+                type: array
+                items:
+                  type: string
         "400":
           description: ""
           content:
@@ -4598,7 +4925,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/traces/traces:
     get:
       tags:
@@ -4665,7 +4996,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType13'
+                $ref: '#/components/schemas/TraceListResponse'
         "400":
           description: ""
           content:
@@ -4685,7 +5016,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/traces/traces/{trace_id}:
     get:
       tags:
@@ -4723,7 +5058,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType14'
+                $ref: '#/components/schemas/TraceDetailResponse'
         "400":
           description: ""
           content:
@@ -4749,7 +5084,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users:
     get:
       tags:
@@ -4781,6 +5120,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -4788,7 +5133,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users/invitations:
     get:
       tags:
@@ -4815,6 +5164,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -4822,7 +5177,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     post:
       tags:
         - Users
@@ -4859,6 +5218,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -4866,7 +5231,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users/invitations/{id}:
     delete:
       tags:
@@ -4892,8 +5261,14 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AnonymousType15'
+                $ref: '#/components/schemas/DeleteResponse'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
           description: ""
           content:
             application/json:
@@ -4912,7 +5287,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users/invitations/bulk:
     post:
       tags:
@@ -4950,6 +5329,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -4957,7 +5342,11 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         default:
-          description: ""
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
 security:
   - ApiKeyAuth: []
 servers:

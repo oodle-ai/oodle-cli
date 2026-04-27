@@ -53,10 +53,10 @@ func newSyntheticMonitorsListCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil || resp.JSON200.Monitors == nil {
+			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200.Monitors, syntheticMonitorListColumns())
+			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, syntheticMonitorListColumns())
 		},
 	}
 }

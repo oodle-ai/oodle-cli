@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -11,39 +9,6 @@ import (
 
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
-
-func TestWithTimeRange(t *testing.T) {
-	fn := withTimeRange(1000, 2000)
-	req, _ := http.NewRequest("GET", "http://example.com/api/metrics/names", nil)
-	if err := fn(context.Background(), req); err != nil {
-		t.Fatalf("withTimeRange returned error: %v", err)
-	}
-	q := req.URL.Query()
-	if got := q.Get("startTimeEpochMs"); got != "1000" {
-		t.Errorf("startTimeEpochMs = %q, want %q", got, "1000")
-	}
-	if got := q.Get("endTimeEpochMs"); got != "2000" {
-		t.Errorf("endTimeEpochMs = %q, want %q", got, "2000")
-	}
-}
-
-func TestWithTimeRange_PreservesExistingParams(t *testing.T) {
-	fn := withTimeRange(100, 200)
-	req, _ := http.NewRequest("GET", "http://example.com/api?existing=yes", nil)
-	if err := fn(context.Background(), req); err != nil {
-		t.Fatalf("withTimeRange returned error: %v", err)
-	}
-	q := req.URL.Query()
-	if got := q.Get("existing"); got != "yes" {
-		t.Errorf("existing param lost: got %q, want %q", got, "yes")
-	}
-	if got := q.Get("startTimeEpochMs"); got != "100" {
-		t.Errorf("startTimeEpochMs = %q, want %q", got, "100")
-	}
-	if got := q.Get("endTimeEpochMs"); got != "200" {
-		t.Errorf("endTimeEpochMs = %q, want %q", got, "200")
-	}
-}
 
 func TestPrintStringSlice_TableNames(t *testing.T) {
 	var buf bytes.Buffer

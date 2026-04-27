@@ -191,10 +191,10 @@ func newTracesLabelsCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil || resp.JSON200.Data == nil {
+			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
+			return printStringSlice(cmd, format, *resp.JSON200, "Label")
 		},
 	}
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
@@ -212,7 +212,7 @@ func newTracesLabelValuesCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			params := &client.GetTraceLabelValuesParams{}
+			params := &client.GetTraceLabelValuesByIdParams{}
 			if cmd.Flags().Changed("end") {
 				end, err := parseTimeFlag(endStr)
 				if err != nil {
@@ -222,17 +222,17 @@ func newTracesLabelValuesCmd() *cobra.Command {
 				params.End = &v
 			}
 
-			resp, err := c.Inner.GetTraceLabelValuesWithResponse(cmd.Context(), instance, args[0], params)
+			resp, err := c.Inner.GetTraceLabelValuesByIdWithResponse(cmd.Context(), instance, args[0], params)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil || resp.JSON200.Data == nil {
+			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200.Data, "Value")
+			return printStringSlice(cmd, format, *resp.JSON200, "Value")
 		},
 	}
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
