@@ -4,8 +4,10 @@
 package client
 
 import (
+	"encoding/json"
 	"time"
 
+	"github.com/oapi-codegen/runtime"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
@@ -124,7 +126,10 @@ type BasicAuth struct {
 	UsernameRef *string `json:"username_ref,omitempty"`
 }
 
-// BulkDeleteMonitorsRequest defines model for BulkDeleteMonitorsRequest.
+// BulkDeleteMonitorsRequest BulkDeleteMonitorsRequest is the JSON body of `DELETE /monitors`.
+//
+// Clients pass the monitor IDs to delete via the `ids` field. An empty
+// or missing list is rejected by the handler.
 type BulkDeleteMonitorsRequest struct {
 	Ids *[]string `json:"ids"`
 }
@@ -229,8 +234,13 @@ type DashboardSearchEntry struct {
 	Url         string    `json:"url"`
 }
 
-// DeleteResponse defines model for DeleteResponse.
-type DeleteResponse = map[string]interface{}
+// DeleteDashboardResponse DeleteDashboardResponse is the JSON body of a successful
+// `DELETE /grafana/dashboards/{id}`. Unlike most DELETEs (which return
+// 204 No Content) this endpoint returns the upstream Grafana status
+// string for backward compatibility.
+type DeleteDashboardResponse struct {
+	Status string `json:"status"`
+}
 
 // DropRule DropRule is the API model for a metric drop rule.
 type DropRule struct {
@@ -255,10 +265,8 @@ type EmailConfig struct {
 	Html         *string            `json:"html,omitempty"`
 	RequireTls   *bool              `json:"require_tls,omitempty"`
 	SendResolved bool               `json:"send_resolved"`
-
-	// Smarthost HostPort represents a "host:port" network address.
-	Smarthost *HostPort `json:"smarthost,omitempty"`
-	Text      *string   `json:"text,omitempty"`
+	Smarthost    *string            `json:"smarthost,omitempty"`
+	Text         *string            `json:"text,omitempty"`
 
 	// TlsConfig TLSConfig configures the options for TLS connections.
 	TlsConfig *TLSConfig `json:"tls_config,omitempty"`
@@ -266,9 +274,6 @@ type EmailConfig struct {
 	// To Email address to notify.
 	To *string `json:"to,omitempty"`
 }
-
-// ExpressionInsightReportResponse defines model for ExpressionInsightReportResponse.
-type ExpressionInsightReportResponse = map[string]interface{}
 
 // Folder Folder represents a Grafana folder
 type Folder struct {
@@ -280,28 +285,6 @@ type Folder struct {
 	Updated   *string `json:"updated,omitempty"`
 	Url       *string `json:"url,omitempty"`
 	Version   *int    `json:"version,omitempty"`
-}
-
-// GenerateMonitorExpressionInsightReportsReq GenerateMonitorExpressionInsightReportsReq is the request body for the generate monitor expression insight reports endpoint.
-type GenerateMonitorExpressionInsightReportsReq struct {
-	DoNotReturnAllValues bool `json:"do_not_return_all_values"`
-
-	// EndTimeEpochMillis End time of the report in epoch milliseconds
-	EndTimeEpochMillis int `json:"end_time_epoch_millis"`
-
-	// MonitorInstanceEndsAtTimeEpochMillis The end time of the alert instance in epoch milliseconds for which
-	// this report is being generated.
-	MonitorInstanceEndsAtTimeEpochMillis int `json:"monitor_instance_ends_at_time_epoch_millis"`
-
-	// MonitorInstanceStartTimeEpochMillis The start time of the alert instance in epoch milliseconds for which
-	// this report is being generated.
-	MonitorInstanceStartTimeEpochMillis int `json:"monitor_instance_start_time_epoch_millis"`
-
-	// Severity Severity of the alert instance for which this report is being generated.
-	Severity string `json:"severity"`
-
-	// StartTimeEpochMillis Start time of the report in epoch milliseconds
-	StartTimeEpochMillis int `json:"start_time_epoch_millis"`
 }
 
 // GetDashboardResponse defines model for GetDashboardResponse.
@@ -382,9 +365,6 @@ type HTTPClientConfig struct {
 	// to determine proxies.
 	ProxyFromEnvironment *bool `json:"proxy_from_environment,omitempty"`
 
-	// ProxyUrl URL is a custom URL type that allows validation at configuration load time.
-	ProxyUrl *URL `json:"proxy_url,omitempty"`
-
 	// TlsConfig TLSConfig configures the options for TLS connections.
 	TlsConfig *TLSConfig `json:"tls_config,omitempty"`
 }
@@ -392,12 +372,6 @@ type HTTPClientConfig struct {
 // Headers Headers represents the configuration for HTTP headers.
 type Headers struct {
 	Headers *map[string]string `json:"Headers"`
-}
-
-// HostPort HostPort represents a "host:port" network address.
-type HostPort struct {
-	Host string `json:"Host"`
-	Port string `json:"Port"`
 }
 
 // Label Label represents a name-value pair for a metric label.
@@ -443,6 +417,13 @@ type LabelMatcherNotifications struct {
 // invitations.
 type ListInvitationsResponse struct {
 	Invitations *[]UserInvitation `json:"invitations"`
+}
+
+// ListSyntheticMonitorsResponse ListSyntheticMonitorsResponse is the response body for listing synthetic
+// monitors.
+type ListSyntheticMonitorsResponse struct {
+	Monitors *[]SyntheticMonitor `json:"monitors"`
+	Total    int                 `json:"total"`
 }
 
 // ListUsersResponse ListUsersResponse is the response for listing users.
@@ -776,12 +757,9 @@ type OAuth2 struct {
 
 	// ProxyFromEnvironment ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
 	// to determine proxies.
-	ProxyFromEnvironment *bool `json:"proxy_from_environment,omitempty"`
-
-	// ProxyUrl URL is a custom URL type that allows validation at configuration load time.
-	ProxyUrl *URL      `json:"proxy_url,omitempty"`
-	Scopes   *[]string `json:"scopes,omitempty"`
-	TokenUrl string    `json:"token_url"`
+	ProxyFromEnvironment *bool     `json:"proxy_from_environment,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	TokenUrl             string    `json:"token_url"`
 }
 
 // OpsGenieConfig OpsGenieConfig configures notifications via OpsGenie.
@@ -1202,11 +1180,107 @@ type TLSConfig struct {
 	ServerName *string `json:"server_name,omitempty"`
 }
 
-// TraceDetailResponse Tempo-compatible trace payload. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
-type TraceDetailResponse = map[string]interface{}
+// Trace defines model for Trace.
+type Trace struct {
+	Processes *map[string]TraceProcess `json:"processes"`
+	Spans     *[]TraceSpan             `json:"spans"`
+	TraceID   string                   `json:"traceID"`
+	Warnings  *string                  `json:"warnings,omitempty"`
+}
 
-// TraceListResponse Tempo-compatible search response. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
-type TraceListResponse = map[string]interface{}
+// TraceLabelsResponse defines model for TraceLabelsResponse.
+type TraceLabelsResponse struct {
+	Data   *[]string `json:"data"`
+	Errors *string   `json:"errors,omitempty"`
+	Limit  int       `json:"limit"`
+	Offset int       `json:"offset"`
+	Total  int       `json:"total"`
+}
+
+// TraceProcess defines model for TraceProcess.
+type TraceProcess struct {
+	ServiceName string          `json:"serviceName"`
+	Tags        *[]TraceSpanTag `json:"tags"`
+}
+
+// TraceSpan defines model for TraceSpan.
+type TraceSpan struct {
+	Duration      int                   `json:"duration"`
+	EndTime       int                   `json:"endTime"`
+	Logs          *[]TraceSpanLog       `json:"logs"`
+	OperationName string                `json:"operationName"`
+	ParentSpanID  string                `json:"parentSpanID"`
+	ProcessID     string                `json:"processID"`
+	References    *[]TraceSpanReference `json:"references"`
+	SpanID        string                `json:"spanID"`
+	StartTime     int                   `json:"startTime"`
+	Tags          *[]TraceSpanTag       `json:"tags"`
+	TraceID       string                `json:"traceID"`
+	Warning       *string               `json:"warning,omitempty"`
+}
+
+// TraceSpanLog defines model for TraceSpanLog.
+type TraceSpanLog struct {
+	Fields    *[]TraceSpanTag `json:"fields"`
+	Timestamp int             `json:"timestamp"`
+}
+
+// TraceSpanReference defines model for TraceSpanReference.
+type TraceSpanReference struct {
+	RefType string `json:"refType"`
+	SpanID  string `json:"spanID"`
+	TraceID string `json:"traceID"`
+}
+
+// TraceSpanTag Tag represents a single key/value attribute attached to a Span,
+// Process, or Log.
+//
+// FilterLabel is the fully-qualified storage-column name this tag was
+// derived from (e.g. "span::http.method", "resource::k8s.cluster.name",
+// "scope_name"). When set, clients can use it directly as a label name
+// for trace filtering without having to guess which bucket (span vs
+// resource) the attribute came from or which prefix to prepend.
+//
+// FilterLabel is empty for synthesised tags that don't correspond to a
+// single indexed label (e.g. "otel.status_code" derived from span_status,
+// "span.kind" from span_kind) and for internal counter columns like
+// dropped_attributes_count and flags that aren't meaningful to filter on.
+type TraceSpanTag struct {
+	FilterLabel *string `json:"filterLabel,omitempty"`
+	Key         string  `json:"key"`
+	Type        string  `json:"type"`
+
+	// Value Value carries the tag's data. Its concrete JSON type (string,
+	// integer, number, or boolean) is declared by the sibling Type field.
+	Value TraceSpanTag_Value `json:"value"`
+}
+
+// TraceSpanTagValue0 defines model for .
+type TraceSpanTagValue0 = string
+
+// TraceSpanTagValue1 defines model for .
+type TraceSpanTagValue1 = int64
+
+// TraceSpanTagValue2 defines model for .
+type TraceSpanTagValue2 = float32
+
+// TraceSpanTagValue3 defines model for .
+type TraceSpanTagValue3 = bool
+
+// TraceSpanTag_Value Value carries the tag's data. Its concrete JSON type (string,
+// integer, number, or boolean) is declared by the sibling Type field.
+type TraceSpanTag_Value struct {
+	union json.RawMessage
+}
+
+// TracesResponse defines model for TracesResponse.
+type TracesResponse struct {
+	Data   *[]Trace `json:"data"`
+	Errors *string  `json:"errors,omitempty"`
+	Limit  int      `json:"limit"`
+	Offset int      `json:"offset"`
+	Total  int      `json:"total"`
+}
 
 // URL URL is a custom URL type that allows validation at configuration load time.
 type URL struct {
@@ -1313,37 +1387,37 @@ type OodleUtilHttputilsModelsErrors struct {
 // ListNamesParams defines parameters for ListNames.
 type ListNamesParams struct {
 	// EndTimeEpochMs End of the time range in epoch milliseconds
-	EndTimeEpochMs int `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 
 	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
 	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
 
 	// StartTimeEpochMs Start of the time range in epoch milliseconds
-	StartTimeEpochMs int `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 }
 
 // GetLabelsByIdParams defines parameters for GetLabelsById.
 type GetLabelsByIdParams struct {
 	// EndTimeEpochMs End of the time range in epoch milliseconds
-	EndTimeEpochMs int `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 
 	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
 	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
 
 	// StartTimeEpochMs Start of the time range in epoch milliseconds
-	StartTimeEpochMs int `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 }
 
 // GetValuesByIdParams defines parameters for GetValuesById.
 type GetValuesByIdParams struct {
 	// EndTimeEpochMs End of the time range in epoch milliseconds
-	EndTimeEpochMs int `form:"endTimeEpochMs" json:"endTimeEpochMs"`
+	EndTimeEpochMs int64 `form:"endTimeEpochMs" json:"endTimeEpochMs"`
 
 	// Filters JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.
 	Filters *string `form:"filters,omitempty" json:"filters,omitempty"`
 
 	// StartTimeEpochMs Start of the time range in epoch milliseconds
-	StartTimeEpochMs int `form:"startTimeEpochMs" json:"startTimeEpochMs"`
+	StartTimeEpochMs int64 `form:"startTimeEpochMs" json:"startTimeEpochMs"`
 }
 
 // GetMonitorStateByIdParams defines parameters for GetMonitorStateById.
@@ -1355,25 +1429,25 @@ type GetMonitorStateByIdParams struct {
 // ListLabelsParams defines parameters for ListLabels.
 type ListLabelsParams struct {
 	// End End of the time range in epoch microseconds
-	End *int `form:"end,omitempty" json:"end,omitempty"`
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
 
 	// Start Start of the time range in epoch microseconds
-	Start *int `form:"start,omitempty" json:"start,omitempty"`
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
 }
 
 // GetTraceLabelValuesByIdParams defines parameters for GetTraceLabelValuesById.
 type GetTraceLabelValuesByIdParams struct {
 	// End End of the time range in epoch microseconds
-	End *int `form:"end,omitempty" json:"end,omitempty"`
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
 
 	// Start Start of the time range in epoch microseconds
-	Start *int `form:"start,omitempty" json:"start,omitempty"`
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
 }
 
 // ListTracesParams defines parameters for ListTraces.
 type ListTracesParams struct {
 	// End End of the time range in epoch microseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 
 	// Limit Maximum number of traces to return
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1394,7 +1468,7 @@ type ListTracesParams struct {
 	Service *string `form:"service,omitempty" json:"service,omitempty"`
 
 	// Start Start of the time range in epoch microseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 
 	// Tags JSON-encoded map of tag filters (e.g. {"http.method":"GET"})
 	Tags *string `form:"tags,omitempty" json:"tags,omitempty"`
@@ -1403,10 +1477,10 @@ type ListTracesParams struct {
 // GetTracesByIdParams defines parameters for GetTracesById.
 type GetTracesByIdParams struct {
 	// End End of the time range in epoch microseconds
-	End int `form:"end" json:"end"`
+	End int64 `form:"end" json:"end"`
 
 	// Start Start of the time range in epoch microseconds
-	Start int `form:"start" json:"start"`
+	Start int64 `form:"start" json:"start"`
 }
 
 // ListUsersOpParams defines parameters for ListUsersOp.
@@ -1445,9 +1519,6 @@ type CreateMonitorsJSONRequestBody = Monitor
 // UpdateMonitorsByIdJSONRequestBody defines body for UpdateMonitorsById for application/json ContentType.
 type UpdateMonitorsByIdJSONRequestBody = Monitor
 
-// CreateExpressionInsightReportsByIdJSONRequestBody defines body for CreateExpressionInsightReportsById for application/json ContentType.
-type CreateExpressionInsightReportsByIdJSONRequestBody = GenerateMonitorExpressionInsightReportsReq
-
 // CreateMutingRulesJSONRequestBody defines body for CreateMutingRules for application/json ContentType.
 type CreateMutingRulesJSONRequestBody = MutingRule
 
@@ -1474,3 +1545,117 @@ type CreateInvitationsJSONRequestBody = SendInvitationRequest
 
 // CreateBulkJSONRequestBody defines body for CreateBulk for application/json ContentType.
 type CreateBulkJSONRequestBody = BulkSendInvitationRequest
+
+// AsTraceSpanTagValue0 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue0
+func (t TraceSpanTag_Value) AsTraceSpanTagValue0() (TraceSpanTagValue0, error) {
+	var body TraceSpanTagValue0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue0 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue0
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue0(v TraceSpanTagValue0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue0 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue0
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue0(v TraceSpanTagValue0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue1 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue1
+func (t TraceSpanTag_Value) AsTraceSpanTagValue1() (TraceSpanTagValue1, error) {
+	var body TraceSpanTagValue1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue1 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue1
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue1(v TraceSpanTagValue1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue1 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue1
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue1(v TraceSpanTagValue1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue2 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue2
+func (t TraceSpanTag_Value) AsTraceSpanTagValue2() (TraceSpanTagValue2, error) {
+	var body TraceSpanTagValue2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue2 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue2
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue2(v TraceSpanTagValue2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue2 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue2
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue2(v TraceSpanTagValue2) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTraceSpanTagValue3 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue3
+func (t TraceSpanTag_Value) AsTraceSpanTagValue3() (TraceSpanTagValue3, error) {
+	var body TraceSpanTagValue3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTraceSpanTagValue3 overwrites any union data inside the TraceSpanTag_Value as the provided TraceSpanTagValue3
+func (t *TraceSpanTag_Value) FromTraceSpanTagValue3(v TraceSpanTagValue3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeTraceSpanTagValue3 performs a merge with any union data inside the TraceSpanTag_Value, using the provided TraceSpanTagValue3
+func (t *TraceSpanTag_Value) MergeTraceSpanTagValue3(v TraceSpanTagValue3) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t TraceSpanTag_Value) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *TraceSpanTag_Value) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}

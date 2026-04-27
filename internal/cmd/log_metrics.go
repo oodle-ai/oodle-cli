@@ -167,7 +167,6 @@ func newLogMetricsDeleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			if !confirmAction(fmt.Sprintf("Delete log metrics rule %q?", args[0]), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
@@ -179,11 +178,8 @@ func newLogMetricsDeleteCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
-				fmt.Fprintf(cmd.OutOrStdout(), "Deleted log metrics rule %s\n", args[0])
-				return nil
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted log metrics rule %s\n", args[0])
+			return nil
 		},
 	}
 }

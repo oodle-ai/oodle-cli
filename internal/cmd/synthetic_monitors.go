@@ -46,17 +46,17 @@ func newSyntheticMonitorsListCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			resp, err := c.Inner.ListSyntheticMonitorsWithResponse(cmd.Context(), instance)
+			resp, err := c.Inner.ListSyntheticMonitorsOpWithResponse(cmd.Context(), instance)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			if resp.JSON200 == nil {
+			if resp.JSON200 == nil || resp.JSON200.Monitors == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, syntheticMonitorListColumns())
+			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200.Monitors, syntheticMonitorListColumns())
 		},
 	}
 }

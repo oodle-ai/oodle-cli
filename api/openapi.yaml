@@ -77,6 +77,11 @@ components:
           description: UsernameRef is the name of the secret within the secret manager to use as the username.
     BulkDeleteMonitorsRequest:
       type: object
+      description: |-
+        BulkDeleteMonitorsRequest is the JSON body of `DELETE /monitors`.
+
+        Clients pass the monitor IDs to delete via the `ids` field. An empty
+        or missing list is rejected by the handler.
       required:
         - ids
       properties:
@@ -270,8 +275,18 @@ components:
           type: string
         url:
           type: string
-    DeleteResponse:
+    DeleteDashboardResponse:
       type: object
+      description: |-
+        DeleteDashboardResponse is the JSON body of a successful
+        `DELETE /grafana/dashboards/{id}`. Unlike most DELETEs (which return
+        204 No Content) this endpoint returns the upstream Grafana status
+        string for backward compatibility.
+      required:
+        - status
+      properties:
+        status:
+          type: string
     DropRule:
       type: object
       description: DropRule is the API model for a metric drop rule.
@@ -326,7 +341,7 @@ components:
         send_resolved:
           type: boolean
         smarthost:
-          $ref: '#/components/schemas/HostPort'
+          type: string
         text:
           type: string
         tls_config:
@@ -334,8 +349,6 @@ components:
         to:
           type: string
           description: Email address to notify.
-    ExpressionInsightReportResponse:
-      type: object
     Folder:
       type: object
       description: Folder represents a Grafana folder
@@ -360,38 +373,6 @@ components:
           type: string
         version:
           type: integer
-    GenerateMonitorExpressionInsightReportsReq:
-      type: object
-      description: GenerateMonitorExpressionInsightReportsReq is the request body for the generate monitor expression insight reports endpoint.
-      required:
-        - start_time_epoch_millis
-        - end_time_epoch_millis
-        - monitor_instance_start_time_epoch_millis
-        - monitor_instance_ends_at_time_epoch_millis
-        - severity
-        - do_not_return_all_values
-      properties:
-        do_not_return_all_values:
-          type: boolean
-        end_time_epoch_millis:
-          type: integer
-          description: End time of the report in epoch milliseconds
-        monitor_instance_ends_at_time_epoch_millis:
-          type: integer
-          description: |-
-            The end time of the alert instance in epoch milliseconds for which
-            this report is being generated.
-        monitor_instance_start_time_epoch_millis:
-          type: integer
-          description: |-
-            The start time of the alert instance in epoch milliseconds for which
-            this report is being generated.
-        severity:
-          type: string
-          description: Severity of the alert instance for which this report is being generated.
-        start_time_epoch_millis:
-          type: integer
-          description: Start time of the report in epoch milliseconds
     GetDashboardResponse:
       type: object
       properties:
@@ -504,8 +485,6 @@ components:
           description: |-
             ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
             to determine proxies.
-        proxy_url:
-          $ref: '#/components/schemas/URL'
         tls_config:
           $ref: '#/components/schemas/TLSConfig'
     Header:
@@ -538,17 +517,6 @@ components:
           nullable: true
           additionalProperties:
             type: string
-    HostPort:
-      type: object
-      description: HostPort represents a "host:port" network address.
-      required:
-        - Host
-        - Port
-      properties:
-        Host:
-          type: string
-        Port:
-          type: string
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -610,6 +578,22 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/UserInvitation'
+    ListSyntheticMonitorsResponse:
+      type: object
+      description: |-
+        ListSyntheticMonitorsResponse is the response body for listing synthetic
+        monitors.
+      required:
+        - monitors
+        - total
+      properties:
+        monitors:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticMonitor'
+        total:
+          type: integer
     ListUsersResponse:
       type: object
       description: ListUsersResponse is the response for listing users.
@@ -1152,8 +1136,6 @@ components:
           description: |-
             ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
             to determine proxies.
-        proxy_url:
-          $ref: '#/components/schemas/URL'
         scopes:
           type: array
           nullable: true
@@ -1913,12 +1895,194 @@ components:
         server_name:
           type: string
           description: Used to verify the hostname for the targets.
-    TraceDetailResponse:
+    Trace:
       type: object
-      description: Tempo-compatible trace payload. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
-    TraceListResponse:
+      required:
+        - traceID
+        - spans
+        - processes
+      properties:
+        processes:
+          type: object
+          nullable: true
+          additionalProperties:
+            allOf:
+              - $ref: '#/components/schemas/TraceProcess'
+        spans:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpan'
+        traceID:
+          type: string
+        warnings:
+          type: string
+    TraceLabelsResponse:
       type: object
-      description: Tempo-compatible search response. The body is proxied verbatim from the underlying Tempo backend; refer to the Tempo HTTP API docs for the exact field shape.
+      required:
+        - data
+        - total
+        - limit
+        - offset
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            type: string
+        errors:
+          type: string
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
+    TraceProcess:
+      type: object
+      required:
+        - serviceName
+        - tags
+      properties:
+        serviceName:
+          type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpanTag'
+    TraceSpan:
+      type: object
+      required:
+        - traceID
+        - spanID
+        - parentSpanID
+        - operationName
+        - startTime
+        - endTime
+        - duration
+        - tags
+        - logs
+        - references
+        - processID
+      properties:
+        duration:
+          type: integer
+        endTime:
+          type: integer
+        logs:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpanLog'
+        operationName:
+          type: string
+        parentSpanID:
+          type: string
+        processID:
+          type: string
+        references:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpanReference'
+        spanID:
+          type: string
+        startTime:
+          type: integer
+        tags:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpanTag'
+        traceID:
+          type: string
+        warning:
+          type: string
+    TraceSpanLog:
+      type: object
+      required:
+        - timestamp
+        - fields
+      properties:
+        fields:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceSpanTag'
+        timestamp:
+          type: integer
+    TraceSpanReference:
+      type: object
+      required:
+        - refType
+        - traceID
+        - spanID
+      properties:
+        refType:
+          type: string
+        spanID:
+          type: string
+        traceID:
+          type: string
+    TraceSpanTag:
+      type: object
+      description: |-
+        Tag represents a single key/value attribute attached to a Span,
+        Process, or Log.
+
+        FilterLabel is the fully-qualified storage-column name this tag was
+        derived from (e.g. "span::http.method", "resource::k8s.cluster.name",
+        "scope_name"). When set, clients can use it directly as a label name
+        for trace filtering without having to guess which bucket (span vs
+        resource) the attribute came from or which prefix to prepend.
+
+        FilterLabel is empty for synthesised tags that don't correspond to a
+        single indexed label (e.g. "otel.status_code" derived from span_status,
+        "span.kind" from span_kind) and for internal counter columns like
+        dropped_attributes_count and flags that aren't meaningful to filter on.
+      required:
+        - key
+        - type
+        - value
+      properties:
+        filterLabel:
+          type: string
+        key:
+          type: string
+        type:
+          type: string
+        value:
+          oneOf:
+            - type: string
+            - type: integer
+              format: int64
+            - type: number
+            - type: boolean
+          description: |-
+            Value carries the tag's data. Its concrete JSON type (string,
+            integer, number, or boolean) is declared by the sibling Type field.
+    TracesResponse:
+      type: object
+      required:
+        - data
+        - total
+        - limit
+        - offset
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Trace'
+        errors:
+          type: string
+        limit:
+          type: integer
+        offset:
+          type: integer
+        total:
+          type: integer
     URL:
       type: object
       description: URL is a custom URL type that allows validation at configuration load time.
@@ -2217,12 +2381,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "401":
           description: ""
           content:
@@ -2404,12 +2564,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "401":
           description: ""
           content:
@@ -2656,7 +2812,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DeleteResponse'
+                $ref: '#/components/schemas/DeleteDashboardResponse'
         "401":
           description: ""
           content:
@@ -2926,12 +3082,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "400":
           description: ""
           content:
@@ -3090,6 +3242,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: filters
           in: query
           description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
@@ -3101,6 +3254,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -3159,6 +3313,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: filters
           in: query
           description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
@@ -3170,6 +3325,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -3234,6 +3390,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: filters
           in: query
           description: 'JSON-encoded array of label matchers (e.g. [{"name":"job","value":"api","type":0}]). Match types: 0=EQ, 1=NEQ, 2=RE, 3=NRE.'
@@ -3245,6 +3402,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -3404,12 +3562,8 @@ paths:
             schema:
               $ref: '#/components/schemas/BulkDeleteMonitorsRequest'
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "400":
           description: ""
           content:
@@ -3541,12 +3695,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "400":
           description: ""
           content:
@@ -3692,67 +3842,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/monitors/{id}/expression-insight-reports:
-    post:
-      tags:
-        - Monitors
-      summary: Create Expression Insight Reports
-      operationId: createExpressionInsightReportsById
-      parameters:
-        - name: id
-          in: path
-          description: Resource ID
-          required: true
-          schema:
-            type: string
-        - name: instance
-          in: path
-          description: Oodle instance ID
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateMonitorExpressionInsightReportsReq'
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExpressionInsightReportResponse'
-        "400":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "401":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "404":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "500":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/muting-rules:
     get:
       tags:
@@ -3861,12 +3950,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "401":
           description: ""
           content:
@@ -4048,12 +4133,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "400":
           description: ""
           content:
@@ -4307,12 +4388,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "400":
           description: ""
           content:
@@ -4469,7 +4546,7 @@ paths:
       tags:
         - Synthetic Monitors
       summary: List Synthetic Monitors
-      operationId: listSyntheticMonitors
+      operationId: listSyntheticMonitorsOp
       parameters:
         - name: instance
           in: path
@@ -4483,9 +4560,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SyntheticMonitor'
+                $ref: '#/components/schemas/ListSyntheticMonitorsResponse'
         "401":
           description: ""
           content:
@@ -4572,12 +4647,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "401":
           description: ""
           content:
@@ -4820,11 +4891,13 @@ paths:
           description: End of the time range in epoch microseconds
           schema:
             type: integer
+            format: int64
         - name: start
           in: query
           description: Start of the time range in epoch microseconds
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -4837,9 +4910,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
+                $ref: '#/components/schemas/TraceLabelsResponse'
         "400":
           description: ""
           content:
@@ -4876,11 +4947,13 @@ paths:
           description: End of the time range in epoch microseconds
           schema:
             type: integer
+            format: int64
         - name: start
           in: query
           description: Start of the time range in epoch microseconds
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -4899,9 +4972,7 @@ paths:
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: string
+                $ref: '#/components/schemas/TraceLabelsResponse'
         "400":
           description: ""
           content:
@@ -4939,6 +5010,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: limit
           in: query
           description: Maximum number of traces to return
@@ -4975,6 +5047,7 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: tags
           in: query
           description: JSON-encoded map of tag filters (e.g. {"http.method":"GET"})
@@ -4992,7 +5065,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TraceListResponse'
+                $ref: '#/components/schemas/TracesResponse'
         "400":
           description: ""
           content:
@@ -5030,12 +5103,14 @@ paths:
           required: true
           schema:
             type: integer
+            format: int64
         - name: start
           in: query
           description: Start of the time range in epoch microseconds
           required: true
           schema:
             type: integer
+            format: int64
         - name: instance
           in: path
           description: Oodle instance ID
@@ -5054,7 +5129,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TraceDetailResponse'
+                $ref: '#/components/schemas/TracesResponse'
         "400":
           description: ""
           content:
@@ -5252,12 +5327,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DeleteResponse'
+        "204":
+          description: No Content
         "401":
           description: ""
           content:

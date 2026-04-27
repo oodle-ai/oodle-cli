@@ -42,7 +42,7 @@ func newMonitorsCmd() *cobra.Command {
 	cmd.AddCommand(newMonitorsDeleteCmd())
 	cmd.AddCommand(newMonitorsStateCmd())
 	cmd.AddCommand(newMonitorsTriggersCmd())
-	cmd.AddCommand(newMonitorsExpressionInsightsCmd())
+
 	cmd.AddCommand(newMonitorsTemplateFilesCmd())
 
 	return cmd
@@ -194,7 +194,6 @@ func newMonitorsDeleteCmd() *cobra.Command {
 
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			// Bulk delete via --ids.
 			if bulkMode {
@@ -221,7 +220,8 @@ func newMonitorsDeleteCmd() *cobra.Command {
 				if resp.StatusCode() >= 300 {
 					return api.CheckResponse(resp.HTTPResponse, resp.Body)
 				}
-				return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+				fmt.Fprintf(cmd.OutOrStdout(), "Deleted %d monitors\n", len(ids))
+				return nil
 			}
 
 			// Single delete via positional arg.
@@ -236,7 +236,8 @@ func newMonitorsDeleteCmd() *cobra.Command {
 			if resp.StatusCode() >= 300 {
 				return api.CheckResponse(resp.HTTPResponse, resp.Body)
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			fmt.Fprintf(cmd.OutOrStdout(), "Deleted monitor %s\n", id)
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&idsFlag, "ids", "", "Comma-separated list of monitor IDs to delete (bulk)")
@@ -300,40 +301,6 @@ func newMonitorsTriggersCmd() *cobra.Command {
 			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, monitorTriggerColumns)
 		},
 	}
-}
-
-func newMonitorsExpressionInsightsCmd() *cobra.Command {
-	var file string
-	cmd := &cobra.Command{
-		Use:   "expression-insights <id>",
-		Short: "Create an expression insight report for a monitor",
-		Args:  exactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
-			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
-
-			var body client.CreateExpressionInsightReportsByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
-				return err
-			}
-
-			resp, err := c.Inner.CreateExpressionInsightReportsByIdWithResponse(cmd.Context(), instance, args[0], body)
-			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
-			}
-			if resp.StatusCode() >= 300 {
-				return api.CheckResponse(resp.HTTPResponse, resp.Body)
-			}
-			if resp.JSON200 == nil {
-				return fmt.Errorf("unexpected empty response")
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
-		},
-	}
-	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with expression insight request body")
-	_ = cmd.MarkFlagRequired("file")
-	return cmd
 }
 
 func newMonitorsTemplateFilesCmd() *cobra.Command {
