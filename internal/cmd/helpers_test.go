@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -185,6 +186,81 @@ func TestParseTimeFlagMs_UnitConversion(t *testing.T) {
 	if got < nowMs-1000 || got > nowMs+1000 {
 		t.Errorf("parseTimeFlagMs(\"now\") = %d not within 1s of %d (likely wrong unit)", got, nowMs)
 	}
+}
+
+// --- parseTimeFlagSeconds tests ---
+// Consolidated into a single test with subtests for consistency with the
+// table-driven pattern used by parseTimeFlag / parseTimeFlagMs tests above.
+
+func TestParseTimeFlagSeconds(t *testing.T) {
+	const tolerance = 2.0 // seconds
+
+	t.Run("Epoch", func(t *testing.T) {
+		got, err := parseTimeFlagSeconds("1700000000")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != 1700000000 {
+			t.Errorf("got %v, want 1700000000", got)
+		}
+	})
+
+	t.Run("EpochFloat", func(t *testing.T) {
+		got, err := parseTimeFlagSeconds("1700000000.5")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if math.Abs(got-1700000000.5) > 0.001 {
+			t.Errorf("got %v, want 1700000000.5", got)
+		}
+	})
+
+	t.Run("Now", func(t *testing.T) {
+		before := float64(time.Now().Unix())
+		got, err := parseTimeFlagSeconds("now")
+		if err != nil {
+			t.Fatal(err)
+		}
+		after := float64(time.Now().Unix())
+		if got < before || got > after+1 {
+			t.Errorf("now = %v not in [%v, %v]", got, before, after)
+		}
+	})
+
+	t.Run("Relative1h", func(t *testing.T) {
+		now := float64(time.Now().Unix())
+		got, err := parseTimeFlagSeconds("-1h")
+		if err != nil {
+			t.Fatal(err)
+		}
+		delta := now - got
+		expected := 3600.0
+		if delta < expected-tolerance || delta > expected+tolerance {
+			t.Errorf("delta = %v, want ~%v", delta, expected)
+		}
+	})
+
+	t.Run("Relative7d", func(t *testing.T) {
+		now := float64(time.Now().Unix())
+		got, err := parseTimeFlagSeconds("-7d")
+		if err != nil {
+			t.Fatal(err)
+		}
+		delta := now - got
+		expected := 7 * 24 * 3600.0
+		if delta < expected-tolerance || delta > expected+tolerance {
+			t.Errorf("delta = %v, want ~%v", delta, expected)
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		if _, err := parseTimeFlagSeconds("garbage"); err == nil {
+			t.Error("expected error for 'garbage'")
+		}
+		if _, err := parseTimeFlagSeconds(""); err == nil {
+			t.Error("expected error for empty string")
+		}
+	})
 }
 
 func TestConfirmAction_Force(t *testing.T) {

@@ -89,6 +89,18 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListLogIndexPatterns request
+	ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryMetricsInstant request
+	QueryMetricsInstant(ctx context.Context, params *QueryMetricsInstantParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryLogsWithBody request with any body
+	QueryLogsWithBody(ctx context.Context, params *QueryLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// QueryMetricsRange request
+	QueryMetricsRange(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListApiKeys request
 	ListApiKeys(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -309,6 +321,54 @@ type ClientInterface interface {
 
 	// DeleteInvitationsById request
 	DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLogIndexPatternsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryMetricsInstant(ctx context.Context, params *QueryMetricsInstantParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryMetricsInstantRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryLogsWithBody(ctx context.Context, params *QueryLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryLogsRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) QueryMetricsRange(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewQueryMetricsRangeRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListApiKeys(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1269,6 +1329,259 @@ func (c *Client) DeleteInvitationsById(ctx context.Context, instance string, id 
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewListLogIndexPatternsRequest generates requests for ListLogIndexPatterns
+func NewListLogIndexPatternsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/log_index_patterns")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewQueryMetricsInstantRequest generates requests for QueryMetricsInstant
+func NewQueryMetricsInstantRequest(server string, params *QueryMetricsInstantParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/query")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "query", params.Query, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Time != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "time", *params.Time, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "number", Format: "double"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "OODLE-INSTANCE", params.OODLEINSTANCE, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("OODLE-INSTANCE", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewQueryLogsRequestWithBody generates requests for QueryLogs with any type of body
+func NewQueryLogsRequestWithBody(server string, params *QueryLogsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/query_logs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-OODLE-INSTANCE", params.XOODLEINSTANCE, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-OODLE-INSTANCE", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewQueryMetricsRangeRequest generates requests for QueryMetricsRange
+func NewQueryMetricsRangeRequest(server string, params *QueryMetricsRangeParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/query_range")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "query", params.Query, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "start", params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "number", Format: "double"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "end", params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "number", Format: "double"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "step", params.Step, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.PartialResponse != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "partial_response", *params.PartialResponse, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "boolean", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "OODLE-INSTANCE", params.OODLEINSTANCE, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("OODLE-INSTANCE", headerParam0)
+
+	}
+
+	return req, nil
 }
 
 // NewListApiKeysRequest generates requests for ListApiKeys
@@ -4289,6 +4602,18 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListLogIndexPatternsWithResponse request
+	ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error)
+
+	// QueryMetricsInstantWithResponse request
+	QueryMetricsInstantWithResponse(ctx context.Context, params *QueryMetricsInstantParams, reqEditors ...RequestEditorFn) (*QueryMetricsInstantResponse, error)
+
+	// QueryLogsWithBodyWithResponse request with any body
+	QueryLogsWithBodyWithResponse(ctx context.Context, params *QueryLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryLogsResponse, error)
+
+	// QueryMetricsRangeWithResponse request
+	QueryMetricsRangeWithResponse(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*QueryMetricsRangeResponse, error)
+
 	// ListApiKeysWithResponse request
 	ListApiKeysWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
 
@@ -4509,6 +4834,99 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteInvitationsByIdWithResponse request
 	DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error)
+}
+
+type ListLogIndexPatternsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]IndexPatternEntry
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListLogIndexPatternsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListLogIndexPatternsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryMetricsInstantResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PrometheusQueryResponse
+	JSON400      *PrometheusQueryResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryMetricsInstantResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryMetricsInstantResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryLogsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LogsQueryResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryLogsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryLogsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type QueryMetricsRangeResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *PrometheusQueryResponse
+	JSON400      *PrometheusQueryResponse
+}
+
+// Status returns HTTPResponse.Status
+func (r QueryMetricsRangeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r QueryMetricsRangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListApiKeysResponse struct {
@@ -6096,6 +6514,42 @@ func (r DeleteInvitationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+// ListLogIndexPatternsWithResponse request returning *ListLogIndexPatternsResponse
+func (c *ClientWithResponses) ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error) {
+	rsp, err := c.ListLogIndexPatterns(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListLogIndexPatternsResponse(rsp)
+}
+
+// QueryMetricsInstantWithResponse request returning *QueryMetricsInstantResponse
+func (c *ClientWithResponses) QueryMetricsInstantWithResponse(ctx context.Context, params *QueryMetricsInstantParams, reqEditors ...RequestEditorFn) (*QueryMetricsInstantResponse, error) {
+	rsp, err := c.QueryMetricsInstant(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryMetricsInstantResponse(rsp)
+}
+
+// QueryLogsWithBodyWithResponse request with arbitrary body returning *QueryLogsResponse
+func (c *ClientWithResponses) QueryLogsWithBodyWithResponse(ctx context.Context, params *QueryLogsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*QueryLogsResponse, error) {
+	rsp, err := c.QueryLogsWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryLogsResponse(rsp)
+}
+
+// QueryMetricsRangeWithResponse request returning *QueryMetricsRangeResponse
+func (c *ClientWithResponses) QueryMetricsRangeWithResponse(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*QueryMetricsRangeResponse, error) {
+	rsp, err := c.QueryMetricsRange(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseQueryMetricsRangeResponse(rsp)
+}
+
 // ListApiKeysWithResponse request returning *ListApiKeysResponse
 func (c *ClientWithResponses) ListApiKeysWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error) {
 	rsp, err := c.ListApiKeys(ctx, instance, reqEditors...)
@@ -6795,6 +7249,145 @@ func (c *ClientWithResponses) DeleteInvitationsByIdWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseDeleteInvitationsByIdResponse(rsp)
+}
+
+// ParseListLogIndexPatternsResponse parses an HTTP response from a ListLogIndexPatternsWithResponse call
+func ParseListLogIndexPatternsResponse(rsp *http.Response) (*ListLogIndexPatternsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListLogIndexPatternsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []IndexPatternEntry
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryMetricsInstantResponse parses an HTTP response from a QueryMetricsInstantWithResponse call
+func ParseQueryMetricsInstantResponse(rsp *http.Response) (*QueryMetricsInstantResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryMetricsInstantResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PrometheusQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest PrometheusQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryLogsResponse parses an HTTP response from a QueryLogsWithResponse call
+func ParseQueryLogsResponse(rsp *http.Response) (*QueryLogsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryLogsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LogsQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseQueryMetricsRangeResponse parses an HTTP response from a QueryMetricsRangeWithResponse call
+func ParseQueryMetricsRangeResponse(rsp *http.Response) (*QueryMetricsRangeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &QueryMetricsRangeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PrometheusQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest PrometheusQueryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseListApiKeysResponse parses an HTTP response from a ListApiKeysWithResponse call

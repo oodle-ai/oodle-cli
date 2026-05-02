@@ -158,6 +158,40 @@ func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int
 	return n, nil
 }
 
+// parseTimeFlagSeconds converts a time flag value to epoch seconds as float64.
+// This is intentionally separate from parseTimeFlagAs because the Prometheus
+// query API requires float64 epoch seconds (supporting sub-second precision),
+// whereas the other time parsers return int64 in micro/milliseconds.
+//
+// Accepted forms:
+//
+//   - "now"            => current time
+//   - "-1h", "-30m"    => relative durations
+//   - "-7d"            => days; converted to hours
+//   - number           => epoch seconds, returned as-is (supports both int and float)
+func parseTimeFlagSeconds(value string) (float64, error) {
+	v := strings.TrimSpace(value)
+	if v == "" {
+		return 0, fmt.Errorf("empty time value")
+	}
+	if strings.EqualFold(v, "now") {
+		return float64(time.Now().Unix()), nil
+	}
+	// Relative duration. Allow leading +/-; map "d" suffix to hours.
+	if v[0] == '+' || v[0] == '-' {
+		if dur, err := parseRelativeDuration(v); err == nil {
+			return float64(time.Now().Add(dur).Unix()), nil
+		}
+		// Fall through to float parsing in case it's a negative epoch (rare).
+	}
+	// Numeric literal: epoch seconds (supports both int and float).
+	f, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid time %q: expected epoch seconds, 'now', or relative duration like -1h, -7d", value)
+	}
+	return f, nil
+}
+
 // parseRelativeDuration parses durations like "-1h", "-30m", "-7d", "-1d12h".
 // "d" units are translated to hours (24h) before delegating to
 // time.ParseDuration.
