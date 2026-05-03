@@ -5,6 +5,7 @@ package test
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -688,5 +689,417 @@ func TestMock_MetricsLabelValues_SendsQueryParams(t *testing.T) {
 	// Both metric name and label name should appear in the path.
 	if !strings.Contains(*capturedPath, "up") || !strings.Contains(*capturedPath, "job") {
 		t.Errorf("expected metric 'up' and label 'job' in path %q", *capturedPath)
+	}
+}
+
+// -------------------------------------------------------------------------
+// Mock: Metrics Query (instant)
+// -------------------------------------------------------------------------
+
+func TestMock_MetricsQuery_JSON(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"prometheus"},"value":[1700000000,"1"]}]}}`
+	var capturedQuery, capturedPath, capturedInstanceHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.RawQuery
+		capturedPath = r.URL.Path
+		capturedInstanceHeader = r.Header.Get("OODLE-INSTANCE")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "success") {
+		t.Errorf("expected 'success' in output, got: %s", stdout)
+	}
+	if capturedPath != "/api/v1/query" {
+		t.Errorf("expected path /api/v1/query, got: %s", capturedPath)
+	}
+	if !strings.Contains(capturedQuery, "query=up") {
+		t.Errorf("expected query=up in query string %q", capturedQuery)
+	}
+	if capturedInstanceHeader != "test-instance" {
+		t.Errorf("expected OODLE-INSTANCE header 'test-instance', got: %q", capturedInstanceHeader)
+	}
+}
+
+func TestMock_MetricsQuery_ScalarResult(t *testing.T) {
+	// Prometheus scalar results use a tuple [timestamp, "value"] instead of
+	// an array of objects. The generated typed parser would fail on this, so
+	// we use the raw client method + printQueryResponse to handle it.
+	payload := `{"status":"success","data":{"resultType":"scalar","result":[1700000000,"2"]}}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "1+1", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 for scalar result, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "scalar") {
+		t.Errorf("expected 'scalar' in output, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQuery_WithTime(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"vector","result":[]}}`
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--time", "1700000000", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(capturedQuery, "time=17") {
+		t.Errorf("expected time param in query string %q", capturedQuery)
+	}
+}
+
+func TestMock_MetricsQuery_MissingQuery(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "query", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --query is missing")
+	}
+	if !strings.Contains(stderr, "query") {
+		t.Errorf("expected 'query' in error, got: %s", stderr)
+	}
+}
+
+func TestMock_MetricsQuery_400Error(t *testing.T) {
+	payload := `{"status":"error","errorType":"bad_data","error":"invalid expression"}`
+	srv := jsonSrv(payload, 400)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "invalid{", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 400")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "invalid") && !strings.Contains(combined, "error") && !strings.Contains(combined, "400") {
+		t.Errorf("expected error message, got: %s", stderr)
+	}
+}
+
+func TestMock_MetricsQuery_401Error(t *testing.T) {
+	srv := jsonSrv(`{"message":"unauthorized"}`, 401)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 401")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "auth") && !strings.Contains(combined, "api key") {
+		t.Errorf("expected auth-related error, got: %s", stderr)
+	}
+}
+
+// -------------------------------------------------------------------------
+// Mock: Metrics Query-Range
+// -------------------------------------------------------------------------
+
+func TestMock_MetricsQueryRange_JSON(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"up"},"values":[[1700000000,"1"],[1700000060,"1"]]}]}}`
+	var capturedQuery, capturedPath, capturedInstanceHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.RawQuery
+		capturedPath = r.URL.Path
+		capturedInstanceHeader = r.Header.Get("OODLE-INSTANCE")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "up",
+		"--start", "1700000000",
+		"--end", "1700003600",
+		"--step", "60s",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "matrix") {
+		t.Errorf("expected 'matrix' in output, got: %s", stdout)
+	}
+	if capturedPath != "/api/v1/query_range" {
+		t.Errorf("expected path /api/v1/query_range, got: %s", capturedPath)
+	}
+	if !strings.Contains(capturedQuery, "query=up") {
+		t.Errorf("expected query=up in query string %q", capturedQuery)
+	}
+	if !strings.Contains(capturedQuery, "start=17") {
+		t.Errorf("expected start param in query string %q", capturedQuery)
+	}
+	if !strings.Contains(capturedQuery, "end=17") {
+		t.Errorf("expected end param in query string %q", capturedQuery)
+	}
+	if !strings.Contains(capturedQuery, "step=60s") {
+		t.Errorf("expected step=60s in query string %q", capturedQuery)
+	}
+	if capturedInstanceHeader != "test-instance" {
+		t.Errorf("expected OODLE-INSTANCE header 'test-instance', got: %q", capturedInstanceHeader)
+	}
+}
+
+func TestMock_MetricsQueryRange_WithPartialResponse(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"matrix","result":[]}}`
+	var capturedQuery string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedQuery = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "up",
+		"--start", "1700000000",
+		"--end", "1700003600",
+		"--step", "60s",
+		"--partial-response",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(capturedQuery, "partial_response=true") {
+		t.Errorf("expected partial_response=true in query string %q", capturedQuery)
+	}
+}
+
+func TestMock_MetricsQueryRange_MissingFlags(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	// Missing --query
+	_, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--start", "1700000000", "--end", "1700003600", "--step", "60s", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --query is missing")
+	}
+	if !strings.Contains(stderr, "query") {
+		t.Errorf("expected 'query' in error, got: %s", stderr)
+	}
+
+	// Missing --start
+	_, stderr, code = runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "up", "--end", "1700003600", "--step", "60s", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --start is missing")
+	}
+	if !strings.Contains(stderr, "start") {
+		t.Errorf("expected 'start' in error, got: %s", stderr)
+	}
+
+	// Missing --step
+	_, stderr, code = runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "up", "--start", "1700000000", "--end", "1700003600", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --step is missing")
+	}
+	if !strings.Contains(stderr, "step") {
+		t.Errorf("expected 'step' in error, got: %s", stderr)
+	}
+}
+
+func TestMock_MetricsQueryRange_400Error(t *testing.T) {
+	payload := `{"status":"error","errorType":"bad_data","error":"invalid expression"}`
+	srv := jsonSrv(payload, 400)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "invalid{",
+		"--start", "1700000000",
+		"--end", "1700003600",
+		"--step", "60s",
+		"--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 400")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "invalid") && !strings.Contains(combined, "error") && !strings.Contains(combined, "400") {
+		t.Errorf("expected error message, got: %s", stderr)
+	}
+}
+
+// -------------------------------------------------------------------------
+// Mock: Logs Query
+// -------------------------------------------------------------------------
+
+func TestMock_LogsQuery_JSON(t *testing.T) {
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"message":"hello"}}]},"timed_out":false,"took":5}],"took":10}`
+	var capturedPath, capturedContentType, capturedInstanceHeader, capturedBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		capturedContentType = r.Header.Get("Content-Type")
+		capturedInstanceHeader = r.Header.Get("X-OODLE-INSTANCE")
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "hello") {
+		t.Errorf("expected 'hello' in output, got: %s", stdout)
+	}
+	if capturedPath != "/api/v1/query_logs" {
+		t.Errorf("expected path /api/v1/query_logs, got: %s", capturedPath)
+	}
+	if capturedContentType != "application/x-ndjson" {
+		t.Errorf("expected Content-Type application/x-ndjson, got: %s", capturedContentType)
+	}
+	if capturedInstanceHeader != "test-instance" {
+		t.Errorf("expected X-OODLE-INSTANCE header 'test-instance', got: %q", capturedInstanceHeader)
+	}
+	if !strings.Contains(capturedBody, "logs-*") {
+		t.Errorf("expected body to contain 'logs-*', got: %s", capturedBody)
+	}
+}
+
+func TestMock_LogsQuery_MissingFile(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when -f is missing")
+	}
+	if !strings.Contains(stderr, "file") {
+		t.Errorf("expected 'file' in error, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsQuery_NonexistentFile(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "/nonexistent/file.ndjson", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for nonexistent file")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "no such file") && !strings.Contains(combined, "reading") {
+		t.Errorf("expected file error, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsQuery_400Error(t *testing.T) {
+	srv := jsonSrv(`{"message":"invalid request body"}`, 400)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code == 0 {
+		t.Fatalf("expected non-zero exit on 400\nstderr: %s", stderr)
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "invalid") && !strings.Contains(combined, "error") && !strings.Contains(combined, "400") {
+		t.Errorf("expected error message, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsQuery_401Error(t *testing.T) {
+	srv := jsonSrv(`{"message":"unauthorized"}`, 401)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 401")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "auth") && !strings.Contains(combined, "api key") {
+		t.Errorf("expected auth-related error, got: %s", stderr)
+	}
+}
+
+// -------------------------------------------------------------------------
+// Mock: Logs Index Patterns
+// -------------------------------------------------------------------------
+
+func TestMock_LogsIndexPatterns_JSON(t *testing.T) {
+	payload := `[{"id":"abc-123","title":"logs-*","fields":[{"name":"message","type":"string"},{"name":"timestamp","type":"date"}]},{"id":"def-456","title":"app-logs","fields":[{"name":"level","type":"string"}]}]`
+	var capturedPath, capturedInstanceHeader string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		capturedPath = r.URL.Path
+		capturedInstanceHeader = r.Header.Get("X-OODLE-INSTANCE")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "logs", "index-patterns", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(stdout, "logs-*") {
+		t.Errorf("expected 'logs-*' in output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "app-logs") {
+		t.Errorf("expected 'app-logs' in output, got: %s", stdout)
+	}
+	if capturedPath != "/api/v1/log_index_patterns" {
+		t.Errorf("expected path /api/v1/log_index_patterns, got: %s", capturedPath)
+	}
+	if capturedInstanceHeader != "test-instance" {
+		t.Errorf("expected X-OODLE-INSTANCE header 'test-instance', got: %q", capturedInstanceHeader)
+	}
+}
+
+func TestMock_LogsIndexPatterns_400Error(t *testing.T) {
+	srv := jsonSrv(`{"message":"bad request"}`, 400)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "index-patterns", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 400")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "bad request") && !strings.Contains(combined, "error") && !strings.Contains(combined, "400") {
+		t.Errorf("expected error message, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsIndexPatterns_401Error(t *testing.T) {
+	srv := jsonSrv(`{"message":"unauthorized"}`, 401)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "index-patterns", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit on 401")
+	}
+	combined := strings.ToLower(stderr)
+	if !strings.Contains(combined, "auth") && !strings.Contains(combined, "api key") {
+		t.Errorf("expected auth-related error, got: %s", stderr)
 	}
 }

@@ -87,6 +87,48 @@ func (e MetricType) Valid() bool {
 	}
 }
 
+// Defines values for PrometheusQueryResponseDataResultType.
+const (
+	Matrix PrometheusQueryResponseDataResultType = "matrix"
+	Scalar PrometheusQueryResponseDataResultType = "scalar"
+	String PrometheusQueryResponseDataResultType = "string"
+	Vector PrometheusQueryResponseDataResultType = "vector"
+)
+
+// Valid indicates whether the value is a known member of the PrometheusQueryResponseDataResultType enum.
+func (e PrometheusQueryResponseDataResultType) Valid() bool {
+	switch e {
+	case Matrix:
+		return true
+	case Scalar:
+		return true
+	case String:
+		return true
+	case Vector:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PrometheusQueryResponseStatus.
+const (
+	Error   PrometheusQueryResponseStatus = "error"
+	Success PrometheusQueryResponseStatus = "success"
+)
+
+// Valid indicates whether the value is a known member of the PrometheusQueryResponseStatus enum.
+func (e PrometheusQueryResponseStatus) Valid() bool {
+	switch e {
+	case Error:
+		return true
+	case Success:
+		return true
+	default:
+		return false
+	}
+}
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -374,6 +416,21 @@ type Headers struct {
 	Headers *map[string]string `json:"Headers"`
 }
 
+// IndexPatternEntry IndexPatternEntry is the public response shape
+// for GET /api/v1/log_index_patterns.
+type IndexPatternEntry struct {
+	Fields *[]IndexPatternField `json:"fields"`
+	Id     string               `json:"id"`
+	Title  string               `json:"title"`
+}
+
+// IndexPatternField IndexPatternField is a single field in an index
+// pattern, exposing only name and type.
+type IndexPatternField struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
 // Label Label represents a name-value pair for a metric label.
 type Label struct {
 	// Name Name is the name of the label.
@@ -472,6 +529,36 @@ type LogMetrics struct {
 
 	// UpdatedAtEpochMs UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
 	UpdatedAtEpochMs *int `json:"updatedAtEpochMs,omitempty"`
+}
+
+// LogsQueryResponse defines model for LogsQueryResponse.
+type LogsQueryResponse struct {
+	Responses *[]LogsSearchResult `json:"responses,omitempty"`
+
+	// Took Total time in milliseconds
+	Took *int64 `json:"took,omitempty"`
+}
+
+// LogsSearchResult defines model for LogsSearchResult.
+type LogsSearchResult struct {
+	// Aggregations Aggregation results, if requested
+	Aggregations *map[string]interface{} `json:"aggregations,omitempty"`
+	Hits         *struct {
+		Hits *[]struct {
+			// UnderscoreSource Log document fields
+			UnderscoreSource *map[string]interface{} `json:"_source,omitempty"`
+			Sort             *[]interface{}          `json:"sort,omitempty"`
+		} `json:"hits,omitempty"`
+		Total *struct {
+			Relation *string `json:"relation,omitempty"`
+			Value    *int64  `json:"value,omitempty"`
+		} `json:"total,omitempty"`
+	} `json:"hits,omitempty"`
+
+	// Status HTTP status code for this search
+	Status   *int   `json:"status,omitempty"`
+	TimedOut *bool  `json:"timed_out,omitempty"`
+	Took     *int64 `json:"took,omitempty"`
 }
 
 // Lookup Lookup specifies how to look up a value in a lookup/enrichment table.
@@ -833,6 +920,24 @@ type PagerdutyLink struct {
 	Href *string `json:"href,omitempty"`
 	Text *string `json:"text,omitempty"`
 }
+
+// PrometheusQueryResponse defines model for PrometheusQueryResponse.
+type PrometheusQueryResponse struct {
+	Data *struct {
+		Result     *[]map[string]interface{}              `json:"result,omitempty"`
+		ResultType *PrometheusQueryResponseDataResultType `json:"resultType,omitempty"`
+	} `json:"data,omitempty"`
+	Error     *string                       `json:"error,omitempty"`
+	ErrorType *string                       `json:"errorType,omitempty"`
+	Status    PrometheusQueryResponseStatus `json:"status"`
+	Warnings  *[]string                     `json:"warnings,omitempty"`
+}
+
+// PrometheusQueryResponseDataResultType defines model for PrometheusQueryResponse.Data.ResultType.
+type PrometheusQueryResponseDataResultType string
+
+// PrometheusQueryResponseStatus defines model for PrometheusQueryResponse.Status.
+type PrometheusQueryResponseStatus string
 
 // SaveDashboardRequest defines model for SaveDashboardRequest.
 type SaveDashboardRequest struct {
@@ -1382,6 +1487,45 @@ type OodleUtilHttputilsModelsError struct {
 // OodleUtilHttputilsModelsErrors defines model for oodle_util_httputils_models_Errors.
 type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
+}
+
+// QueryMetricsInstantParams defines parameters for QueryMetricsInstant.
+type QueryMetricsInstantParams struct {
+	// Query PromQL expression (e.g. sum(up))
+	Query string `form:"query" json:"query"`
+
+	// Time Evaluation timestamp in Unix seconds. Defaults to current time.
+	Time *float64 `form:"time,omitempty" json:"time,omitempty"`
+
+	// OODLEINSTANCE Oodle instance ID
+	OODLEINSTANCE string `json:"OODLE-INSTANCE"`
+}
+
+// QueryLogsParams defines parameters for QueryLogs.
+type QueryLogsParams struct {
+	// XOODLEINSTANCE Oodle instance ID
+	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
+}
+
+// QueryMetricsRangeParams defines parameters for QueryMetricsRange.
+type QueryMetricsRangeParams struct {
+	// Query PromQL expression (e.g. sum(up))
+	Query string `form:"query" json:"query"`
+
+	// Start Start timestamp in Unix seconds
+	Start float64 `form:"start" json:"start"`
+
+	// End End timestamp in Unix seconds
+	End float64 `form:"end" json:"end"`
+
+	// Step Query resolution step width as a duration string (e.g. 60s, 5m) or number of seconds
+	Step string `form:"step" json:"step"`
+
+	// PartialResponse When true, return partial data if some stores are unavailable
+	PartialResponse *bool `form:"partial_response,omitempty" json:"partial_response,omitempty"`
+
+	// OODLEINSTANCE Oodle instance ID
+	OODLEINSTANCE string `json:"OODLE-INSTANCE"`
 }
 
 // ListNamesParams defines parameters for ListNames.

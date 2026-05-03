@@ -1,3 +1,5 @@
+# AUTO-GENERATED — do not edit manually.
+
 openapi: 3.0.0
 components:
   schemas:
@@ -517,6 +519,38 @@ components:
           nullable: true
           additionalProperties:
             type: string
+    IndexPatternEntry:
+      type: object
+      description: |-
+        IndexPatternEntry is the public response shape
+        for GET /api/v1/log_index_patterns.
+      required:
+        - id
+        - title
+        - fields
+      properties:
+        fields:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/IndexPatternField'
+        id:
+          type: string
+        title:
+          type: string
+    IndexPatternField:
+      type: object
+      description: |-
+        IndexPatternField is a single field in an index
+        pattern, exposing only name and type.
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          type: string
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -678,6 +712,53 @@ components:
         updatedAtEpochMs:
           type: integer
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+    LogsQueryResponse:
+      type: object
+      properties:
+        responses:
+          type: array
+          items:
+            $ref: '#/components/schemas/LogsSearchResult'
+        took:
+          type: integer
+          format: int64
+          description: Total time in milliseconds
+    LogsSearchResult:
+      type: object
+      properties:
+        aggregations:
+          type: object
+          description: Aggregation results, if requested
+        hits:
+          type: object
+          properties:
+            hits:
+              type: array
+              items:
+                type: object
+                properties:
+                  _source:
+                    type: object
+                    description: Log document fields
+                  sort:
+                    type: array
+                    items: {}
+            total:
+              type: object
+              properties:
+                relation:
+                  type: string
+                value:
+                  type: integer
+                  format: int64
+        status:
+          type: integer
+          description: HTTP status code for this search
+        timed_out:
+          type: boolean
+        took:
+          type: integer
+          format: int64
     Lookup:
       type: object
       description: Lookup specifies how to look up a value in a lookup/enrichment table.
@@ -1265,6 +1346,39 @@ components:
           type: string
         text:
           type: string
+    PrometheusQueryResponse:
+      type: object
+      required:
+        - status
+      properties:
+        data:
+          type: object
+          properties:
+            result:
+              type: array
+              items:
+                type: object
+                description: Series result. Shape depends on resultType.
+            resultType:
+              type: string
+              enum:
+                - matrix
+                - vector
+                - scalar
+                - string
+        error:
+          type: string
+        errorType:
+          type: string
+        status:
+          type: string
+          enum:
+            - success
+            - error
+        warnings:
+          type: array
+          items:
+            type: string
     SaveDashboardRequest:
       type: object
       required:
@@ -2273,6 +2387,186 @@ info:
     - `https://ap1.api.oodle.ai` — AP1
   version: 1.0.0
 paths:
+  /api/v1/log_index_patterns:
+    get:
+      tags:
+        - Logs
+      summary: List index patterns
+      description: Returns the available log index patterns for the authenticated instance. Use the returned title as the index value in query_logs requests.
+      operationId: listLog_index_patterns
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/IndexPatternEntry'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /api/v1/query:
+    get:
+      tags:
+        - Metrics
+      summary: Instant query
+      description: Evaluate a PromQL expression at a single point in time. Returns the current value of the expression. Compatible with the Prometheus /api/v1/query endpoint.
+      operationId: queryMetricsInstant
+      parameters:
+        - name: OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: PromQL expression (e.g. sum(up))
+          required: true
+          schema:
+            type: string
+        - name: time
+          in: query
+          description: Evaluation timestamp in Unix seconds. Defaults to current time.
+          schema:
+            type: number
+            format: double
+      responses:
+        "200":
+          description: Successful query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusQueryResponse'
+        "400":
+          description: Invalid query or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusQueryResponse'
+        "401":
+          description: Missing or invalid API key
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+  /api/v1/query_logs:
+    post:
+      tags:
+        - Logs
+      summary: Query logs
+      description: 'Search log data using the OpenSearch-compatible multi-search API. The request body uses NDJSON format with two JSON objects separated by a newline: the first selects the index, the second contains the search query using OpenSearch Query DSL.'
+      operationId: queryLogs
+      parameters:
+        - name: X-OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        description: 'Newline-delimited JSON (NDJSON) body with two lines: the first specifies the index (e.g. {"index": "logs-*"}), the second contains the OpenSearch Query DSL search body.'
+        required: true
+        content:
+          application/x-ndjson:
+            schema:
+              type: string
+              description: 'Newline-delimited JSON (NDJSON) body with two lines: the first specifies the index (e.g. {"index": "logs-*"}), the second contains the OpenSearch Query DSL search body.'
+      responses:
+        "200":
+          description: Successful query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogsQueryResponse'
+        "400":
+          description: Invalid request body
+        "401":
+          description: Missing or invalid API key
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+  /api/v1/query_range:
+    get:
+      tags:
+        - Metrics
+      summary: Range query
+      description: Evaluate a PromQL expression over a time range. Returns a time series of values. Compatible with the Prometheus /api/v1/query_range endpoint.
+      operationId: queryMetricsRange
+      parameters:
+        - name: OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: query
+          in: query
+          description: PromQL expression (e.g. sum(up))
+          required: true
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start timestamp in Unix seconds
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: end
+          in: query
+          description: End timestamp in Unix seconds
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: step
+          in: query
+          description: Query resolution step width as a duration string (e.g. 60s, 5m) or number of seconds
+          required: true
+          schema:
+            type: string
+        - name: partial_response
+          in: query
+          description: When true, return partial data if some stores are unavailable
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Successful query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusQueryResponse'
+        "400":
+          description: Invalid query or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrometheusQueryResponse'
+        "401":
+          description: Missing or invalid API key
+        "500":
+          description: Internal server error
+        default:
+          description: ""
   /v1/api/instance/{instance}/api-keys:
     get:
       tags:
@@ -5447,4 +5741,6 @@ tags:
   - name: Traces
     description: Query distributed traces, labels, and label values.
   - name: Metrics
-    description: Query metric names, labels, and label values.
+    description: Query metric names, labels, label values, and execute PromQL queries (Prometheus-compatible).
+  - name: Logs
+    description: Search and query log data, and discover log index patterns.

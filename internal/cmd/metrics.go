@@ -53,11 +53,13 @@ func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "metrics",
 		Aliases: []string{"metric"},
-		Short:   "Inspect metrics, labels, and label values",
+		Short:   "Query metrics and inspect labels and label values",
 	}
 	cmd.AddCommand(newMetricsNamesCmd())
 	cmd.AddCommand(newMetricsLabelsCmd())
 	cmd.AddCommand(newMetricsLabelValuesCmd())
+	cmd.AddCommand(newMetricsQueryCmd())
+	cmd.AddCommand(newMetricsQueryRangeCmd())
 	return cmd
 }
 

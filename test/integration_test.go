@@ -261,6 +261,67 @@ func TestUsersList(t *testing.T) {
 	listJSONTest(t, "users", "list")
 }
 
+func TestMetricsQuery(t *testing.T) {
+	stdout, stderr, code := runOodle(t, "metrics", "query", "--query", "up", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
+func TestMetricsQueryRange(t *testing.T) {
+	stdout, stderr, code := runOodle(t, "metrics", "query-range",
+		"--query", "count(up)",
+		"--start", "-5m",
+		"--end", "now",
+		"--step", "60s",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
+func TestMetricsQuery_InvalidQuery(t *testing.T) {
+	_, _, code := runOodle(t, "metrics", "query", "--query", "invalid{{{", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for invalid PromQL")
+	}
+}
+
+func TestMetricsQueryRange_MissingStep(t *testing.T) {
+	_, stderr, code := runOodle(t, "metrics", "query-range",
+		"--query", "up",
+		"--start", "-1h",
+		"--end", "now",
+		"--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit when --step is missing")
+	}
+	if !strings.Contains(stderr, "step") {
+		t.Errorf("expected 'step' in error, got: %s", stderr)
+	}
+}
+
+func TestLogsQuery(t *testing.T) {
+	stdout, stderr, code := runOodle(t, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
+func TestLogsIndexPatterns(t *testing.T) {
+	stdout, stderr, code := runOodle(t, "logs", "index-patterns", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+	if !strings.Contains(stdout, "title") {
+		t.Errorf("expected 'title' field in output, got: %s", stdout)
+	}
+}
+
 func TestNotFoundError(t *testing.T) {
 	stdout, stderr, code := runOodle(t,
 		"monitors", "get",
