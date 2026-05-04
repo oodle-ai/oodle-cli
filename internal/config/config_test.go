@@ -5,13 +5,14 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // withCleanEnv unsets all OODLE_* env vars for the duration of the test and
 // restores the previous values afterwards.
 func withCleanEnv(t *testing.T) {
 	t.Helper()
-	keys := []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_URL", "OODLE_API_URL", "OODLE_DEPLOYMENT", "OODLE_CONFIG"}
+	keys := []string{"OODLE_API_KEY", "OODLE_OAUTH_ACCESS_TOKEN", "OODLE_INSTANCE", "OODLE_URL", "OODLE_API_URL", "OODLE_DEPLOYMENT", "OODLE_CONFIG"}
 	for _, k := range keys {
 		old, ok := os.LookupEnv(k)
 		os.Unsetenv(k)
@@ -94,15 +95,35 @@ func TestLoadConfig_FromFile(t *testing.T) {
 	}
 }
 
-func TestLoadConfig_MissingAPIKey(t *testing.T) {
+func TestLoadConfig_FromFileWithOAuthToken(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "oauth_access_token: oauth-token\noauth_refresh_token: refresh-token\ninstance: file-instance\napi_url: https://file.example.com\n")
+	os.Setenv("OODLE_CONFIG", path)
+
+	cfg, err := LoadConfig("", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.OAuthAccessToken != "oauth-token" {
+		t.Fatalf("OAuthAccessToken = %q, want oauth-token", cfg.OAuthAccessToken)
+	}
+	if cfg.OAuthRefreshToken != "refresh-token" {
+		t.Fatalf("OAuthRefreshToken = %q, want refresh-token", cfg.OAuthRefreshToken)
+	}
+	if cfg.Instance != "file-instance" || cfg.APIURL != "https://file.example.com" {
+		t.Fatalf("unexpected cfg: %+v", cfg)
+	}
+}
+
+func TestLoadConfig_MissingAuthentication(t *testing.T) {
 	withCleanEnv(t)
 	os.Setenv("OODLE_INSTANCE", "x")
 	_, err := LoadConfig("", "", "")
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "No API key configured") {
-		t.Errorf("error %q does not mention missing API key", err.Error())
+	if !strings.Contains(err.Error(), "No authentication configured") {
+		t.Errorf("error %q does not mention missing authentication", err.Error())
 	}
 	if !strings.Contains(err.Error(), "OODLE_API_KEY") {
 		t.Errorf("error %q does not mention OODLE_API_KEY", err.Error())
@@ -218,5 +239,22 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	}
 	if *cfg != *c {
 		t.Errorf("round trip mismatch: got %+v want %+v", cfg, c)
+	}
+}
+
+func TestOAuthExpiryTime(t *testing.T) {
+	now := "2026-05-02T15:04:05Z"
+	cfg := &Config{OAuthTokenExpiry: now}
+	parsed, ok := cfg.OAuthExpiryTime()
+	if !ok {
+		t.Fatal("OAuthExpiryTime should parse valid RFC3339 value")
+	}
+	if parsed.UTC().Format(time.RFC3339) != now {
+		t.Fatalf("OAuthExpiryTime = %s, want %s", parsed.UTC().Format(time.RFC3339), now)
+	}
+
+	cfg.OAuthTokenExpiry = "not-a-time"
+	if _, ok := cfg.OAuthExpiryTime(); ok {
+		t.Fatal("OAuthExpiryTime should return ok=false for invalid value")
 	}
 }
