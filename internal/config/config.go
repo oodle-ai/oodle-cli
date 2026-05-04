@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -14,9 +15,14 @@ const DefaultAPIURL = "https://us1.oodle.ai"
 
 // Config holds the resolved Oodle CLI configuration.
 type Config struct {
-	APIKey   string `yaml:"api_key"`
-	Instance string `yaml:"instance"`
-	APIURL   string `yaml:"api_url"`
+	APIKey            string `yaml:"api_key,omitempty"`
+	OAuthAccessToken  string `yaml:"oauth_access_token,omitempty"`
+	OAuthRefreshToken string `yaml:"oauth_refresh_token,omitempty"`
+	OAuthTokenExpiry  string `yaml:"oauth_token_expiry,omitempty"`
+	OAuthClientID     string `yaml:"oauth_client_id,omitempty"`
+	OAuthAuthServer   string `yaml:"oauth_auth_server,omitempty"`
+	Instance          string `yaml:"instance"`
+	APIURL            string `yaml:"api_url"`
 }
 
 // LoadConfig resolves configuration with the precedence:
@@ -34,6 +40,11 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	}
 	if fileCfg != nil {
 		cfg.APIKey = fileCfg.APIKey
+		cfg.OAuthAccessToken = fileCfg.OAuthAccessToken
+		cfg.OAuthRefreshToken = fileCfg.OAuthRefreshToken
+		cfg.OAuthTokenExpiry = fileCfg.OAuthTokenExpiry
+		cfg.OAuthClientID = fileCfg.OAuthClientID
+		cfg.OAuthAuthServer = fileCfg.OAuthAuthServer
 		cfg.Instance = fileCfg.Instance
 		cfg.APIURL = fileCfg.APIURL
 	}
@@ -41,6 +52,12 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	// Env vars override file.
 	if v := os.Getenv("OODLE_API_KEY"); v != "" {
 		cfg.APIKey = v
+	}
+	if v := os.Getenv("OODLE_OAUTH_ACCESS_TOKEN"); v != "" {
+		cfg.OAuthAccessToken = v
+	}
+	if v := os.Getenv("OODLE_OAUTH_REFRESH_TOKEN"); v != "" {
+		cfg.OAuthRefreshToken = v
 	}
 	if v := os.Getenv("OODLE_INSTANCE"); v != "" {
 		cfg.Instance = v
@@ -72,14 +89,26 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 		cfg.APIURL = DefaultAPIURL
 	}
 
-	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("No API key configured. Set OODLE_API_KEY environment variable, use --api-key flag, or run 'oodle configure'")
+	if cfg.APIKey == "" && cfg.OAuthAccessToken == "" {
+		return nil, fmt.Errorf("No authentication configured. Set OODLE_API_KEY or OODLE_OAUTH_ACCESS_TOKEN, use --api-key flag, or run 'oodle configure'/'oodle auth login'")
 	}
 	if cfg.Instance == "" {
 		return nil, fmt.Errorf("No instance configured. Set OODLE_INSTANCE environment variable, use --instance flag, or run 'oodle configure'")
 	}
 
 	return cfg, nil
+}
+
+// OAuthExpiryTime parses OAuthTokenExpiry when set.
+func (c *Config) OAuthExpiryTime() (time.Time, bool) {
+	if c == nil || strings.TrimSpace(c.OAuthTokenExpiry) == "" {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, c.OAuthTokenExpiry)
+	if err != nil {
+		return time.Time{}, false
+	}
+	return t, true
 }
 
 // ConfigPath returns the path to the configuration file. The path can be

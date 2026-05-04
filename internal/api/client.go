@@ -11,10 +11,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/config"
+	"golang.org/x/oauth2"
 )
 
 // Client wraps the generated OpenAPI client and adds Oodle-specific behaviour:
@@ -235,9 +237,24 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 		Timeout:   60 * time.Second,
 	}
 
-	apiKey := cfg.APIKey
+	var (
+		mu          sync.Mutex
+		tokenSource oauth2.TokenSource
+	)
+	if cfg.OAuthAccessToken != "" {
+		tokenSource = buildOAuthTokenSource(cfg)
+	}
+
 	authEditor := func(_ context.Context, req *http.Request) error {
-		req.Header.Set("X-API-Key", apiKey)
+		if tokenSource != nil {
+			tok, err := tokenSource.Token()
+			if err == nil && tok != nil && tok.AccessToken != "" {
+				req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+				maybePersistRefreshedOAuthToken(cfg, tok, &mu)
+				return nil
+			}
+		}
+		req.Header.Set("X-API-Key", cfg.APIKey)
 		return nil
 	}
 
@@ -251,6 +268,60 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 	}
 
 	return &Client{Inner: gen, Config: cfg}, nil
+}
+
+func buildOAuthTokenSource(cfg *config.Config) oauth2.TokenSource {
+	if cfg == nil || cfg.OAuthAccessToken == "" {
+		return nil
+	}
+	if cfg.OAuthRefreshToken == "" || cfg.OAuthClientID == "" || cfg.OAuthAuthServer == "" {
+		return oauth2.StaticTokenSource(&oauth2.Token{AccessToken: cfg.OAuthAccessToken})
+	}
+
+	expiry, ok := cfg.OAuthExpiryTime()
+	if !ok {
+		// No persisted expiry means we should proactively refresh.
+		expiry = time.Now().Add(-1 * time.Minute)
+	}
+	seed := &oauth2.Token{
+		AccessToken:  cfg.OAuthAccessToken,
+		RefreshToken: cfg.OAuthRefreshToken,
+		Expiry:       expiry,
+	}
+	oauthCfg := &oauth2.Config{
+		ClientID: cfg.OAuthClientID,
+		Endpoint: oauth2.Endpoint{
+			TokenURL:  strings.TrimRight(cfg.OAuthAuthServer, "/") + "/oauth/token",
+			AuthStyle: oauth2.AuthStyleInParams,
+		},
+	}
+	return oauth2.ReuseTokenSource(seed, oauthCfg.TokenSource(context.Background(), seed))
+}
+
+func maybePersistRefreshedOAuthToken(cfg *config.Config, tok *oauth2.Token, mu *sync.Mutex) {
+	if cfg == nil || tok == nil {
+		return
+	}
+	mu.Lock()
+	defer mu.Unlock()
+
+	expiry := cfg.OAuthTokenExpiry
+	if !tok.Expiry.IsZero() {
+		expiry = tok.Expiry.UTC().Format(time.RFC3339)
+	}
+	changed := cfg.OAuthAccessToken != tok.AccessToken ||
+		(cfg.OAuthRefreshToken != tok.RefreshToken && tok.RefreshToken != "") ||
+		cfg.OAuthTokenExpiry != expiry
+	if !changed {
+		return
+	}
+
+	cfg.OAuthAccessToken = tok.AccessToken
+	if tok.RefreshToken != "" {
+		cfg.OAuthRefreshToken = tok.RefreshToken
+	}
+	cfg.OAuthTokenExpiry = expiry
+	_ = cfg.Save()
 }
 
 // CheckResponse returns nil for 2xx responses or an *APIError describing the
@@ -296,7 +367,7 @@ func CheckResponse(resp *http.Response, body []byte) error {
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		apiErr.Message = "Authentication failed. Check your API key."
+		apiErr.Message = "Authentication failed. Check your API key or OAuth login."
 	}
 
 	return apiErr

@@ -37,6 +37,17 @@ func TestShouldSkipConfig_Completion(t *testing.T) {
 	}
 }
 
+func TestShouldSkipConfig_AuthLogin(t *testing.T) {
+	root := NewRootCmd()
+	authLogin, _, err := root.Find([]string{"auth", "login"})
+	if err != nil {
+		t.Fatalf("Find(auth login): %v", err)
+	}
+	if !shouldSkipConfig(authLogin) {
+		t.Error("shouldSkipConfig(auth login) = false, want true (auth login must work before credentials exist)")
+	}
+}
+
 // TestShouldSkipConfig_OtherCommands sanity-checks that real API commands
 // still go through config loading.
 func TestShouldSkipConfig_OtherCommands(t *testing.T) {

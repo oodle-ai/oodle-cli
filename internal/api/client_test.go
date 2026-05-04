@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/config"
+	"golang.org/x/oauth2"
 )
 
 // fastRetryTransport returns a retryTransport with timing knobs zeroed for
@@ -160,6 +162,103 @@ func TestAuthHeaderPresent(t *testing.T) {
 	}
 }
 
+func TestOAuthBearerPreferredOverAPIKey(t *testing.T) {
+	var seenAuth, seenAPIKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seenAuth = r.Header.Get("Authorization")
+		seenAPIKey = r.Header.Get("X-API-Key")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	cfg := &config.Config{
+		APIKey:           "test-key",
+		OAuthAccessToken: "oauth-access",
+		Instance:         "demo",
+		APIURL:           srv.URL,
+	}
+	c, err := NewClient(cfg, 1)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.Inner.ListApiKeysWithResponse(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("ListApiKeysWithResponse: %v", err)
+	}
+	if seenAuth != "Bearer oauth-access" {
+		t.Fatalf("Authorization = %q, want Bearer oauth-access", seenAuth)
+	}
+	if seenAPIKey != "" {
+		t.Fatalf("X-API-Key should be empty when OAuth is used, got %q", seenAPIKey)
+	}
+}
+
+func TestOAuthRefreshFlowAndPersist(t *testing.T) {
+	var seenAuth string
+	var tokenCalls int32
+
+	cfg := &config.Config{
+		OAuthAccessToken:  "expired-access",
+		OAuthRefreshToken: "refresh-token",
+		OAuthTokenExpiry:  time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339),
+		OAuthClientID:     "client-id",
+		Instance:          "demo",
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth/token" {
+			atomic.AddInt32(&tokenCalls, 1)
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("ParseForm: %v", err)
+			}
+			if r.Form.Get("grant_type") != "refresh_token" {
+				t.Fatalf("grant_type = %q, want refresh_token", r.Form.Get("grant_type"))
+			}
+			if r.Form.Get("refresh_token") != "refresh-token" {
+				t.Fatalf("refresh_token = %q, want refresh-token", r.Form.Get("refresh_token"))
+			}
+			if r.Form.Get("client_id") != "client-id" {
+				t.Fatalf("client_id = %q, want client-id", r.Form.Get("client_id"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"fresh-access","refresh_token":"fresh-refresh","token_type":"Bearer","expires_in":3600}`))
+			return
+		}
+		seenAuth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	defer srv.Close()
+
+	cfg.APIURL = srv.URL
+	cfg.OAuthAuthServer = srv.URL
+
+	c, err := NewClient(cfg, 1)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	_, err = c.Inner.ListApiKeysWithResponse(context.Background(), "demo")
+	if err != nil {
+		t.Fatalf("ListApiKeysWithResponse: %v", err)
+	}
+	if seenAuth != "Bearer fresh-access" {
+		t.Fatalf("Authorization = %q, want Bearer fresh-access", seenAuth)
+	}
+	if got := atomic.LoadInt32(&tokenCalls); got != 1 {
+		t.Fatalf("token endpoint calls = %d, want 1", got)
+	}
+	if cfg.OAuthAccessToken != "fresh-access" {
+		t.Fatalf("cfg.OAuthAccessToken = %q, want fresh-access", cfg.OAuthAccessToken)
+	}
+	if cfg.OAuthRefreshToken != "fresh-refresh" {
+		t.Fatalf("cfg.OAuthRefreshToken = %q, want fresh-refresh", cfg.OAuthRefreshToken)
+	}
+	if cfg.OAuthTokenExpiry == "" {
+		t.Fatal("cfg.OAuthTokenExpiry should be set after refresh")
+	}
+}
+
 func TestCheckResponse_OodleErrorJSON(t *testing.T) {
 	body, _ := json.Marshal(map[string]any{
 		"errors": []map[string]any{
@@ -210,6 +309,49 @@ func TestCheckResponse_MalformedJSON(t *testing.T) {
 	}
 	if apiErr.StatusCode != http.StatusBadGateway {
 		t.Errorf("StatusCode = %d", apiErr.StatusCode)
+	}
+}
+
+func TestBuildOAuthTokenSourceWithoutRefreshFallsBackToStatic(t *testing.T) {
+	cfg := &config.Config{
+		OAuthAccessToken: "only-access",
+	}
+	ts := buildOAuthTokenSource(cfg)
+	if ts == nil {
+		t.Fatal("buildOAuthTokenSource returned nil")
+	}
+	tok, err := ts.Token()
+	if err != nil {
+		t.Fatalf("Token() returned error: %v", err)
+	}
+	if tok.AccessToken != "only-access" {
+		t.Fatalf("AccessToken = %q, want only-access", tok.AccessToken)
+	}
+}
+
+func TestMaybePersistRefreshedOAuthTokenUpdatesConfig(t *testing.T) {
+	cfg := &config.Config{
+		OAuthAccessToken:  "old",
+		OAuthRefreshToken: "old-refresh",
+	}
+	tok := &oauth2.Token{
+		AccessToken:  "new",
+		RefreshToken: "new-refresh",
+		Expiry:       time.Now().Add(1 * time.Hour),
+	}
+	var mu sync.Mutex
+	maybePersistRefreshedOAuthToken(cfg, tok, &mu)
+	if cfg.OAuthAccessToken != "new" {
+		t.Fatalf("OAuthAccessToken = %q, want new", cfg.OAuthAccessToken)
+	}
+	if cfg.OAuthRefreshToken != "new-refresh" {
+		t.Fatalf("OAuthRefreshToken = %q, want new-refresh", cfg.OAuthRefreshToken)
+	}
+	if cfg.OAuthTokenExpiry == "" {
+		t.Fatal("OAuthTokenExpiry should be set")
+	}
+	if _, err := time.Parse(time.RFC3339, cfg.OAuthTokenExpiry); err != nil {
+		t.Fatalf("OAuthTokenExpiry parse error: %v", err)
 	}
 }
 

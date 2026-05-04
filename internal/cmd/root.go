@@ -27,6 +27,7 @@ type rootFlags struct {
 // API access).
 var commandsSkippingConfig = map[string]bool{
 	"configure":  true,
+	"auth":       true,
 	"version":    true,
 	"help":       true,
 	"completion": true,
@@ -84,6 +85,7 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	pf.BoolVar(&flags.force, "force", false, "Skip confirmation prompts for destructive actions")
 
 	root.AddCommand(newConfigureCmd(flags))
+	root.AddCommand(newAuthCmd(flags))
 	root.AddCommand(newVersionCmd())
 	root.AddCommand(newMonitorsCmd())
 	root.AddCommand(newNotifiersCmd())

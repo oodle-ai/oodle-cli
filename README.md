@@ -58,6 +58,9 @@ make build
 # Configure (interactive)
 oodle configure
 
+# Or login with OAuth (interactive browser flow)
+oodle auth login
+
 # Or use environment variables
 export OODLE_API_KEY="your-api-key"
 export OODLE_INSTANCE="your-instance"
@@ -77,7 +80,7 @@ oodle monitors list -o json
 
 | Setting    | Purpose                                      | Default                  |
 |------------|----------------------------------------------|--------------------------|
-| API key    | Authenticates the request                    | _(required)_             |
+| Auth       | API key or OAuth access token                | _(required)_             |
 | Instance   | Identifies your Oodle tenant/instance        | _(required)_             |
 | API URL    | The Oodle deployment to talk to              | `https://us1.oodle.ai`   |
 
@@ -85,8 +88,8 @@ Each value can be provided via CLI flag, environment variable, or the config
 file. **Resolution order** (highest priority first):
 
 1. CLI flags (`--api-key`, `--instance`, `--api-url`)
-2. Environment variables (`OODLE_API_KEY`, `OODLE_INSTANCE`, `OODLE_DEPLOYMENT`
-   / `OODLE_API_URL`)
+2. Environment variables (`OODLE_API_KEY` / `OODLE_OAUTH_ACCESS_TOKEN`,
+   `OODLE_INSTANCE`, `OODLE_DEPLOYMENT` / `OODLE_API_URL`)
 3. Config file at `~/.oodle/config.yaml`
 4. Built-in defaults (only for API URL)
 
@@ -116,6 +119,40 @@ oodle configure \
   --api-url "https://us1.oodle.ai"
 ```
 
+### `oodle auth login`
+
+Run browser-based OAuth login and save tokens to `~/.oodle/config.yaml`.
+If an API key already exists in config, `oodle` asks whether to delete it.
+If both API key and OAuth token remain configured, OAuth is used.
+OAuth access tokens are refreshed automatically using the saved refresh token.
+
+```bash
+oodle auth login
+```
+
+Optional flags:
+
+```bash
+oodle auth login --domain us1.oodle.ai --instance your-instance
+```
+
+### `oodle auth logout`
+
+Clear saved OAuth credentials from `~/.oodle/config.yaml`.
+
+```bash
+oodle auth logout
+```
+
+### `oodle auth status`
+
+Show current auth configuration and precedence.
+
+```bash
+oodle auth status
+oodle auth status -o json
+```
+
 ### Config file format
 
 `~/.oodle/config.yaml`:
@@ -131,6 +168,8 @@ api_url: https://us1.oodle.ai
 | Variable           | Equivalent flag | Description                               |
 |--------------------|-----------------|-------------------------------------------|
 | `OODLE_API_KEY`    | `--api-key`     | API key used to authenticate              |
+| `OODLE_OAUTH_ACCESS_TOKEN` | _(none)_ | OAuth bearer access token                 |
+| `OODLE_OAUTH_REFRESH_TOKEN` | _(none)_ | OAuth refresh token (advanced/manual use) |
 | `OODLE_INSTANCE`   | `--instance`    | Oodle instance / tenant identifier        |
 | `OODLE_DEPLOYMENT` | `--api-url`     | Oodle API URL (e.g. `https://us1.oodle.ai`) |
 | `OODLE_API_URL`    | `--api-url`     | Alias for `OODLE_DEPLOYMENT`              |
@@ -371,6 +410,7 @@ oodle users invitations --help
 
 | Command       | Description                                    |
 |---------------|------------------------------------------------|
+| `auth`        | OAuth authentication commands                  |
 | `configure`   | Configure the Oodle CLI                        |
 | `version`     | Print the oodle CLI version                    |
 | `completion`  | Generate shell autocompletion scripts          |
