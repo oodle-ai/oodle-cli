@@ -133,7 +133,7 @@ oodle auth login
 Optional flags:
 
 ```bash
-oodle auth login --domain app-dev.oodle.ai --instance your-instance
+oodle auth login --domain us1.oodle.ai --instance your-instance
 ```
 
 ### `oodle auth logout`
