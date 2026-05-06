@@ -13,8 +13,11 @@ import (
 // look like a Prometheus result, it returns false and the caller should fall
 // back to generic formatting.
 //
+// Any warnings present in the response are written to warnOut (typically
+// stderr) so they remain visible even when the main output is piped.
+//
 // Supported resultTypes: vector, matrix, scalar, string.
-func FormatPromQLResult(w io.Writer, format Format, parsed any) (bool, error) {
+func FormatPromQLResult(w io.Writer, warnOut io.Writer, format Format, parsed any) (bool, error) {
 	// The parsed value is a map[string]any from json.Unmarshal into `any`.
 	top, ok := parsed.(map[string]any)
 	if !ok {
@@ -31,18 +34,68 @@ func FormatPromQLResult(w io.Writer, format Format, parsed any) (bool, error) {
 	resultType, _ := data["resultType"].(string)
 	result := data["result"]
 
+	// Check for native histograms in vector/matrix results. The table
+	// formatter cannot represent histogram buckets, so fall back to JSON.
+	if (resultType == "vector" || resultType == "matrix") && containsHistograms(result) {
+		return false, nil
+	}
+
+	var err error
+
 	switch resultType {
 	case "vector":
-		return true, formatVector(w, format, result)
+		err = formatVector(w, format, result)
 	case "matrix":
-		return true, formatMatrix(w, format, result)
-	case "scalar":
-		return true, formatScalarResult(w, format, result)
-	case "string":
-		return true, formatStringResult(w, format, result)
+		err = formatMatrix(w, format, result)
+	case "scalar", "string":
+		err = formatTupleResult(w, format, result)
 	default:
 		return false, nil
 	}
+
+	if err == nil {
+		printWarnings(warnOut, top)
+	}
+
+	return true, err
+}
+
+// printWarnings writes any Prometheus API warnings to w. Prometheus may return
+// successful responses that carry warnings (e.g. partial results). These are
+// written to stderr so they are visible even when stdout is piped.
+func printWarnings(w io.Writer, top map[string]any) {
+	warnings, ok := top["warnings"].([]any)
+	if !ok || len(warnings) == 0 {
+		return
+	}
+	for _, warn := range warnings {
+		if s, ok := warn.(string); ok {
+			fmt.Fprintf(w, "Warning: %s\n", s)
+		}
+	}
+}
+
+// containsHistograms returns true if the result array contains any items with
+// "histogram" or "histograms" keys, indicating native histogram samples that
+// the table formatter cannot represent.
+func containsHistograms(result any) bool {
+	items, ok := result.([]any)
+	if !ok {
+		return false
+	}
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, h := m["histogram"]; h {
+			return true
+		}
+		if _, hs := m["histograms"]; hs {
+			return true
+		}
+	}
+	return false
 }
 
 // formatVector renders an instant-query vector result as a table with one row
@@ -55,7 +108,7 @@ func FormatPromQLResult(w io.Writer, format Format, parsed any) (bool, error) {
 func formatVector(w io.Writer, format Format, result any) error {
 	items, ok := result.([]any)
 	if !ok {
-		return fmt.Errorf("unexpected vector result type")
+		return nil
 	}
 	type row struct {
 		Metric    string
@@ -83,15 +136,27 @@ func formatVector(w io.Writer, format Format, result any) error {
 // formatMatrix renders a range-query matrix result as a table with one row per
 // time series, showing sampled values across time.
 //
-// Example output:
+// For CSV output, each sample is emitted as a separate row with METRIC,
+// TIMESTAMP, VALUE columns to avoid data loss from truncation.
 //
-//	METRIC                          TIMESTAMPS                VALUES
-//	{instance="localhost:9090"}     10:30:00 10:31:00 ...     1.5 1.6 ...
+// For table output, values are shown inline and truncated when there are more
+// than maxMatrixSamples points.
+//
+// Example table output:
+//
+//	METRIC                          VALUES
+//	{instance="localhost:9090"}     1.5@Jan15 10:30:00 1.6@Jan15 10:31:00
 func formatMatrix(w io.Writer, format Format, result any) error {
 	items, ok := result.([]any)
 	if !ok {
-		return fmt.Errorf("unexpected matrix result type")
+		return nil
 	}
+
+	// CSV: emit one row per sample to avoid data loss from truncation.
+	if format == FormatCSV {
+		return formatMatrixCSV(w, items)
+	}
+
 	type row struct {
 		Metric string
 		Values string
@@ -113,23 +178,41 @@ func formatMatrix(w io.Writer, format Format, result any) error {
 	return printPromRows(w, format, rows, columns)
 }
 
-// formatScalarResult renders a scalar result (a single timestamp+value tuple).
-func formatScalarResult(w io.Writer, format Format, result any) error {
-	ts, val := extractSample(result)
+// formatMatrixCSV emits one row per sample with METRIC, TIMESTAMP, VALUE
+// columns so that CSV output is lossless even for large result sets.
+func formatMatrixCSV(w io.Writer, items []any) error {
 	type row struct {
+		Metric    string
 		Timestamp string
 		Value     string
 	}
-	rows := []row{{Timestamp: ts, Value: val}}
+	var rows []row
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		metric := formatMetricLabels(m["metric"])
+		valuesRaw, ok := m["values"].([]any)
+		if !ok {
+			continue
+		}
+		for _, v := range valuesRaw {
+			ts, val := extractSample(v)
+			rows = append(rows, row{Metric: metric, Timestamp: ts, Value: val})
+		}
+	}
 	columns := []Column{
+		{Header: "METRIC", Field: "Metric"},
 		{Header: "TIMESTAMP", Field: "Timestamp"},
 		{Header: "VALUE", Field: "Value"},
 	}
-	return printPromRows(w, format, rows, columns)
+	return printCSV(w, rows, columns)
 }
 
-// formatStringResult renders a string result (a single timestamp+string tuple).
-func formatStringResult(w io.Writer, format Format, result any) error {
+// formatTupleResult renders a scalar or string result (a single
+// timestamp+value tuple).
+func formatTupleResult(w io.Writer, format Format, result any) error {
 	ts, val := extractSample(result)
 	type row struct {
 		Timestamp string
@@ -191,19 +274,17 @@ func extractSample(sample any) (timestamp, value string) {
 }
 
 // formatTimestamp converts a Prometheus epoch-seconds float to a human-readable
-// timestamp string.
+// timestamp string. JSON numbers are always decoded as float64, so that is the
+// only numeric type handled.
 func formatTimestamp(v any) string {
-	switch t := v.(type) {
-	case float64:
-		sec := int64(t)
-		nsec := int64((t - float64(sec)) * 1e9)
-		ts := time.Unix(sec, nsec).UTC()
-		return ts.Format("2006-01-02 15:04:05")
-	case int64:
-		return time.Unix(t, 0).UTC().Format("2006-01-02 15:04:05")
-	default:
+	t, ok := v.(float64)
+	if !ok {
 		return fmt.Sprintf("%v", v)
 	}
+	sec := int64(t)
+	nsec := int64((t - float64(sec)) * 1e9)
+	ts := time.Unix(sec, nsec).UTC()
+	return ts.Format("2006-01-02 15:04:05")
 }
 
 // maxMatrixSamples is the maximum number of sample points to display inline
@@ -211,7 +292,7 @@ func formatTimestamp(v any) string {
 const maxMatrixSamples = 10
 
 // formatMatrixValues renders the values array from a matrix series as a compact
-// "timestamp=value" summary. If there are more than maxMatrixSamples points,
+// "value@timestamp" summary. If there are more than maxMatrixSamples points,
 // it shows the first few, an ellipsis, and the last few.
 func formatMatrixValues(values any) string {
 	arr, ok := values.([]any)
@@ -223,6 +304,10 @@ func formatMatrixValues(values any) string {
 		ts  string
 		val string
 	}
+	fmtSample := func(s sample) string {
+		return s.val + "@" + compactTimestamp(s.ts)
+	}
+
 	samples := make([]sample, 0, len(arr))
 	for _, v := range arr {
 		ts, val := extractSample(v)
@@ -233,7 +318,7 @@ func formatMatrixValues(values any) string {
 	if len(samples) <= maxMatrixSamples {
 		parts := make([]string, len(samples))
 		for i, s := range samples {
-			parts[i] = s.val + "@" + compactTime(s.ts)
+			parts[i] = fmtSample(s)
 		}
 		return strings.Join(parts, " ")
 	}
@@ -242,19 +327,19 @@ func formatMatrixValues(values any) string {
 	half := maxMatrixSamples / 2
 	parts := make([]string, 0, maxMatrixSamples+1)
 	for i := 0; i < half; i++ {
-		parts = append(parts, samples[i].val+"@"+compactTime(samples[i].ts))
+		parts = append(parts, fmtSample(samples[i]))
 	}
 	parts = append(parts, fmt.Sprintf("... (%d total)", len(samples)))
 	for i := len(samples) - half; i < len(samples); i++ {
-		parts = append(parts, samples[i].val+"@"+compactTime(samples[i].ts))
+		parts = append(parts, fmtSample(samples[i]))
 	}
 	return strings.Join(parts, " ")
 }
 
-// compactTime returns a shorter timestamp representation suitable for inline
-// display in matrix value lists. It uses "Jan02 15:04:05" format to keep the
-// date context while saving horizontal space.
-func compactTime(ts string) string {
+// compactTimestamp returns a shorter timestamp representation suitable for
+// inline display in matrix value lists. It uses "Jan02 15:04:05" format to
+// keep the date context while saving horizontal space.
+func compactTimestamp(ts string) string {
 	// Parse the full "2006-01-02 15:04:05" format and re-format compactly.
 	t, err := time.Parse("2006-01-02 15:04:05", ts)
 	if err != nil {

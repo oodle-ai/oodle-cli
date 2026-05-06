@@ -96,72 +96,47 @@ func TestReadAndPrintQueryResponse_ErrorStatus(t *testing.T) {
 	}
 }
 
-func TestPrintQueryResponse_TableFormatVector(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&buf)
+func TestPrintQueryResponse_TableFormatUsesPromQL(t *testing.T) {
+	// Verify the integration plumbing: table format for Prometheus responses
+	// uses the PromQL formatter (producing table headers) instead of raw JSON.
+	// Detailed output assertions are in output/promql_test.go.
+	tests := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "vector",
+			body: `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"prom"},"value":[1700000000,"1"]}]}}`,
+		},
+		{
+			name: "scalar",
+			body: `{"status":"success","data":{"resultType":"scalar","result":[1700000000,"42"]}}`,
+		},
+		{
+			name: "matrix",
+			body: `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"method":"GET"},"values":[[1700000000,"100"]]}]}}`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			cmd := &cobra.Command{}
+			cmd.SetOut(&buf)
 
-	resp := &http.Response{StatusCode: 200}
-	body := []byte(`{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"prom"},"value":[1700000000,"1"]}]}}`)
-
-	if err := printQueryResponse(cmd, output.FormatTable, resp, body); err != nil {
-		t.Fatalf("printQueryResponse: %v", err)
-	}
-	got := buf.String()
-	if !strings.Contains(got, "METRIC") {
-		t.Errorf("expected METRIC header in table output, got: %q", got)
-	}
-	if !strings.Contains(got, "up{") {
-		t.Errorf("expected metric name in table output, got: %q", got)
-	}
-	if !strings.Contains(got, "1") {
-		t.Errorf("expected value '1' in table output, got: %q", got)
-	}
-}
-
-func TestPrintQueryResponse_TableFormatScalar(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&buf)
-
-	resp := &http.Response{StatusCode: 200}
-	body := []byte(`{"status":"success","data":{"resultType":"scalar","result":[1700000000,"42"]}}`)
-
-	if err := printQueryResponse(cmd, output.FormatTable, resp, body); err != nil {
-		t.Fatalf("printQueryResponse: %v", err)
-	}
-	got := buf.String()
-	if !strings.Contains(got, "TIMESTAMP") {
-		t.Errorf("expected TIMESTAMP header, got: %q", got)
-	}
-	if !strings.Contains(got, "42") {
-		t.Errorf("expected value '42', got: %q", got)
-	}
-}
-
-func TestPrintQueryResponse_TableFormatMatrix(t *testing.T) {
-	var buf bytes.Buffer
-	cmd := &cobra.Command{}
-	cmd.SetOut(&buf)
-
-	resp := &http.Response{StatusCode: 200}
-	body := []byte(`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"method":"GET"},"values":[[1700000000,"100"],[1700000060,"105"]]}]}}`)
-
-	if err := printQueryResponse(cmd, output.FormatTable, resp, body); err != nil {
-		t.Fatalf("printQueryResponse: %v", err)
-	}
-	got := buf.String()
-	if !strings.Contains(got, "METRIC") {
-		t.Errorf("expected METRIC header, got: %q", got)
-	}
-	if !strings.Contains(got, "VALUES") {
-		t.Errorf("expected VALUES header, got: %q", got)
-	}
-	if !strings.Contains(got, `method="GET"`) {
-		t.Errorf("expected metric labels, got: %q", got)
-	}
-	if !strings.Contains(got, "100@Nov14") {
-		t.Errorf("expected value '100@Nov14', got: %q", got)
+			resp := &http.Response{StatusCode: 200}
+			if err := printQueryResponse(cmd, output.FormatTable, resp, []byte(tt.body)); err != nil {
+				t.Fatalf("printQueryResponse: %v", err)
+			}
+			got := buf.String()
+			// Table output should NOT contain raw JSON structure markers
+			if strings.Contains(got, `"resultType"`) {
+				t.Errorf("table format should not produce raw JSON, got: %q", got)
+			}
+			// Should contain table-style output (column headers)
+			if !strings.Contains(got, "METRIC") && !strings.Contains(got, "TIMESTAMP") {
+				t.Errorf("expected table column headers, got: %q", got)
+			}
+		})
 	}
 }
 
