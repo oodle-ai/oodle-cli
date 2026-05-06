@@ -263,3 +263,124 @@ func TestFetchContent_NotFound(t *testing.T) {
 		t.Errorf("error = %q, want substring 'skill not found: oodle-cli'", err.Error())
 	}
 }
+
+func TestFetchAllContents_Parallel(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract skill name from path like "/skill-a/SKILL.md"
+		parts := strings.Split(r.URL.Path, "/")
+		name := ""
+		if len(parts) > 1 {
+			name = parts[1]
+		}
+		_, _ = fmt.Fprintf(w, "---\nname: %s\ndescription: desc for %s\n---\n# %s", name, name, name)
+	}))
+	defer srv.Close()
+
+	SetRawContentURLOverride(srv.URL)
+	defer SetRawContentURLOverride("")
+
+	entries := []Entry{
+		{Name: "skill-a"},
+		{Name: "skill-b"},
+		{Name: "skill-c"},
+		{Name: "skill-d"},
+		{Name: "skill-e"},
+		{Name: "skill-f"},
+	}
+
+	results := FetchAllContents(context.Background(), entries)
+	if len(results) != len(entries) {
+		t.Fatalf("got %d results, want %d", len(results), len(entries))
+	}
+	for i, r := range results {
+		if r.Err != nil {
+			t.Errorf("results[%d] (%s): unexpected error: %v", i, r.Name, r.Err)
+			continue
+		}
+		if r.Name != entries[i].Name {
+			t.Errorf("results[%d].Name = %q, want %q", i, r.Name, entries[i].Name)
+		}
+		if !strings.Contains(r.Content, entries[i].Name) {
+			t.Errorf("results[%d].Content missing skill name %q", i, entries[i].Name)
+		}
+	}
+}
+
+func TestFetchAllContents_PartialFailure(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.Split(r.URL.Path, "/")
+		name := ""
+		if len(parts) > 1 {
+			name = parts[1]
+		}
+		if name == "bad-skill" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = fmt.Fprintf(w, "---\nname: %s\n---\n# %s", name, name)
+	}))
+	defer srv.Close()
+
+	SetRawContentURLOverride(srv.URL)
+	defer SetRawContentURLOverride("")
+
+	entries := []Entry{
+		{Name: "good-skill"},
+		{Name: "bad-skill"},
+		{Name: "another-good"},
+	}
+
+	results := FetchAllContents(context.Background(), entries)
+	if len(results) != 3 {
+		t.Fatalf("got %d results, want 3", len(results))
+	}
+	if results[0].Err != nil {
+		t.Errorf("results[0] unexpected error: %v", results[0].Err)
+	}
+	if results[1].Err == nil {
+		t.Error("results[1] expected error for bad-skill, got nil")
+	} else if !strings.Contains(results[1].Err.Error(), "skill not found: bad-skill") {
+		t.Errorf("results[1].Err = %q, want substring 'skill not found: bad-skill'", results[1].Err.Error())
+	}
+	if results[2].Err != nil {
+		t.Errorf("results[2] unexpected error: %v", results[2].Err)
+	}
+}
+
+func TestFetchAllContents_ContextCancelled(t *testing.T) {
+	// Use a server that blocks until the request context is done.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer srv.Close()
+
+	SetRawContentURLOverride(srv.URL)
+	defer SetRawContentURLOverride("")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	entries := []Entry{
+		{Name: "skill-a"},
+		{Name: "skill-b"},
+	}
+
+	results := FetchAllContents(ctx, entries)
+	for i, r := range results {
+		if r.Err == nil {
+			t.Errorf("results[%d] expected error due to cancelled context, got nil", i)
+		}
+	}
+}
+
+func TestFetchAllContents_Empty(t *testing.T) {
+	results := FetchAllContents(context.Background(), nil)
+	if len(results) != 0 {
+		t.Errorf("got %d results for nil entries, want 0", len(results))
+	}
+
+	results = FetchAllContents(context.Background(), []Entry{})
+	if len(results) != 0 {
+		t.Errorf("got %d results for empty entries, want 0", len(results))
+	}
+}

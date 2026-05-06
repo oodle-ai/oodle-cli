@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -137,6 +138,50 @@ func FetchContent(ctx context.Context, name string) (string, error) {
 		return "", fmt.Errorf("reading skill %q: %w", name, err)
 	}
 	return string(body), nil
+}
+
+// maxParallelFetches is the maximum number of concurrent HTTP requests when
+// fetching all skills in parallel.
+const maxParallelFetches = 5
+
+// FetchResult holds the outcome of fetching a single skill's content.
+type FetchResult struct {
+	Name    string
+	Content string
+	Err     error
+}
+
+// FetchAllContents fetches SKILL.md content for all given entries concurrently
+// using a bounded worker pool. It returns results in the same order as the
+// input entries. If the context is cancelled, in-flight fetches are abandoned
+// and the context error is returned in the remaining results.
+func FetchAllContents(ctx context.Context, entries []Entry) []FetchResult {
+	results := make([]FetchResult, len(entries))
+
+	sem := make(chan struct{}, maxParallelFetches)
+	var wg sync.WaitGroup
+
+	for i, e := range entries {
+		wg.Add(1)
+		go func(idx int, name string) {
+			defer wg.Done()
+
+			// Acquire semaphore slot (or bail on context cancellation).
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				results[idx] = FetchResult{Name: name, Err: ctx.Err()}
+				return
+			}
+
+			content, err := FetchContent(ctx, name)
+			results[idx] = FetchResult{Name: name, Content: content, Err: err}
+		}(i, e.Name)
+	}
+
+	wg.Wait()
+	return results
 }
 
 // agentDetectors maps agent names to detection env vars (first truthy match wins).

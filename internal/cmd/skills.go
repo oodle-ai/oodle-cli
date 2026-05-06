@@ -119,24 +119,25 @@ func newSkillsInstallCmd() *cobra.Command {
 				return printInstallResult(cmd, format, 1, installDir)
 			}
 
-			// Install all skills
+			// Install all skills (fetched in parallel)
 			entries, err := skills.List(ctx)
 			if err != nil {
 				return fmt.Errorf("fetching skills list: %w", err)
 			}
 
+			results := skills.FetchAllContents(ctx, entries)
+
 			installed := 0
-			for _, e := range entries {
-				content, err := skills.FetchContent(ctx, e.Name)
-				if err != nil {
-					return fmt.Errorf("fetching skill %q: %w", e.Name, err)
+			for _, r := range results {
+				if r.Err != nil {
+					return fmt.Errorf("fetching skill %q: %w", r.Name, r.Err)
 				}
-				skillDir := filepath.Join(installDir, e.Name)
+				skillDir := filepath.Join(installDir, r.Name)
 				if err := os.MkdirAll(skillDir, 0755); err != nil {
 					return fmt.Errorf("creating directory %s: %w", skillDir, err)
 				}
 				dest := filepath.Join(skillDir, "SKILL.md")
-				if err := os.WriteFile(dest, []byte(content), 0644); err != nil {
+				if err := os.WriteFile(dest, []byte(r.Content), 0644); err != nil {
 					return fmt.Errorf("writing %s: %w", dest, err)
 				}
 				installed++
