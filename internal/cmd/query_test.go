@@ -96,6 +96,177 @@ func TestReadAndPrintQueryResponse_ErrorStatus(t *testing.T) {
 	}
 }
 
+func TestPrintQueryResponse_GraphMatrix(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+
+	resp := &http.Response{StatusCode: 200}
+	body := []byte(`{
+		"status": "success",
+		"data": {
+			"resultType": "matrix",
+			"result": [{
+				"metric": {"job": "prometheus"},
+				"values": [
+					[1700000000, "1"],
+					[1700000060, "2"],
+					[1700000120, "3"],
+					[1700000180, "2.5"],
+					[1700000240, "1.5"]
+				]
+			}]
+		}
+	}`)
+
+	if err := printQueryResponse(cmd, output.FormatGraph, resp, body); err != nil {
+		t.Fatalf("printQueryResponse graph: %v", err)
+	}
+	got := buf.String()
+	if got == "" {
+		t.Fatal("expected non-empty graph output")
+	}
+	// The legend should contain the job label.
+	if !strings.Contains(got, "prometheus") {
+		t.Errorf("expected 'prometheus' in graph legend, got:\n%s", got)
+	}
+}
+
+func TestPrintQueryResponse_GraphScalarError(t *testing.T) {
+	cmd := &cobra.Command{}
+	resp := &http.Response{StatusCode: 200}
+	body := []byte(`{"status":"success","data":{"resultType":"scalar","result":[1700000000,"42"]}}`)
+
+	err := printQueryResponse(cmd, output.FormatGraph, resp, body)
+	if err == nil {
+		t.Fatal("expected error for scalar result type with graph output")
+	}
+	if !strings.Contains(err.Error(), "scalar") {
+		t.Errorf("error should mention 'scalar', got: %v", err)
+	}
+}
+
+func TestPrintQueryResponse_GraphVector(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+
+	resp := &http.Response{StatusCode: 200}
+	body := []byte(`{
+		"status": "success",
+		"data": {
+			"resultType": "vector",
+			"result": [{
+				"metric": {"instance": "localhost:9090"},
+				"value": [1700000000, "42"]
+			}]
+		}
+	}`)
+
+	if err := printQueryResponse(cmd, output.FormatGraph, resp, body); err != nil {
+		t.Fatalf("printQueryResponse graph vector: %v", err)
+	}
+	got := buf.String()
+	if got == "" {
+		t.Fatal("expected non-empty graph output")
+	}
+	// The legend should contain the instance label.
+	if !strings.Contains(got, "localhost") {
+		t.Errorf("expected 'localhost' in graph legend, got:\n%s", got)
+	}
+}
+
+func TestPrintQueryResponse_StatsMatrix(t *testing.T) {
+	var buf bytes.Buffer
+	cmd := &cobra.Command{}
+	cmd.SetOut(&buf)
+
+	resp := &http.Response{StatusCode: 200}
+	body := []byte(`{
+		"status": "success",
+		"data": {
+			"resultType": "matrix",
+			"result": [{
+				"metric": {"job": "prometheus"},
+				"values": [
+					[1700000000, "10"],
+					[1700000060, "20"],
+					[1700000120, "30"]
+				]
+			}]
+		}
+	}`)
+
+	if err := printQueryResponse(cmd, output.FormatStats, resp, body); err != nil {
+		t.Fatalf("printQueryResponse stats: %v", err)
+	}
+	got := buf.String()
+	if !strings.Contains(got, "prometheus") {
+		t.Errorf("expected 'prometheus' in stats output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "MIN") {
+		t.Errorf("expected 'MIN' header in stats output, got:\n%s", got)
+	}
+	if !strings.Contains(got, "1 series") {
+		t.Errorf("expected '1 series' in stats footer, got:\n%s", got)
+	}
+}
+
+func TestPrintQueryResponse_StatsEmptyResult(t *testing.T) {
+	// A Prometheus query returning status: "success" with an empty result set
+	// should not produce an error under -o stats. It should render a successful
+	// empty summary.
+	cases := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "empty matrix",
+			body: `{"status":"success","data":{"resultType":"matrix","result":[]}}`,
+		},
+		{
+			name: "empty vector",
+			body: `{"status":"success","data":{"resultType":"vector","result":[]}}`,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			cmd := &cobra.Command{}
+			cmd.SetOut(&buf)
+
+			resp := &http.Response{StatusCode: 200}
+			err := printQueryResponse(cmd, output.FormatStats, resp, []byte(tc.body))
+			if err != nil {
+				t.Fatalf("printQueryResponse stats with empty result should not error, got: %v", err)
+			}
+			got := buf.String()
+			if !strings.Contains(got, "0 series, 0 total samples") {
+				t.Errorf("expected '0 series, 0 total samples' in output, got:\n%s", got)
+			}
+		})
+	}
+}
+
+func TestPrintQueryResponse_StatsScalarError(t *testing.T) {
+	cmd := &cobra.Command{}
+	resp := &http.Response{StatusCode: 200}
+	body := []byte(`{"status":"success","data":{"resultType":"scalar","result":[1700000000,"42"]}}`)
+
+	err := printQueryResponse(cmd, output.FormatStats, resp, body)
+	if err == nil {
+		t.Fatal("expected error for scalar result type with stats output")
+	}
+	if !strings.Contains(err.Error(), "scalar") {
+		t.Errorf("error should mention 'scalar', got: %v", err)
+	}
+	// The error message should NOT say "graph output" — it should be format-neutral.
+	if strings.Contains(err.Error(), "graph output") {
+		t.Errorf("error message should not say 'graph output' when using stats format, got: %v", err)
+	}
+}
+
 func TestPrintQueryResponse_TableFormatUsesPromQL(t *testing.T) {
 	// Verify the integration plumbing: table format for Prometheus responses
 	// uses the PromQL formatter (producing table headers) instead of raw JSON.
