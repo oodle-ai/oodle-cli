@@ -1376,3 +1376,327 @@ func TestMock_MetricsQueryRange_TableMatrixTruncation(t *testing.T) {
 		t.Errorf("expected truncation indicator '... (20 total)', got: %s", stdout)
 	}
 }
+
+// -------------------------------------------------------------------------
+// Mock: Logs Query — --start/--end flag injection tests
+// -------------------------------------------------------------------------
+
+func TestMock_LogsQuery_DefaultTimeRange_OnWire(t *testing.T) {
+	// No --start/--end flags — verify defaults (-1h / now) are injected.
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]},"timed_out":false,"took":1}],"took":1}`
+	var capturedBody string
+	beforeMs := time.Now().Add(-1*time.Hour - 5*time.Second).UnixMilli()
+	afterStartMs := time.Now().Add(-1*time.Hour + 5*time.Second).UnixMilli()
+	beforeEndMs := time.Now().UnixMilli()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+
+	// Parse the second NDJSON line of the captured body.
+	lines := strings.Split(strings.TrimSpace(capturedBody), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 NDJSON lines in body, got %d\nbody: %s", len(lines), capturedBody)
+	}
+	var search map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &search); err != nil {
+		t.Fatalf("parsing search line: %v\nline: %s", err, lines[1])
+	}
+
+	query, ok := search["query"].(map[string]any)
+	if !ok {
+		t.Fatal("expected query in search body")
+	}
+	boolQ, ok := query["bool"].(map[string]any)
+	if !ok {
+		t.Fatal("expected bool query wrapping original query")
+	}
+	filter, ok := boolQ["filter"].([]any)
+	if !ok || len(filter) == 0 {
+		t.Fatal("expected filter in bool query")
+	}
+	// Find the range filter.
+	var rangeClause map[string]any
+	for _, f := range filter {
+		fm, ok := f.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, has := fm["range"]; has {
+			rangeClause = fm
+			break
+		}
+	}
+	if rangeClause == nil {
+		t.Fatal("expected a range filter in the filter array")
+	}
+	rangeField := rangeClause["range"].(map[string]any)
+	ts := rangeField["@timestamp"].(map[string]any)
+
+	gte := int64(ts["gte"].(float64))
+	lte := int64(ts["lte"].(float64))
+
+	if gte < beforeMs || gte > afterStartMs {
+		t.Errorf("gte=%d not in expected window [%d, %d] (now-1h±5s)", gte, beforeMs, afterStartMs)
+	}
+	if lte < beforeEndMs {
+		t.Errorf("lte=%d is before test start %d", lte, beforeEndMs)
+	}
+	afterEndMs := time.Now().Add(5 * time.Second).UnixMilli()
+	if lte > afterEndMs {
+		t.Errorf("lte=%d is unexpectedly far in the future (after %d)", lte, afterEndMs)
+	}
+	if ts["format"] != "epoch_millis" {
+		t.Errorf("format=%v, want epoch_millis", ts["format"])
+	}
+}
+
+func TestMock_LogsQuery_ExplicitEpochMs_OnWire(t *testing.T) {
+	// Explicit epoch-ms values must flow through unchanged.
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]},"timed_out":false,"took":1}],"took":1}`
+	var capturedBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query",
+		"-f", "testdata/logs_query.ndjson",
+		"--start", "1700000000000",
+		"--end", "1700003600000",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+
+	lines := strings.Split(strings.TrimSpace(capturedBody), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 NDJSON lines, got %d\nbody: %s", len(lines), capturedBody)
+	}
+	var search map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &search); err != nil {
+		t.Fatalf("parsing search: %v", err)
+	}
+	query := search["query"].(map[string]any)
+	boolQ := query["bool"].(map[string]any)
+	filter := boolQ["filter"].([]any)
+
+	var rangeClause map[string]any
+	for _, f := range filter {
+		fm := f.(map[string]any)
+		if _, has := fm["range"]; has {
+			rangeClause = fm
+			break
+		}
+	}
+	if rangeClause == nil {
+		t.Fatal("expected range filter in body")
+	}
+	rangeField := rangeClause["range"].(map[string]any)
+	ts := rangeField["@timestamp"].(map[string]any)
+	if int64(ts["gte"].(float64)) != 1700000000000 {
+		t.Errorf("gte=%v, want 1700000000000", ts["gte"])
+	}
+	if int64(ts["lte"].(float64)) != 1700003600000 {
+		t.Errorf("lte=%v, want 1700003600000", ts["lte"])
+	}
+}
+
+func TestMock_LogsQuery_RelativeDuration_OnWire(t *testing.T) {
+	// --start -2h --end now: verify a ~2h window lands on wire.
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]},"timed_out":false,"took":1}],"took":1}`
+	var capturedBody string
+	beforeMs := time.Now().UnixMilli()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query",
+		"-f", "testdata/logs_query.ndjson",
+		"--start", "-2h",
+		"--end", "now",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	afterMs := time.Now().UnixMilli()
+
+	lines := strings.Split(strings.TrimSpace(capturedBody), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 NDJSON lines, got %d", len(lines))
+	}
+	var search map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &search); err != nil {
+		t.Fatalf("parsing search: %v", err)
+	}
+	query := search["query"].(map[string]any)
+	boolQ := query["bool"].(map[string]any)
+	filter := boolQ["filter"].([]any)
+
+	var rangeClause map[string]any
+	for _, f := range filter {
+		fm := f.(map[string]any)
+		if _, has := fm["range"]; has {
+			rangeClause = fm
+			break
+		}
+	}
+	if rangeClause == nil {
+		t.Fatal("expected range filter")
+	}
+	ts := rangeClause["range"].(map[string]any)["@timestamp"].(map[string]any)
+	gte := int64(ts["gte"].(float64))
+	lte := int64(ts["lte"].(float64))
+
+	twoHoursAgoLow := beforeMs - int64(2*time.Hour/time.Millisecond) - 5000
+	twoHoursAgoHigh := afterMs - int64(2*time.Hour/time.Millisecond) + 5000
+	if gte < twoHoursAgoLow || gte > twoHoursAgoHigh {
+		t.Errorf("gte=%d not in ~2h-ago window [%d, %d]", gte, twoHoursAgoLow, twoHoursAgoHigh)
+	}
+	if lte < beforeMs || lte > afterMs+5000 {
+		t.Errorf("lte=%d not near current time [%d, %d]", lte, beforeMs, afterMs+5000)
+	}
+}
+
+func TestMock_LogsQuery_InvalidStart_Error(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query",
+		"-f", "testdata/logs_query.ndjson",
+		"--start", "not-a-time",
+		"--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for invalid --start")
+	}
+	if !strings.Contains(stderr, "--start") {
+		t.Errorf("expected '--start' in error message, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsQuery_InvalidEnd_Error(t *testing.T) {
+	srv := jsonSrv(`{}`, 200)
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query",
+		"-f", "testdata/logs_query.ndjson",
+		"--end", "garbage",
+		"--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for invalid --end")
+	}
+	if !strings.Contains(stderr, "--end") {
+		t.Errorf("expected '--end' in error message, got: %s", stderr)
+	}
+}
+
+func TestMock_LogsQuery_ExistingBoolFilter_Appended(t *testing.T) {
+	// A query that already has bool+filter: injected range should be appended,
+	// original clause must be preserved.
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":0,"relation":"eq"},"hits":[]},"timed_out":false,"took":1}],"took":1}`
+	var capturedBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	// Write a temp NDJSON file with an existing bool+filter.
+	tmpFile, err := os.CreateTemp("", "logs-bool-*.ndjson")
+	if err != nil {
+		t.Fatalf("creating temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	_, _ = fmt.Fprintln(tmpFile, `{"index": "logs-*"}`)
+	_, _ = fmt.Fprintln(tmpFile, `{"query":{"bool":{"filter":[{"term":{"level":"error"}}]}},"size":5}`)
+	tmpFile.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query",
+		"-f", tmpFile.Name(),
+		"--start", "1700000000000",
+		"--end", "1700003600000",
+		"--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+
+	lines := strings.Split(strings.TrimSpace(capturedBody), "\n")
+	if len(lines) < 2 {
+		t.Fatalf("expected at least 2 NDJSON lines, got %d", len(lines))
+	}
+	var search map[string]any
+	if err := json.Unmarshal([]byte(lines[1]), &search); err != nil {
+		t.Fatalf("parsing search: %v", err)
+	}
+	query := search["query"].(map[string]any)
+	boolQ := query["bool"].(map[string]any)
+	filter, ok := boolQ["filter"].([]any)
+	if !ok {
+		t.Fatalf("expected filter array, got: %T = %v", boolQ["filter"], boolQ["filter"])
+	}
+	if len(filter) != 2 {
+		t.Fatalf("expected 2 filter clauses (original term + injected range), got %d", len(filter))
+	}
+	// First: original term clause.
+	first := filter[0].(map[string]any)
+	if _, ok := first["term"]; !ok {
+		t.Errorf("expected original term filter at index 0, got: %v", first)
+	}
+	// Second: injected range clause.
+	second := filter[1].(map[string]any)
+	if _, ok := second["range"]; !ok {
+		t.Errorf("expected injected range filter at index 1, got: %v", second)
+	}
+}
+
+func TestMock_LogsQuery_BodyContainsTimestamp(t *testing.T) {
+	// Regression: after the --start/--end change, every logs query must inject
+	// @timestamp into the body. This test extends the existing LogsQuery_JSON
+	// coverage to verify the new field is present.
+	payload := `{"responses":[{"status":200,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"message":"hello"}}]},"timed_out":false,"took":5}],"took":10}`
+	var capturedBody string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		bodyBytes, _ := io.ReadAll(r.Body)
+		capturedBody = string(bodyBytes)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, payload)
+	}))
+	defer srv.Close()
+
+	_, stderr, code := runMock(t, srv.URL, "logs", "query", "-f", "testdata/logs_query.ndjson", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(capturedBody, "@timestamp") {
+		t.Errorf("expected @timestamp in request body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "epoch_millis") {
+		t.Errorf("expected epoch_millis in request body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "logs-*") {
+		t.Errorf("expected logs-* in request body, got: %s", capturedBody)
+	}
+}

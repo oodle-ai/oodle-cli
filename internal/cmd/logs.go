@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ func newLogsCmd() *cobra.Command {
 // log data using the OpenSearch-compatible multi-search API.
 func newLogsQueryCmd() *cobra.Command {
 	var file string
+	var startStr, endStr string
 	cmd := &cobra.Command{
 		Use:   "query",
 		Short: "Search log data using OpenSearch-compatible query DSL",
@@ -38,6 +40,10 @@ func newLogsQueryCmd() *cobra.Command {
 The request body uses NDJSON format with two JSON objects separated by a newline:
 the first selects the index, the second contains the search query using OpenSearch
 Query DSL. Pass the body via -f <file>.
+
+When --start and --end are provided (or defaulted), a range filter on @timestamp
+is injected into the query body automatically. If the query already contains a
+bool filter, the range clause is appended to the existing filter array.
 
 Example NDJSON file contents:
   {"index": "logs-*"}
@@ -52,9 +58,27 @@ Example NDJSON file contents:
 			if err != nil {
 				return fmt.Errorf("reading %q: %w", file, err)
 			}
-			// Ensure the body ends with a newline (NDJSON requirement).
-			if !bytes.HasSuffix(data, []byte("\n")) {
-				data = append(data, '\n')
+
+			// Apply default time range values.
+			if startStr == "" {
+				startStr = defaultStartOffset
+			}
+			if endStr == "" {
+				endStr = defaultEndValue
+			}
+
+			startMs, err := parseTimeFlagMs(startStr)
+			if err != nil {
+				return fmt.Errorf("--start: %w", err)
+			}
+			endMs, err := parseTimeFlagMs(endStr)
+			if err != nil {
+				return fmt.Errorf("--end: %w", err)
+			}
+
+			data, err = injectTimeRange(data, startMs, endMs)
+			if err != nil {
+				return fmt.Errorf("injecting time range: %w", err)
 			}
 
 			params := &client.QueryLogsParams{
@@ -78,8 +102,99 @@ Example NDJSON file contents:
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to NDJSON query file")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
+}
+
+// injectTimeRange parses the NDJSON body (header + search lines) and injects
+// a range filter on @timestamp into the search query. If the query is already
+// wrapped in a bool query with a filter clause, the range is appended;
+// otherwise the original query is wrapped in a bool/must+filter structure.
+func injectTimeRange(data []byte, startMs, endMs int64) ([]byte, error) {
+	lines := splitNDJSON(data)
+	if len(lines) < 2 {
+		return nil, fmt.Errorf("expected at least 2 NDJSON lines (header + search), got %d", len(lines))
+	}
+
+	// Parse the search body (second line).
+	var search map[string]any
+	if err := json.Unmarshal(lines[1], &search); err != nil {
+		return nil, fmt.Errorf("parsing search body: %w", err)
+	}
+
+	// Build the range filter clause.
+	rangeFilter := map[string]any{
+		"range": map[string]any{
+			"@timestamp": map[string]any{
+				"gte":    startMs,
+				"lte":    endMs,
+				"format": "epoch_millis",
+			},
+		},
+	}
+
+	// Inject into the query.
+	query, _ := search["query"].(map[string]any)
+	if query == nil {
+		query = map[string]any{"match_all": map[string]any{}}
+	}
+
+	// Check if there's already a bool query with a filter.
+	if boolQ, ok := query["bool"].(map[string]any); ok {
+		// Normalize existing filter (can be nil, a single object, or an array)
+		// and append the range clause.
+		switch f := boolQ["filter"].(type) {
+		case nil:
+			boolQ["filter"] = []any{rangeFilter}
+		case []any:
+			boolQ["filter"] = append(f, rangeFilter)
+		default:
+			// Single filter object — wrap into an array alongside the range.
+			boolQ["filter"] = []any{f, rangeFilter}
+		}
+	} else {
+		// Wrap the original query in a bool/must+filter.
+		search["query"] = map[string]any{
+			"bool": map[string]any{
+				"must":   []any{query},
+				"filter": []any{rangeFilter},
+			},
+		}
+	}
+
+	// Re-serialize.
+	searchBytes, err := json.Marshal(search)
+	if err != nil {
+		return nil, fmt.Errorf("serializing search body: %w", err)
+	}
+
+	// Reconstruct NDJSON: header + modified search + any remaining lines.
+	var result []byte
+	result = append(result, lines[0]...)
+	result = append(result, '\n')
+	result = append(result, searchBytes...)
+	result = append(result, '\n')
+	// Additional header+search pairs (if any) are passed through unchanged;
+	// time range is only injected into the first search body.
+	for i := 2; i < len(lines); i++ {
+		result = append(result, lines[i]...)
+		result = append(result, '\n')
+	}
+	return result, nil
+}
+
+// splitNDJSON splits NDJSON data into individual JSON lines, skipping empty lines.
+func splitNDJSON(data []byte) [][]byte {
+	var lines [][]byte
+	for _, line := range bytes.Split(data, []byte("\n")) {
+		trimmed := bytes.TrimSpace(line)
+		if len(trimmed) > 0 {
+			lines = append(lines, trimmed)
+		}
+	}
+	return lines
 }
 
 // newLogsIndexPatternsCmd returns the `oodle logs index-patterns` subcommand
