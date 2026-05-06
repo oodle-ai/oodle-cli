@@ -31,6 +31,14 @@ func printQueryResponse(cmd *cobra.Command, format output.Format, httpResp *http
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		return fmt.Errorf("parsing response: %w", err)
 	}
+	// For table and CSV formats, attempt PromQL-aware pretty-printing that
+	// renders one row per series with human-readable timestamps and values.
+	// Falls back to generic JSON output for non-Prometheus responses.
+	if format == output.FormatTable || format == output.FormatCSV {
+		if handled, err := output.FormatPromQLResult(cmd.OutOrStdout(), cmd.ErrOrStderr(), format, parsed); handled {
+			return err
+		}
+	}
 	return output.Print(cmd.OutOrStdout(), format, parsed, nil)
 }
 

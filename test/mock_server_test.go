@@ -1103,3 +1103,276 @@ func TestMock_LogsIndexPatterns_401Error(t *testing.T) {
 		t.Errorf("expected auth-related error, got: %s", stderr)
 	}
 }
+
+// -------------------------------------------------------------------------
+// Mock: Metrics Query — table and CSV output formats
+// -------------------------------------------------------------------------
+
+func TestMock_MetricsQuery_TableVector(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"prometheus","instance":"localhost:9090"},"value":[1700000000,"1"]},{"metric":{"__name__":"up","job":"node","instance":"localhost:9100"},"value":[1700000000,"0"]}]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	// Must have table headers, not raw JSON.
+	if !strings.Contains(stdout, "METRIC") {
+		t.Errorf("expected METRIC header in table output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "TIMESTAMP") {
+		t.Errorf("expected TIMESTAMP header in table output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "VALUE") {
+		t.Errorf("expected VALUE header in table output, got: %s", stdout)
+	}
+	// Metric name should appear as prefix with labels.
+	if !strings.Contains(stdout, "up{") {
+		t.Errorf("expected metric name prefix 'up{' in table output, got: %s", stdout)
+	}
+	// Both series should appear.
+	if !strings.Contains(stdout, `job="prometheus"`) {
+		t.Errorf("expected job=prometheus label in table output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, `job="node"`) {
+		t.Errorf("expected job=node label in table output, got: %s", stdout)
+	}
+	// Must NOT be raw JSON.
+	if strings.Contains(stdout, `"resultType"`) {
+		t.Errorf("table output must not contain raw JSON keys, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQuery_TableScalar(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"scalar","result":[1700000000,"42"]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "1+1", "--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0 for scalar table, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "TIMESTAMP") {
+		t.Errorf("expected TIMESTAMP header, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "VALUE") {
+		t.Errorf("expected VALUE header, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "42") {
+		t.Errorf("expected value '42' in output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "2023-11-14") {
+		t.Errorf("expected formatted date '2023-11-14' in output, got: %s", stdout)
+	}
+	if strings.Contains(stdout, `"resultType"`) {
+		t.Errorf("table output must not contain raw JSON keys, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQuery_TableEmptyVector(t *testing.T) {
+	// An empty result set should print the header row but no data rows —
+	// not an error and not a blank screen.
+	payload := `{"status":"success","data":{"resultType":"vector","result":[]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "nonexistent_metric", "--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0 for empty vector, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "METRIC") {
+		t.Errorf("expected METRIC header even for empty result, got: %s", stdout)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 1 {
+		t.Errorf("expected 1 line (header only) for empty result, got %d lines:\n%s", len(lines), stdout)
+	}
+}
+
+func TestMock_MetricsQuery_CSVVector(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"__name__":"up","job":"test"},"value":[1700000000,"1"]}]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "csv")
+	if code != 0 {
+		t.Fatalf("expected exit 0 for CSV, got %d\nstderr: %s", code, stderr)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	if len(lines) != 2 {
+		t.Fatalf("expected 2 CSV lines (header + 1 data row), got %d:\n%s", len(lines), stdout)
+	}
+	// Header line must contain METRIC.
+	if !strings.Contains(lines[0], "METRIC") {
+		t.Errorf("expected METRIC in CSV header, got: %s", lines[0])
+	}
+	// Both lines must contain comma separators.
+	if !strings.Contains(lines[0], ",") {
+		t.Errorf("expected comma in CSV header, got: %s", lines[0])
+	}
+	if !strings.Contains(lines[1], ",") {
+		t.Errorf("expected comma in CSV data row, got: %s", lines[1])
+	}
+	// Data row must contain value "1".
+	if !strings.Contains(lines[1], "1") {
+		t.Errorf("expected value '1' in CSV data row, got: %s", lines[1])
+	}
+}
+
+func TestMock_MetricsQuery_YAMLBypassesPromQL(t *testing.T) {
+	// YAML format must NOT trigger the PromQL table formatter — it should
+	// produce valid YAML with no table headers.
+	payload := `{"status":"success","data":{"resultType":"vector","result":[{"metric":{"job":"test"},"value":[1700000000,"1"]}]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "yaml")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if strings.Contains(stdout, "METRIC") {
+		t.Errorf("YAML output must not contain table headers, got: %s", stdout)
+	}
+	// YAML output must contain the resultType key.
+	if !strings.Contains(stdout, "resultType") {
+		t.Errorf("expected 'resultType' in YAML output, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQuery_TableNonPromFallsBackToJSON(t *testing.T) {
+	// If the API returns a non-Prometheus shaped response, --output table
+	// must NOT produce empty output. It must fall back to JSON
+	// (output.Print with FormatTable and no columns falls back to JSON).
+	payload := `{"items":[{"name":"foo"}]}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query", "--query", "up", "--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if strings.TrimSpace(stdout) == "" {
+		t.Fatal("expected non-empty output for non-Prom table fallback, got empty string")
+	}
+	// Should contain JSON-like content from the fallback path.
+	if !strings.Contains(stdout, "items") {
+		t.Errorf("expected 'items' in fallback JSON output, got: %s", stdout)
+	}
+}
+
+// -------------------------------------------------------------------------
+// Mock: Metrics Query-Range — table and CSV output formats
+// -------------------------------------------------------------------------
+
+func TestMock_MetricsQueryRange_TableMatrix(t *testing.T) {
+	payload := `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"__name__":"http_requests_total","method":"GET"},"values":[[1700000000,"100"],[1700000060,"105"],[1700000120,"110"]]},{"metric":{"__name__":"http_requests_total","method":"POST"},"values":[[1700000000,"50"],[1700000060,"52"]]}]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "http_requests_total",
+		"--start", "1700000000",
+		"--end", "1700000180",
+		"--step", "60s",
+		"--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "METRIC") {
+		t.Errorf("expected METRIC header, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "VALUES") {
+		t.Errorf("expected VALUES header, got: %s", stdout)
+	}
+	// Both series must appear.
+	if !strings.Contains(stdout, `method="GET"`) {
+		t.Errorf("expected method=GET label, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, `method="POST"`) {
+		t.Errorf("expected method=POST label, got: %s", stdout)
+	}
+	// Compact time format: value@MonthDay.
+	if !strings.Contains(stdout, "100@Nov14") {
+		t.Errorf("expected '100@Nov14' compact format, got: %s", stdout)
+	}
+	if strings.Contains(stdout, `"resultType"`) {
+		t.Errorf("table output must not contain raw JSON keys, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQueryRange_CSVMatrix(t *testing.T) {
+	// Matrix CSV uses formatMatrixCSV which emits one row PER SAMPLE (not per
+	// series) so that output is lossless — no truncation. Two samples in the
+	// payload → header + 2 data rows = 3 lines total.
+	// Columns are METRIC, TIMESTAMP, VALUE (same as vector CSV — no VALUES summary).
+	payload := `{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"method":"GET"},"values":[[1700000000,"100"],[1700000060,"105"]]}]}}`
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "http_requests_total",
+		"--start", "1700000000",
+		"--end", "1700000120",
+		"--step", "60s",
+		"--output", "csv")
+	if code != 0 {
+		t.Fatalf("expected exit 0 for CSV matrix, got %d\nstderr: %s", code, stderr)
+	}
+	lines := strings.Split(strings.TrimSpace(stdout), "\n")
+	// 1 header + 2 samples = 3 lines (one row per sample, not per series)
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 CSV lines (header + 2 sample rows), got %d:\n%s", len(lines), stdout)
+	}
+	// Header uses METRIC, TIMESTAMP, VALUE (per-sample columns, not VALUES summary)
+	if !strings.Contains(lines[0], "METRIC") {
+		t.Errorf("expected METRIC in CSV header, got: %s", lines[0])
+	}
+	if !strings.Contains(lines[0], "TIMESTAMP") {
+		t.Errorf("expected TIMESTAMP in CSV header, got: %s", lines[0])
+	}
+	if !strings.Contains(lines[0], "VALUE") {
+		t.Errorf("expected VALUE in CSV header, got: %s", lines[0])
+	}
+	// Each data row must contain commas (multiple columns) and the sample values.
+	if !strings.Contains(lines[1], ",") {
+		t.Errorf("expected comma in CSV data row 1, got: %s", lines[1])
+	}
+	if !strings.Contains(stdout, "100") {
+		t.Errorf("expected sample value '100' in CSV output, got: %s", stdout)
+	}
+	if !strings.Contains(stdout, "105") {
+		t.Errorf("expected sample value '105' in CSV output, got: %s", stdout)
+	}
+	// Both rows must reference the same metric label
+	if strings.Count(stdout, `method=`) < 2 {
+		t.Errorf("expected metric label to appear in each data row, got: %s", stdout)
+	}
+}
+
+func TestMock_MetricsQueryRange_TableMatrixTruncation(t *testing.T) {
+	// Build a matrix payload with 20 samples — should show truncation indicator.
+	values := make([]string, 20)
+	for i := range values {
+		values[i] = fmt.Sprintf("[%d,\"1\"]", 1700000000+i*60)
+	}
+	payload := fmt.Sprintf(
+		`{"status":"success","data":{"resultType":"matrix","result":[{"metric":{"job":"test"},"values":[%s]}]}}`,
+		strings.Join(values, ","),
+	)
+	srv := jsonSrv(payload, 200)
+	defer srv.Close()
+
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
+		"--query", "up",
+		"--start", "1700000000",
+		"--end", fmt.Sprintf("%d", 1700000000+19*60),
+		"--step", "60s",
+		"--output", "table")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "... (20 total)") {
+		t.Errorf("expected truncation indicator '... (20 total)', got: %s", stdout)
+	}
+}
