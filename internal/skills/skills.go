@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -20,7 +21,8 @@ const (
 	repoName   = "agent-skills"
 	repoBranch = "main"
 
-	httpTimeout = 30 * time.Second
+	httpTimeout        = 30 * time.Second
+	maxParallelFetches = 5
 )
 
 // contentsAPIURLOverride and rawContentURLOverride are package-level variables
@@ -113,7 +115,13 @@ func List(ctx context.Context) ([]Entry, error) {
 // FetchContent fetches the SKILL.md content for the named skill.
 // Returns an error wrapping "skill not found: <name>" if the response is 404.
 func FetchContent(ctx context.Context, name string) (string, error) {
-	client := newHTTPClient()
+	return fetchContentWithClient(ctx, newHTTPClient(), name)
+}
+
+// fetchContentWithClient is the internal implementation of FetchContent that
+// accepts a caller-provided *http.Client so that FetchAllContents can share a
+// single client (and its underlying connection pool) across goroutines.
+func fetchContentWithClient(ctx context.Context, client *http.Client, name string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL(name), nil)
 	if err != nil {
 		return "", fmt.Errorf("building request: %w", err)
@@ -137,6 +145,50 @@ func FetchContent(ctx context.Context, name string) (string, error) {
 		return "", fmt.Errorf("reading skill %q: %w", name, err)
 	}
 	return string(body), nil
+}
+
+// FetchResult holds the outcome of fetching a single skill's content.
+type FetchResult struct {
+	Name    string
+	Content string
+	Err     error
+}
+
+// FetchAllContents fetches SKILL.md content for all given entries concurrently
+// using a bounded worker pool. It returns results in the same order as the
+// input entries. If the context is cancelled, in-flight fetches are abandoned
+// and the context error is returned in the remaining results.
+func FetchAllContents(ctx context.Context, entries []Entry) []FetchResult {
+	results := make([]FetchResult, len(entries))
+
+	// Share a single HTTP client across all goroutines so that the
+	// underlying transport/connection pool is reused.
+	client := newHTTPClient()
+
+	sem := make(chan struct{}, maxParallelFetches)
+	var wg sync.WaitGroup
+
+	for i, e := range entries {
+		wg.Add(1)
+		go func(idx int, name string) {
+			defer wg.Done()
+
+			// Acquire semaphore slot (or bail on context cancellation).
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+			case <-ctx.Done():
+				results[idx] = FetchResult{Name: name, Err: ctx.Err()}
+				return
+			}
+
+			content, err := fetchContentWithClient(ctx, client, name)
+			results[idx] = FetchResult{Name: name, Content: content, Err: err}
+		}(i, e.Name)
+	}
+
+	wg.Wait()
+	return results
 }
 
 // agentDetectors maps agent names to detection env vars (first truthy match wins).
