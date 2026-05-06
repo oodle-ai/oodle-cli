@@ -910,7 +910,7 @@ func TestMock_MetricsQueryRange_MissingFlags(t *testing.T) {
 	srv := jsonSrv(`{}`, 200)
 	defer srv.Close()
 
-	// Missing --query
+	// Missing --query (still required)
 	_, stderr, code := runMock(t, srv.URL, "metrics", "query-range",
 		"--start", "1700000000", "--end", "1700003600", "--step", "60s", "--output", "json")
 	if code == 0 {
@@ -920,24 +920,18 @@ func TestMock_MetricsQueryRange_MissingFlags(t *testing.T) {
 		t.Errorf("expected 'query' in error, got: %s", stderr)
 	}
 
-	// Missing --start
-	_, stderr, code = runMock(t, srv.URL, "metrics", "query-range",
+	// Missing --start (should succeed with default -1h)
+	_, _, code = runMock(t, srv.URL, "metrics", "query-range",
 		"--query", "up", "--end", "1700003600", "--step", "60s", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --start is missing")
-	}
-	if !strings.Contains(stderr, "start") {
-		t.Errorf("expected 'start' in error, got: %s", stderr)
+	if code != 0 {
+		t.Fatal("expected zero exit when --start is omitted (should default to -1h)")
 	}
 
-	// Missing --step
-	_, stderr, code = runMock(t, srv.URL, "metrics", "query-range",
+	// Missing --step (should succeed with default 60s)
+	_, _, code = runMock(t, srv.URL, "metrics", "query-range",
 		"--query", "up", "--start", "1700000000", "--end", "1700003600", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --step is missing")
-	}
-	if !strings.Contains(stderr, "step") {
-		t.Errorf("expected 'step' in error, got: %s", stderr)
+	if code != 0 {
+		t.Fatal("expected zero exit when --step is omitted (should default to 60s)")
 	}
 }
 

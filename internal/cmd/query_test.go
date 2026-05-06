@@ -350,3 +350,47 @@ func TestPrintQueryResponse_TableNonPromFallsBackToJSON(t *testing.T) {
 		t.Errorf("expected JSON fallback for non-Prom response, got: %q", got)
 	}
 }
+
+func TestNewMetricsQueryRangeCmd_DefaultFlags(t *testing.T) {
+	// Verify that --start, --end, and --step are no longer required and have
+	// sensible defaults applied when omitted.
+	cmd := newMetricsQueryRangeCmd()
+
+	// The command should not mark start/end/step as required.
+	for _, name := range []string{"start", "end", "step"} {
+		f := cmd.Flags().Lookup(name)
+		if f == nil {
+			t.Fatalf("expected flag %q to exist", name)
+		}
+		// cobra stores required annotations; if absent the flag is optional.
+		if _, ok := f.Annotations[cobra.BashCompOneRequiredFlag]; ok {
+			t.Errorf("flag %q should not be required", name)
+		}
+	}
+
+	// Verify the help text mentions defaults.
+	startFlag := cmd.Flags().Lookup("start")
+	if !strings.Contains(startFlag.Usage, defaultStartOffset) {
+		t.Errorf("--start usage should mention default %q, got: %q", defaultStartOffset, startFlag.Usage)
+	}
+	endFlag := cmd.Flags().Lookup("end")
+	if !strings.Contains(endFlag.Usage, defaultEndValue) {
+		t.Errorf("--end usage should mention default %q, got: %q", defaultEndValue, endFlag.Usage)
+	}
+	stepFlag := cmd.Flags().Lookup("step")
+	if !strings.Contains(stepFlag.Usage, defaultStep) {
+		t.Errorf("--step usage should mention default %q, got: %q", defaultStep, stepFlag.Usage)
+	}
+}
+
+func TestNewMetricsQueryRangeCmd_QueryStillRequired(t *testing.T) {
+	// --query must remain required.
+	cmd := newMetricsQueryRangeCmd()
+	f := cmd.Flags().Lookup("query")
+	if f == nil {
+		t.Fatal("expected flag 'query' to exist")
+	}
+	if ann, ok := f.Annotations[cobra.BashCompOneRequiredFlag]; !ok || len(ann) == 0 {
+		t.Error("flag 'query' should be required")
+	}
+}

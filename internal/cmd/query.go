@@ -133,6 +133,16 @@ func newMetricsQueryRangeCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
+			if startStr == "" {
+				startStr = defaultStartOffset
+			}
+			if endStr == "" {
+				endStr = defaultEndValue
+			}
+			if step == "" {
+				step = defaultStep
+			}
+
 			start, err := parseTimeFlagSeconds(startStr)
 			if err != nil {
 				return fmt.Errorf("--start: %w", err)
@@ -162,13 +172,10 @@ func newMetricsQueryRangeCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "PromQL expression (e.g. sum(up))")
-	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&step, "step", "", "Query resolution step width (e.g. 60s, 5m)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&step, "step", "", "Query resolution step width (e.g. 60s, 5m). Defaults to "+defaultStep+" if omitted")
 	cmd.Flags().BoolVar(&partialResponse, "partial-response", false, "Return partial data if some stores are unavailable")
 	_ = cmd.MarkFlagRequired("query")
-	_ = cmd.MarkFlagRequired("start")
-	_ = cmd.MarkFlagRequired("end")
-	_ = cmd.MarkFlagRequired("step")
 	return cmd
 }
