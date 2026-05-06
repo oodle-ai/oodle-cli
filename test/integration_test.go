@@ -332,3 +332,61 @@ func TestNotFoundError(t *testing.T) {
 		t.Fatalf("expected non-zero exit code for nonexistent monitor, got 0\nstdout: %s\nstderr: %s", stdout, stderr)
 	}
 }
+
+// TestMetricsNames_NoFlags verifies that omitting --start and --end defaults
+// to -1h/now and the real API accepts the resulting epoch values.
+func TestMetricsNames_NoFlags(t *testing.T) {
+	stdout, stderr, code := runOodle(t, "metrics", "names", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with no --start/--end flags, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
+// TestMetricsLabels_NoFlags verifies that omitting --start and --end on the
+// labels subcommand defaults correctly and the API accepts the values.
+func TestMetricsLabels_NoFlags(t *testing.T) {
+	// First, get a real metric name to use.
+	namesOut, stderr, code := runOodle(t, "metrics", "names", "--output", "json")
+	if code != 0 {
+		t.Fatalf("metrics names failed: %d\nstderr: %s", code, stderr)
+	}
+	// Extract the first metric name from the JSON array.
+	var names []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(namesOut)), &names); err != nil || len(names) == 0 {
+		t.Skip("no metrics available in this environment")
+	}
+	stdout, stderr, code := runOodle(t, "metrics", "labels", names[0], "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with no --start/--end flags, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
+// TestMetricsLabelValues_NoFlags verifies that omitting --start and --end on
+// label-values defaults correctly and the API accepts the values.
+func TestMetricsLabelValues_NoFlags(t *testing.T) {
+	// Get a real metric name.
+	namesOut, stderr, code := runOodle(t, "metrics", "names", "--output", "json")
+	if code != 0 {
+		t.Fatalf("metrics names failed: %d\nstderr: %s", code, stderr)
+	}
+	var names []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(namesOut)), &names); err != nil || len(names) == 0 {
+		t.Skip("no metrics available in this environment")
+	}
+	// Get a real label for that metric.
+	labelsOut, stderr, code := runOodle(t, "metrics", "labels", names[0], "--output", "json")
+	if code != 0 {
+		t.Fatalf("metrics labels failed: %d\nstderr: %s", code, stderr)
+	}
+	var labels []string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(labelsOut)), &labels); err != nil || len(labels) == 0 {
+		t.Skip("no labels available for metric " + names[0])
+	}
+	stdout, stderr, code := runOodle(t, "metrics", "label-values", names[0], labels[0], "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with no --start/--end flags, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
