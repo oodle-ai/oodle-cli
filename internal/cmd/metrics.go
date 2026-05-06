@@ -10,6 +10,13 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
+// Default time-range values applied when --start or --end are omitted from
+// the metrics exploration commands (names, labels, label-values).
+const (
+	defaultStartOffset = "-1h"
+	defaultEndValue    = "now"
+)
+
 // nameEntry wraps a string value so output.Print can render it as a single
 // column for table/CSV output. JSON/YAML output is unaffected because we
 // pass the original *[]string in those code paths.
@@ -27,20 +34,20 @@ type valueEntry struct {
 
 // addTimeRangeFlagsMs registers --start/--end flags on cmd and returns a
 // closure the RunE can invoke to parse them as epoch milliseconds. When
-// omitted, --start defaults to "-1h" (one hour ago) and --end defaults to
-// "now", providing a sensible recent window for interactive exploration.
-// All three metrics subcommands share the exact same flag wiring, so this
-// helper keeps them in lockstep.
+// omitted, --start defaults to defaultStartOffset (one hour ago) and --end
+// defaults to defaultEndValue ("now"), providing a sensible recent window
+// for interactive exploration. All three metrics subcommands share the exact
+// same flag wiring, so this helper keeps them in lockstep.
 func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to -1h if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to now if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
 	return func() (int64, int64, error) {
 		if startStr == "" {
-			startStr = "-1h"
+			startStr = defaultStartOffset
 		}
 		if endStr == "" {
-			endStr = "now"
+			endStr = defaultEndValue
 		}
 		start, err := parseTimeFlagMs(startStr)
 		if err != nil {
