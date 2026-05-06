@@ -10,13 +10,6 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
-// Default time-range values applied when --start or --end are omitted from
-// the metrics exploration commands (names, labels, label-values).
-const (
-	defaultStartOffset = "-1h"
-	defaultEndValue    = "now"
-)
-
 // nameEntry wraps a string value so output.Print can render it as a single
 // column for table/CSV output. JSON/YAML output is unaffected because we
 // pass the original *[]string in those code paths.
