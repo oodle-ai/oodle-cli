@@ -264,14 +264,18 @@ func TestFetchContent_NotFound(t *testing.T) {
 	}
 }
 
+// skillNameFromPath extracts the skill name from a request path like "/skill-a/SKILL.md".
+func skillNameFromPath(r *http.Request) string {
+	parts := strings.Split(r.URL.Path, "/")
+	if len(parts) > 1 {
+		return parts[1]
+	}
+	return ""
+}
+
 func TestFetchAllContents_Parallel(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract skill name from path like "/skill-a/SKILL.md"
-		parts := strings.Split(r.URL.Path, "/")
-		name := ""
-		if len(parts) > 1 {
-			name = parts[1]
-		}
+		name := skillNameFromPath(r)
 		_, _ = fmt.Fprintf(w, "---\nname: %s\ndescription: desc for %s\n---\n# %s", name, name, name)
 	}))
 	defer srv.Close()
@@ -308,11 +312,7 @@ func TestFetchAllContents_Parallel(t *testing.T) {
 
 func TestFetchAllContents_PartialFailure(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(r.URL.Path, "/")
-		name := ""
-		if len(parts) > 1 {
-			name = parts[1]
-		}
+		name := skillNameFromPath(r)
 		if name == "bad-skill" {
 			http.NotFound(w, r)
 			return
@@ -336,6 +336,8 @@ func TestFetchAllContents_PartialFailure(t *testing.T) {
 	}
 	if results[0].Err != nil {
 		t.Errorf("results[0] unexpected error: %v", results[0].Err)
+	} else if !strings.Contains(results[0].Content, "good-skill") {
+		t.Errorf("results[0].Content = %q, want substring %q", results[0].Content, "good-skill")
 	}
 	if results[1].Err == nil {
 		t.Error("results[1] expected error for bad-skill, got nil")
@@ -344,6 +346,8 @@ func TestFetchAllContents_PartialFailure(t *testing.T) {
 	}
 	if results[2].Err != nil {
 		t.Errorf("results[2] unexpected error: %v", results[2].Err)
+	} else if !strings.Contains(results[2].Content, "another-good") {
+		t.Errorf("results[2].Content = %q, want substring %q", results[2].Content, "another-good")
 	}
 }
 

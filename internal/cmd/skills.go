@@ -127,7 +127,6 @@ func newSkillsInstallCmd() *cobra.Command {
 
 			results := skills.FetchAllContents(ctx, entries)
 
-			installed := 0
 			for _, r := range results {
 				if r.Err != nil {
 					return fmt.Errorf("fetching skill %q: %w", r.Name, r.Err)
@@ -140,9 +139,8 @@ func newSkillsInstallCmd() *cobra.Command {
 				if err := os.WriteFile(dest, []byte(r.Content), 0644); err != nil {
 					return fmt.Errorf("writing %s: %w", dest, err)
 				}
-				installed++
 			}
-			return printInstallResult(cmd, format, installed, installDir)
+			return printInstallResult(cmd, format, len(results), installDir)
 		},
 	}
 

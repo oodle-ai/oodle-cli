@@ -21,7 +21,8 @@ const (
 	repoName   = "agent-skills"
 	repoBranch = "main"
 
-	httpTimeout = 30 * time.Second
+	httpTimeout        = 30 * time.Second
+	maxParallelFetches = 5
 )
 
 // contentsAPIURLOverride and rawContentURLOverride are package-level variables
@@ -114,7 +115,13 @@ func List(ctx context.Context) ([]Entry, error) {
 // FetchContent fetches the SKILL.md content for the named skill.
 // Returns an error wrapping "skill not found: <name>" if the response is 404.
 func FetchContent(ctx context.Context, name string) (string, error) {
-	client := newHTTPClient()
+	return fetchContentWithClient(ctx, newHTTPClient(), name)
+}
+
+// fetchContentWithClient is the internal implementation of FetchContent that
+// accepts a caller-provided *http.Client so that FetchAllContents can share a
+// single client (and its underlying connection pool) across goroutines.
+func fetchContentWithClient(ctx context.Context, client *http.Client, name string) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, rawURL(name), nil)
 	if err != nil {
 		return "", fmt.Errorf("building request: %w", err)
@@ -140,10 +147,6 @@ func FetchContent(ctx context.Context, name string) (string, error) {
 	return string(body), nil
 }
 
-// maxParallelFetches is the maximum number of concurrent HTTP requests when
-// fetching all skills in parallel.
-const maxParallelFetches = 5
-
 // FetchResult holds the outcome of fetching a single skill's content.
 type FetchResult struct {
 	Name    string
@@ -157,6 +160,10 @@ type FetchResult struct {
 // and the context error is returned in the remaining results.
 func FetchAllContents(ctx context.Context, entries []Entry) []FetchResult {
 	results := make([]FetchResult, len(entries))
+
+	// Share a single HTTP client across all goroutines so that the
+	// underlying transport/connection pool is reused.
+	client := newHTTPClient()
 
 	sem := make(chan struct{}, maxParallelFetches)
 	var wg sync.WaitGroup
@@ -175,7 +182,7 @@ func FetchAllContents(ctx context.Context, entries []Entry) []FetchResult {
 				return
 			}
 
-			content, err := FetchContent(ctx, name)
+			content, err := fetchContentWithClient(ctx, client, name)
 			results[idx] = FetchResult{Name: name, Content: content, Err: err}
 		}(i, e.Name)
 	}
