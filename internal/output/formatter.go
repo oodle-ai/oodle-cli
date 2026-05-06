@@ -22,6 +22,8 @@ const (
 	FormatJSON  Format = "json"
 	FormatYAML  Format = "yaml"
 	FormatCSV   Format = "csv"
+	FormatGraph Format = "graph"
+	FormatStats Format = "stats"
 )
 
 // Column describes one column of a table/CSV. Field is the Go struct field
@@ -52,6 +54,10 @@ func Print(w io.Writer, format Format, data any, columns []Column) error {
 			return printJSON(w, data)
 		}
 		return printTable(w, data, columns)
+	case FormatGraph:
+		return fmt.Errorf("graph output is only supported for metrics query and query-range commands")
+	case FormatStats:
+		return fmt.Errorf("stats output is only supported for metrics query and query-range commands")
 	default:
 		return fmt.Errorf("unsupported output format: %s", format)
 	}

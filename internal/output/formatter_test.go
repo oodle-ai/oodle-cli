@@ -134,6 +134,35 @@ func TestPrintUnsupportedFormat(t *testing.T) {
 	}
 }
 
+func TestPrintSpecialFormats_ReturnsError(t *testing.T) {
+	// FormatGraph and FormatStats must not be handled by Print() — they require
+	// special Prometheus parsing done in printQueryResponse. Calling Print()
+	// with these formats should return a clear, user-facing error message.
+	cases := []struct {
+		format  Format
+		wantMsg string
+	}{
+		{FormatGraph, "graph output is only supported for metrics query and query-range commands"},
+		{FormatStats, "stats output is only supported for metrics query and query-range commands"},
+	}
+
+	for _, tc := range cases {
+		t.Run(string(tc.format), func(t *testing.T) {
+			var buf bytes.Buffer
+			err := Print(&buf, tc.format, sampleData, sampleColumns)
+			if err == nil {
+				t.Fatalf("expected error when passing %s to Print()", tc.format)
+			}
+			if !strings.Contains(err.Error(), tc.wantMsg) {
+				t.Errorf("error message should direct user to correct commands, got: %v", err)
+			}
+			if buf.Len() != 0 {
+				t.Errorf("expected no output written when returning error, got %d bytes", buf.Len())
+			}
+		})
+	}
+}
+
 func TestDetectFormat_ExplicitFlag(t *testing.T) {
 	cases := []struct {
 		in   string
@@ -143,6 +172,8 @@ func TestDetectFormat_ExplicitFlag(t *testing.T) {
 		{"YAML", FormatYAML},
 		{"csv", FormatCSV},
 		{"table", FormatTable},
+		{"graph", FormatGraph},
+		{"stats", FormatStats},
 	}
 	for _, c := range cases {
 		if got := DetectFormat(c.in); got != c.want {

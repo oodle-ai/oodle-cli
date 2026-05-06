@@ -80,7 +80,7 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	pf.StringVar(&flags.apiKey, "api-key", "", "Oodle API key (overrides OODLE_API_KEY)")
 	pf.StringVar(&flags.instance, "instance", "", "Oodle instance ID (overrides OODLE_INSTANCE)")
 	pf.StringVar(&flags.apiURL, "api-url", "", "Oodle API URL (overrides OODLE_DEPLOYMENT/OODLE_API_URL)")
-	pf.StringVarP(&flags.output, "output", "o", "", "Output format: table, json, yaml, csv (auto-detected from TTY)")
+	pf.StringVarP(&flags.output, "output", "o", "", "Output format: table, json, yaml, csv, graph, stats (auto-detected from TTY)")
 	pf.IntVar(&flags.retries, "retries", 3, "Number of retries for transient API failures")
 	pf.BoolVar(&flags.force, "force", false, "Skip confirmation prompts for destructive actions")
 
