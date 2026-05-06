@@ -581,39 +581,55 @@ func TestMock_MetricsLabelValues(t *testing.T) {
 	}
 }
 
-func TestMock_MetricsNames_MissingStartFlag(t *testing.T) {
-	srv := jsonSrv(`["up"]`, 200)
+func TestMock_MetricsNames_DefaultTimeRange(t *testing.T) {
+	srv, capturedQuery, _ := metricsQueryServer(`["up"]`)
 	defer srv.Close()
-	_, stderr, code := runMock(t, srv.URL, "metrics", "names", "--end", "now", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --start is missing")
+	// Omit --start and --end; they should default to -1h and now.
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "names", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with default time range, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(stderr, "start") {
-		t.Errorf("expected 'start' in error, got: %s", stderr)
+	assertValidJSONMock(t, stdout)
+	// Verify that startTimeEpochMs and endTimeEpochMs were sent as query params.
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=") {
+		t.Errorf("expected startTimeEpochMs in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=") {
+		t.Errorf("expected endTimeEpochMs in query %q", *capturedQuery)
 	}
 }
 
-func TestMock_MetricsLabels_MissingEndFlag(t *testing.T) {
-	srv := jsonSrv(`["job"]`, 200)
+func TestMock_MetricsLabels_DefaultTimeRange(t *testing.T) {
+	srv, capturedQuery, _ := metricsQueryServer(`["job"]`)
 	defer srv.Close()
-	_, stderr, code := runMock(t, srv.URL, "metrics", "labels", "up", "--start", "-1h", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --end is missing")
+	// Omit --end; it should default to now.
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "labels", "up", "--start", "-1h", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with default --end, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(stderr, "end") {
-		t.Errorf("expected 'end' in error, got: %s", stderr)
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=") {
+		t.Errorf("expected startTimeEpochMs in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=") {
+		t.Errorf("expected endTimeEpochMs in query %q", *capturedQuery)
 	}
 }
 
-func TestMock_MetricsLabelValues_MissingBothFlags(t *testing.T) {
-	srv := jsonSrv(`["val"]`, 200)
+func TestMock_MetricsLabelValues_DefaultTimeRange(t *testing.T) {
+	srv, capturedQuery, _ := metricsQueryServer(`["val"]`)
 	defer srv.Close()
-	_, stderr, code := runMock(t, srv.URL, "metrics", "label-values", "up", "job", "--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --start and --end are missing")
+	// Omit both --start and --end; they should default to -1h and now.
+	stdout, stderr, code := runMock(t, srv.URL, "metrics", "label-values", "up", "job", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0 with default time range, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(stderr, "start") && !strings.Contains(stderr, "end") {
-		t.Errorf("expected 'start' or 'end' in error, got: %s", stderr)
+	assertValidJSONMock(t, stdout)
+	if !strings.Contains(*capturedQuery, "startTimeEpochMs=") {
+		t.Errorf("expected startTimeEpochMs in query %q", *capturedQuery)
+	}
+	if !strings.Contains(*capturedQuery, "endTimeEpochMs=") {
+		t.Errorf("expected endTimeEpochMs in query %q", *capturedQuery)
 	}
 }
 

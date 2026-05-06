@@ -25,17 +25,23 @@ type valueEntry struct {
 	Value string
 }
 
-// addTimeRangeFlagsMs registers required --start/--end flags on cmd and
-// returns a closure the RunE can invoke to parse them as epoch milliseconds.
+// addTimeRangeFlagsMs registers --start/--end flags on cmd and returns a
+// closure the RunE can invoke to parse them as epoch milliseconds. When
+// omitted, --start defaults to "-1h" (one hour ago) and --end defaults to
+// "now", providing a sensible recent window for interactive exploration.
 // All three metrics subcommands share the exact same flag wiring, so this
 // helper keeps them in lockstep.
 func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h)")
-	_ = cmd.MarkFlagRequired("start")
-	_ = cmd.MarkFlagRequired("end")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to -1h if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to now if omitted")
 	return func() (int64, int64, error) {
+		if startStr == "" {
+			startStr = "-1h"
+		}
+		if endStr == "" {
+			endStr = "now"
+		}
 		start, err := parseTimeFlagMs(startStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("--start: %w", err)
