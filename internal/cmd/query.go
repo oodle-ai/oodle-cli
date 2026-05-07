@@ -118,8 +118,6 @@ func newMetricsQueryCmd() *cobra.Command {
 func newMetricsQueryRangeCmd() *cobra.Command {
 	var (
 		query           string
-		startStr        string
-		endStr          string
 		step            string
 		partialResponse bool
 	)
@@ -128,47 +126,42 @@ func newMetricsQueryRangeCmd() *cobra.Command {
 		Short: "Evaluate a PromQL expression over a time range",
 		Long:  "Evaluate a PromQL expression over a time range. Returns a time series of values. Compatible with the Prometheus /api/v1/query_range endpoint.",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
-			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
+	}
+	parseTimeRange := addTimeRangeFlagsSeconds(cmd)
+	cmd.Flags().StringVar(&step, "step", "", "Query resolution step width (e.g. 60s, 5m). Defaults to "+defaultStep+" if omitted")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		c := getClient(cmd)
+		instance := getInstance(cmd)
+		format := getOutputFormat(cmd)
 
-			start, err := parseTimeFlagSeconds(startStr)
-			if err != nil {
-				return fmt.Errorf("--start: %w", err)
-			}
-			end, err := parseTimeFlagSeconds(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
-			}
+		start, end, err := parseTimeRange()
+		if err != nil {
+			return err
+		}
+		if step == "" {
+			step = defaultStep
+		}
 
-			params := &client.QueryMetricsRangeParams{
-				Query:         query,
-				Start:         start,
-				End:           end,
-				Step:          step,
-				OODLEINSTANCE: instance,
-			}
-			if cmd.Flags().Changed("partial-response") {
-				params.PartialResponse = &partialResponse
-			}
+		params := &client.QueryMetricsRangeParams{
+			Query:         query,
+			Start:         start,
+			End:           end,
+			Step:          step,
+			OODLEINSTANCE: instance,
+		}
+		if cmd.Flags().Changed("partial-response") {
+			params.PartialResponse = &partialResponse
+		}
 
-			// Use the raw client method — see comment in newMetricsQueryCmd.
-			httpResp, err := c.Inner.QueryMetricsRange(cmd.Context(), params)
-			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
-			}
-			return readAndPrintQueryResponse(cmd, format, httpResp)
-		},
+		// Use the raw client method — see comment in newMetricsQueryCmd.
+		httpResp, err := c.Inner.QueryMetricsRange(cmd.Context(), params)
+		if err != nil {
+			return fmt.Errorf("API request failed: %w", err)
+		}
+		return readAndPrintQueryResponse(cmd, format, httpResp)
 	}
 	cmd.Flags().StringVar(&query, "query", "", "PromQL expression (e.g. sum(up))")
-	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&step, "step", "", "Query resolution step width (e.g. 60s, 5m)")
 	cmd.Flags().BoolVar(&partialResponse, "partial-response", false, "Return partial data if some stores are unavailable")
 	_ = cmd.MarkFlagRequired("query")
-	_ = cmd.MarkFlagRequired("start")
-	_ = cmd.MarkFlagRequired("end")
-	_ = cmd.MarkFlagRequired("step")
 	return cmd
 }

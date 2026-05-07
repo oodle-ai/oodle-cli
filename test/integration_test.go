@@ -289,17 +289,17 @@ func TestMetricsQuery_InvalidQuery(t *testing.T) {
 	}
 }
 
-func TestMetricsQueryRange_MissingStep(t *testing.T) {
+func TestMetricsQueryRange_DefaultStep(t *testing.T) {
+	// --step is now optional and defaults to 60s; the command should not error.
 	_, stderr, code := runOodle(t, "metrics", "query-range",
 		"--query", "up",
 		"--start", "-1h",
 		"--end", "now",
 		"--output", "json")
-	if code == 0 {
-		t.Fatal("expected non-zero exit when --step is missing")
-	}
-	if !strings.Contains(stderr, "step") {
-		t.Errorf("expected 'step' in error, got: %s", stderr)
+	// The command may fail due to missing API credentials in CI, but it should
+	// NOT fail with a "required flag" error for --step.
+	if code != 0 && strings.Contains(stderr, "required") && strings.Contains(stderr, "step") {
+		t.Fatalf("--step should not be required, got: %s", stderr)
 	}
 }
 

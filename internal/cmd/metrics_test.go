@@ -202,5 +202,106 @@ func TestAddTimeRangeFlagsMs(t *testing.T) {
 	}
 }
 
+// testTimeToleranceSec is the maximum acceptable drift (in seconds) between
+// expected and actual timestamps in time-range seconds tests.
+const testTimeToleranceSec = float64(2)
+
+// TestAddTimeRangeFlagsSeconds verifies default, explicit, and partial flag
+// combinations for the seconds-precision variant used by query-range.
+func TestAddTimeRangeFlagsSeconds(t *testing.T) {
+	cases := []struct {
+		name string
+		// flags to set before invoking the closure. nil means "omit".
+		startFlag *string
+		endFlag   *string
+		// For epoch-exact assertions (relative tests leave these zero).
+		wantStartExact float64
+		wantEndExact   float64
+		// For relative assertions: expected offset from "now" for start/end.
+		// A zero duration means "expect approximately now".
+		startOffset time.Duration
+		endOffset   time.Duration
+		useRelative bool // when true, assert using offsets instead of exact values
+	}{
+		{
+			name:        "Defaults",
+			useRelative: true,
+			startOffset: time.Hour,
+			endOffset:   0,
+		},
+		{
+			name:           "ExplicitOverride",
+			startFlag:      strPtr("1700000000"),
+			endFlag:        strPtr("1700003600"),
+			wantStartExact: 1700000000,
+			wantEndExact:   1700003600,
+		},
+		{
+			name:        "RelativeValues",
+			startFlag:   strPtr("-2h"),
+			endFlag:     strPtr("now"),
+			useRelative: true,
+			startOffset: 2 * time.Hour,
+			endOffset:   0,
+		},
+		{
+			name:        "OnlyStartProvided",
+			startFlag:   strPtr("-30m"),
+			useRelative: true,
+			startOffset: 30 * time.Minute,
+			endOffset:   0, // end defaults to now
+		},
+		{
+			name:        "OnlyEndProvided",
+			endFlag:     strPtr("-30m"),
+			useRelative: true,
+			startOffset: time.Hour, // start defaults to -1h (relative to now, not to --end)
+			endOffset:   30 * time.Minute,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd := &cobra.Command{Use: "test"}
+			parseTimeRange := addTimeRangeFlagsSeconds(cmd)
+
+			if tc.startFlag != nil {
+				if err := cmd.Flags().Set("start", *tc.startFlag); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if tc.endFlag != nil {
+				if err := cmd.Flags().Set("end", *tc.endFlag); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			before := float64(time.Now().Unix())
+			start, end, err := parseTimeRange()
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if tc.useRelative {
+				expectedEnd := before - tc.endOffset.Seconds()
+				if end < expectedEnd-testTimeToleranceSec || end > expectedEnd+testTimeToleranceSec {
+					t.Errorf("end = %v, want ~%v", end, expectedEnd)
+				}
+				expectedStart := before - tc.startOffset.Seconds()
+				if start < expectedStart-testTimeToleranceSec || start > expectedStart+testTimeToleranceSec {
+					t.Errorf("start = %v, want ~%v", start, expectedStart)
+				}
+			} else {
+				if start != tc.wantStartExact {
+					t.Errorf("start = %v, want %v", start, tc.wantStartExact)
+				}
+				if end != tc.wantEndExact {
+					t.Errorf("end = %v, want %v", end, tc.wantEndExact)
+				}
+			}
+		})
+	}
+}
+
 // strPtr is a helper that returns a pointer to s.
 func strPtr(s string) *string { return &s }

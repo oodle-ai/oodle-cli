@@ -54,6 +54,34 @@ func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error
 	}
 }
 
+// addTimeRangeFlagsSeconds registers --start/--end flags on cmd and returns a
+// closure the RunE can invoke to parse them as float64 epoch seconds. When
+// omitted, --start defaults to defaultStartOffset (one hour ago) and --end
+// defaults to defaultEndValue ("now"). This mirrors addTimeRangeFlagsMs but
+// uses the seconds precision required by the Prometheus query_range API.
+func addTimeRangeFlagsSeconds(cmd *cobra.Command) func() (start, end float64, err error) {
+	var startStr, endStr string
+	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	return func() (float64, float64, error) {
+		if startStr == "" {
+			startStr = defaultStartOffset
+		}
+		if endStr == "" {
+			endStr = defaultEndValue
+		}
+		start, err := parseTimeFlagSeconds(startStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--start: %w", err)
+		}
+		end, err := parseTimeFlagSeconds(endStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--end: %w", err)
+		}
+		return start, end, nil
+	}
+}
+
 // newMetricsCmd returns the `oodle metrics` command tree.
 func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{

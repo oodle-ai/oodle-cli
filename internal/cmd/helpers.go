@@ -18,11 +18,13 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
-// Default time-range values applied when --start or --end are omitted from
-// exploration commands (e.g. metrics names/labels, logs query).
+// Default time-range and resolution values applied when --start, --end, or
+// --step are omitted from exploration commands (e.g. metrics names/labels,
+// logs query, query-range).
 const (
 	defaultStartOffset = "-1h"
 	defaultEndValue    = "now"
+	defaultStep        = "60s"
 )
 
 // exactArgs returns a cobra.PositionalArgs validator that requires exactly n
