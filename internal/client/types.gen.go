@@ -1475,6 +1475,15 @@ type WebhookConfig struct {
 // and optionally a password.
 type NetUrlUserinfo = map[string]interface{}
 
+// OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse ProtectedResourceMetadataResponse follows the OAuth protected resource
+// metadata response shape used at well-known discovery endpoints.
+type OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse struct {
+	AuthorizationServers   *[]string `json:"authorization_servers"`
+	BearerMethodsSupported *[]string `json:"bearer_methods_supported,omitempty"`
+	Resource               string    `json:"resource"`
+	ScopesSupported        *[]string `json:"scopes_supported,omitempty"`
+}
+
 // OodleUtilHttputilsModelsError defines model for oodle_util_httputils_models_Error.
 type OodleUtilHttputilsModelsError struct {
 	Cause        *string `json:"cause,omitempty"`
