@@ -2623,8 +2623,8 @@ paths:
     get:
       tags:
         - OAuth
-      summary: List Oauth Protected Resource (v1 prefix)
-      operationId: listOauthProtectedResourceV1
+      summary: List Oauth Protected Resource
+      operationId: listOauthProtectedResource
       responses:
         "200":
           description: ""
@@ -3370,8 +3370,14 @@ paths:
                 items:
                   type: object
                   nullable: true
-                  additionalProperties: true
-                  description: Integration object with dynamic fields including name, type, status, categories, collector domains, and nested configuration.
+                  additionalProperties:
+                    oneOf:
+                      - type: string
+                      - type: integer
+                        format: int64
+                      - type: number
+                      - type: boolean
+                    description: Primitive JSON value whose concrete type is declared by the sibling `type` field.
         "401":
           description: ""
           content:
@@ -5852,8 +5858,14 @@ paths:
               schema:
                 type: object
                 nullable: true
-                additionalProperties: true
-                description: Setup specification with dynamic fields including requirements, parameters, setup methods, config templates, and validation hints.
+                additionalProperties:
+                  oneOf:
+                    - type: string
+                    - type: integer
+                      format: int64
+                    - type: number
+                    - type: boolean
+                  description: Primitive JSON value whose concrete type is declared by the sibling `type` field.
         "404":
           description: ""
           content:

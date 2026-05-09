@@ -34,3 +34,6 @@ go.work.sum
 bin/
 .tmp/
 dist/
+
+# Temporary patched OpenAPI spec (generated during make generate)
+api/openapi.patched.yaml
