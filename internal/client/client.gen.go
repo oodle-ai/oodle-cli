@@ -89,6 +89,9 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListOauthProtectedResource request
+	ListOauthProtectedResource(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLogIndexPatterns request
 	ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -100,6 +103,9 @@ type ClientInterface interface {
 
 	// QueryMetricsRange request
 	QueryMetricsRange(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListOauthProtectedResourceV1 request
+	ListOauthProtectedResourceV1(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListApiKeys request
 	ListApiKeys(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -155,6 +161,9 @@ type ClientInterface interface {
 	CreateFoldersWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateFolders(ctx context.Context, instance string, body CreateFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIntegrations request
+	ListIntegrations(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLogmetrics request
 	ListLogmetrics(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -321,6 +330,21 @@ type ClientInterface interface {
 
 	// DeleteInvitationsById request
 	DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIntegrationSetupSpec request
+	GetIntegrationSetupSpec(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ListOauthProtectedResource(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOauthProtectedResourceRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -361,6 +385,18 @@ func (c *Client) QueryLogsWithBody(ctx context.Context, params *QueryLogsParams,
 
 func (c *Client) QueryMetricsRange(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewQueryMetricsRangeRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListOauthProtectedResourceV1(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListOauthProtectedResourceV1Request(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -601,6 +637,18 @@ func (c *Client) CreateFoldersWithBody(ctx context.Context, instance string, con
 
 func (c *Client) CreateFolders(ctx context.Context, instance string, body CreateFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateFoldersRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListIntegrations(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIntegrationsRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -1331,6 +1379,45 @@ func (c *Client) DeleteInvitationsById(ctx context.Context, instance string, id 
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetIntegrationSetupSpec(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIntegrationSetupSpecRequest(c.Server, integrationType)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+// NewListOauthProtectedResourceRequest generates requests for ListOauthProtectedResource
+func NewListOauthProtectedResourceRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/.well-known/oauth-protected-resource")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListLogIndexPatternsRequest generates requests for ListLogIndexPatterns
 func NewListLogIndexPatternsRequest(server string) (*http.Request, error) {
 	var err error
@@ -1579,6 +1666,33 @@ func NewQueryMetricsRangeRequest(server string, params *QueryMetricsRangeParams)
 
 		req.Header.Set("OODLE-INSTANCE", headerParam0)
 
+	}
+
+	return req, nil
+}
+
+// NewListOauthProtectedResourceV1Request generates requests for ListOauthProtectedResourceV1
+func NewListOauthProtectedResourceV1Request(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/.well-known/oauth-protected-resource")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
 	}
 
 	return req, nil
@@ -2204,6 +2318,40 @@ func NewCreateFoldersRequestWithBody(server string, instance string, contentType
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListIntegrationsRequest generates requests for ListIntegrations
+func NewListIntegrationsRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -4559,6 +4707,40 @@ func NewDeleteInvitationsByIdRequest(server string, instance string, id string) 
 	return req, nil
 }
 
+// NewGetIntegrationSetupSpecRequest generates requests for GetIntegrationSetupSpec
+func NewGetIntegrationSetupSpecRequest(server string, integrationType string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "integrationType", integrationType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/integrations/%s/setup-spec", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -4602,6 +4784,9 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListOauthProtectedResourceWithResponse request
+	ListOauthProtectedResourceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceResponse, error)
+
 	// ListLogIndexPatternsWithResponse request
 	ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error)
 
@@ -4613,6 +4798,9 @@ type ClientWithResponsesInterface interface {
 
 	// QueryMetricsRangeWithResponse request
 	QueryMetricsRangeWithResponse(ctx context.Context, params *QueryMetricsRangeParams, reqEditors ...RequestEditorFn) (*QueryMetricsRangeResponse, error)
+
+	// ListOauthProtectedResourceV1WithResponse request
+	ListOauthProtectedResourceV1WithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceV1Response, error)
 
 	// ListApiKeysWithResponse request
 	ListApiKeysWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysResponse, error)
@@ -4668,6 +4856,9 @@ type ClientWithResponsesInterface interface {
 	CreateFoldersWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateFoldersResponse, error)
 
 	CreateFoldersWithResponse(ctx context.Context, instance string, body CreateFoldersJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateFoldersResponse, error)
+
+	// ListIntegrationsWithResponse request
+	ListIntegrationsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListIntegrationsResponse, error)
 
 	// ListLogmetricsWithResponse request
 	ListLogmetricsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListLogmetricsResponse, error)
@@ -4834,6 +5025,33 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteInvitationsByIdWithResponse request
 	DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error)
+
+	// GetIntegrationSetupSpecWithResponse request
+	GetIntegrationSetupSpecWithResponse(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*GetIntegrationSetupSpecResponse, error)
+}
+
+type ListOauthProtectedResourceResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOauthProtectedResourceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOauthProtectedResourceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListLogIndexPatternsResponse struct {
@@ -4923,6 +5141,30 @@ func (r QueryMetricsRangeResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r QueryMetricsRangeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListOauthProtectedResourceV1Response struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListOauthProtectedResourceV1Response) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListOauthProtectedResourceV1Response) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5308,6 +5550,38 @@ func (r CreateFoldersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateFoldersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListIntegrationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *[]*map[string]ListIntegrations_200_AdditionalProperties
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+type ListIntegrations2000 = string
+type ListIntegrations2001 = int64
+type ListIntegrations2002 = float32
+type ListIntegrations2003 = bool
+type ListIntegrations_200_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIntegrationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIntegrationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6514,6 +6788,46 @@ func (r DeleteInvitationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+type GetIntegrationSetupSpecResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *map[string]GetIntegrationSetupSpec_200_AdditionalProperties
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+type GetIntegrationSetupSpec2000 = string
+type GetIntegrationSetupSpec2001 = int64
+type GetIntegrationSetupSpec2002 = float32
+type GetIntegrationSetupSpec2003 = bool
+type GetIntegrationSetupSpec_200_AdditionalProperties struct {
+	union json.RawMessage
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIntegrationSetupSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIntegrationSetupSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ListOauthProtectedResourceWithResponse request returning *ListOauthProtectedResourceResponse
+func (c *ClientWithResponses) ListOauthProtectedResourceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceResponse, error) {
+	rsp, err := c.ListOauthProtectedResource(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOauthProtectedResourceResponse(rsp)
+}
+
 // ListLogIndexPatternsWithResponse request returning *ListLogIndexPatternsResponse
 func (c *ClientWithResponses) ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error) {
 	rsp, err := c.ListLogIndexPatterns(ctx, reqEditors...)
@@ -6548,6 +6862,15 @@ func (c *ClientWithResponses) QueryMetricsRangeWithResponse(ctx context.Context,
 		return nil, err
 	}
 	return ParseQueryMetricsRangeResponse(rsp)
+}
+
+// ListOauthProtectedResourceV1WithResponse request returning *ListOauthProtectedResourceV1Response
+func (c *ClientWithResponses) ListOauthProtectedResourceV1WithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceV1Response, error) {
+	rsp, err := c.ListOauthProtectedResourceV1(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListOauthProtectedResourceV1Response(rsp)
 }
 
 // ListApiKeysWithResponse request returning *ListApiKeysResponse
@@ -6723,6 +7046,15 @@ func (c *ClientWithResponses) CreateFoldersWithResponse(ctx context.Context, ins
 		return nil, err
 	}
 	return ParseCreateFoldersResponse(rsp)
+}
+
+// ListIntegrationsWithResponse request returning *ListIntegrationsResponse
+func (c *ClientWithResponses) ListIntegrationsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListIntegrationsResponse, error) {
+	rsp, err := c.ListIntegrations(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIntegrationsResponse(rsp)
 }
 
 // ListLogmetricsWithResponse request returning *ListLogmetricsResponse
@@ -7251,6 +7583,55 @@ func (c *ClientWithResponses) DeleteInvitationsByIdWithResponse(ctx context.Cont
 	return ParseDeleteInvitationsByIdResponse(rsp)
 }
 
+// GetIntegrationSetupSpecWithResponse request returning *GetIntegrationSetupSpecResponse
+func (c *ClientWithResponses) GetIntegrationSetupSpecWithResponse(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*GetIntegrationSetupSpecResponse, error) {
+	rsp, err := c.GetIntegrationSetupSpec(ctx, integrationType, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIntegrationSetupSpecResponse(rsp)
+}
+
+// ParseListOauthProtectedResourceResponse parses an HTTP response from a ListOauthProtectedResourceWithResponse call
+func ParseListOauthProtectedResourceResponse(rsp *http.Response) (*ListOauthProtectedResourceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOauthProtectedResourceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListLogIndexPatternsResponse parses an HTTP response from a ListLogIndexPatternsWithResponse call
 func ParseListLogIndexPatternsResponse(rsp *http.Response) (*ListLogIndexPatternsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -7384,6 +7765,46 @@ func ParseQueryMetricsRangeResponse(rsp *http.Response) (*QueryMetricsRangeRespo
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListOauthProtectedResourceV1Response parses an HTTP response from a ListOauthProtectedResourceV1WithResponse call
+func ParseListOauthProtectedResourceV1Response(rsp *http.Response) (*ListOauthProtectedResourceV1Response, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListOauthProtectedResourceV1Response{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 
@@ -8138,6 +8559,53 @@ func ParseCreateFoldersResponse(rsp *http.Response) (*CreateFoldersResponse, err
 			return nil, err
 		}
 		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIntegrationsResponse parses an HTTP response from a ListIntegrationsWithResponse call
+func ParseListIntegrationsResponse(rsp *http.Response) (*ListIntegrationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIntegrationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []*map[string]ListIntegrations_200_AdditionalProperties
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
@@ -10664,6 +11132,46 @@ func ParseDeleteInvitationsByIdResponse(rsp *http.Response) (*DeleteInvitationsB
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIntegrationSetupSpecResponse parses an HTTP response from a GetIntegrationSetupSpecWithResponse call
+func ParseGetIntegrationSetupSpecResponse(rsp *http.Response) (*GetIntegrationSetupSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIntegrationSetupSpecResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest map[string]GetIntegrationSetupSpec_200_AdditionalProperties
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
