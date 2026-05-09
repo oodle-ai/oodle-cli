@@ -291,6 +291,63 @@ func TestIntegrationsGetSetupSpec_NotFound(t *testing.T) {
 	}
 }
 
+// TestIntegrationsGetSetupSpec_NoAuth verifies that get-setup-spec works
+// without any authentication configured — it builds a minimal client from the
+// --api-url flag.
+func TestIntegrationsGetSetupSpec_NoAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Verify no auth header is sent.
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("unexpected Authorization header: %s", auth)
+		}
+		if key := r.Header.Get("X-API-Key"); key != "" {
+			t.Errorf("unexpected X-API-Key header: %s", key)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `{"name":"kubernetes","requirements":["helm"]}`)
+	}))
+	defer srv.Close()
+
+	// Build a root command so --api-url is available, then find the
+	// get-setup-spec subcommand.
+	root := NewRootCmd()
+	root.SetArgs([]string{"integrations", "get-setup-spec", "kubernetes", "--api-url", srv.URL, "-o", "json"})
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	var spec map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &spec); err != nil {
+		t.Fatalf("invalid JSON output: %v\noutput: %s", err, out)
+	}
+	if spec["name"] != "kubernetes" {
+		t.Errorf("expected name 'kubernetes', got %v", spec["name"])
+	}
+}
+
+// TestIntegrationsGetSetupSpec_HasSkipConfigAnnotation verifies the command
+// carries the annotation that lets it bypass config loading.
+func TestIntegrationsGetSetupSpec_HasSkipConfigAnnotation(t *testing.T) {
+	cmd := newIntegrationsGetSetupSpecCmd()
+	if cmd.Annotations[skipConfigAnnotation] != "true" {
+		t.Errorf("get-setup-spec should have skipConfig annotation, got annotations: %v", cmd.Annotations)
+	}
+}
+
+// TestIntegrationsList_RequiresAuth verifies that the list subcommand does NOT
+// carry the skipConfig annotation (it requires auth).
+func TestIntegrationsList_RequiresAuth(t *testing.T) {
+	cmd := newIntegrationsListCmd()
+	if cmd.Annotations[skipConfigAnnotation] == "true" {
+		t.Error("list should not have skipConfig annotation — it requires auth")
+	}
+}
+
 // TestIntegrationsGetSetupSpec_YAML verifies YAML output format works.
 func TestIntegrationsGetSetupSpec_YAML(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

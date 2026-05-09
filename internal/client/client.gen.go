@@ -5559,17 +5559,10 @@ func (r CreateFoldersResponse) StatusCode() int {
 type ListIntegrationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]*map[string]ListIntegrations_200_AdditionalProperties
+	JSON200      *[]*map[string]interface{}
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
-}
-type ListIntegrations2000 = string
-type ListIntegrations2001 = int64
-type ListIntegrations2002 = float32
-type ListIntegrations2003 = bool
-type ListIntegrations_200_AdditionalProperties struct {
-	union json.RawMessage
 }
 
 // Status returns HTTPResponse.Status
@@ -6791,16 +6784,9 @@ func (r DeleteInvitationsByIdResponse) StatusCode() int {
 type GetIntegrationSetupSpecResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *map[string]GetIntegrationSetupSpec_200_AdditionalProperties
+	JSON200      *map[string]interface{}
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
-}
-type GetIntegrationSetupSpec2000 = string
-type GetIntegrationSetupSpec2001 = int64
-type GetIntegrationSetupSpec2002 = float32
-type GetIntegrationSetupSpec2003 = bool
-type GetIntegrationSetupSpec_200_AdditionalProperties struct {
-	union json.RawMessage
 }
 
 // Status returns HTTPResponse.Status
@@ -8601,7 +8587,7 @@ func ParseListIntegrationsResponse(rsp *http.Response) (*ListIntegrationsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []*map[string]ListIntegrations_200_AdditionalProperties
+		var dest []*map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -11160,7 +11146,7 @@ func ParseGetIntegrationSetupSpecResponse(rsp *http.Response) (*GetIntegrationSe
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]GetIntegrationSetupSpec_200_AdditionalProperties
+		var dest map[string]interface{}
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

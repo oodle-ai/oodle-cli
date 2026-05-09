@@ -242,6 +242,51 @@ func TestSaveAndLoad_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestResolveAPIURL_Default(t *testing.T) {
+	withCleanEnv(t)
+	got := ResolveAPIURL()
+	if got != DefaultAPIURL {
+		t.Errorf("ResolveAPIURL() = %q, want %q", got, DefaultAPIURL)
+	}
+}
+
+func TestResolveAPIURL_EnvVars(t *testing.T) {
+	withCleanEnv(t)
+
+	// OODLE_URL is lowest priority among the URL env vars.
+	os.Setenv("OODLE_URL", "https://url.example.com")
+	if got := ResolveAPIURL(); got != "https://url.example.com" {
+		t.Errorf("OODLE_URL: got %q", got)
+	}
+
+	// OODLE_API_URL overrides OODLE_URL.
+	os.Setenv("OODLE_API_URL", "https://apiurl.example.com")
+	if got := ResolveAPIURL(); got != "https://apiurl.example.com" {
+		t.Errorf("OODLE_API_URL: got %q", got)
+	}
+
+	// OODLE_DEPLOYMENT overrides OODLE_API_URL.
+	os.Setenv("OODLE_DEPLOYMENT", "https://deploy.example.com")
+	if got := ResolveAPIURL(); got != "https://deploy.example.com" {
+		t.Errorf("OODLE_DEPLOYMENT: got %q", got)
+	}
+
+	// Verify OODLE_DEPLOYMENT wins even without the others.
+	os.Unsetenv("OODLE_URL")
+	os.Unsetenv("OODLE_API_URL")
+	if got := ResolveAPIURL(); got != "https://deploy.example.com" {
+		t.Errorf("OODLE_DEPLOYMENT alone: got %q", got)
+	}
+}
+
+func TestResolveAPIURL_TrimsTrailingSlash(t *testing.T) {
+	withCleanEnv(t)
+	os.Setenv("OODLE_API_URL", "https://example.com/")
+	if got := ResolveAPIURL(); got != "https://example.com" {
+		t.Errorf("ResolveAPIURL() = %q, want trailing slash trimmed", got)
+	}
+}
+
 func TestOAuthExpiryTime(t *testing.T) {
 	now := "2026-05-02T15:04:05Z"
 	cfg := &Config{OAuthTokenExpiry: now}

@@ -99,6 +99,24 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	return cfg, nil
 }
 
+// ResolveAPIURL returns the Oodle API URL from environment variables
+// (OODLE_DEPLOYMENT > OODLE_API_URL > OODLE_URL) or the default URL.
+// The precedence matches LoadConfig: OODLE_DEPLOYMENT wins over OODLE_API_URL,
+// which wins over OODLE_URL. This is useful for commands that need an API URL
+// without full config resolution (e.g. unauthenticated endpoints).
+func ResolveAPIURL() string {
+	if v := os.Getenv("OODLE_DEPLOYMENT"); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	if v := os.Getenv("OODLE_API_URL"); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	if v := os.Getenv("OODLE_URL"); v != "" {
+		return strings.TrimRight(v, "/")
+	}
+	return DefaultAPIURL
+}
+
 // OAuthExpiryTime parses OAuthTokenExpiry when set.
 func (c *Config) OAuthExpiryTime() (time.Time, bool) {
 	if c == nil || strings.TrimSpace(c.OAuthTokenExpiry) == "" {

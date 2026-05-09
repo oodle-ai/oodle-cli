@@ -8,6 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/client"
+	"github.com/oodle-ai/oodle-cli/internal/config"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -78,9 +80,23 @@ config templates, and validation hints.
 
 This endpoint does not require authentication.`,
 		Args: exactArgs(1),
+		Annotations: map[string]string{
+			skipConfigAnnotation: "true",
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			format := getOutputFormat(cmd)
+
+			// When running without auth/config (the normal case for this
+			// unauthenticated endpoint), build a minimal client from
+			// --api-url / env / default URL.
+			if c == nil {
+				var err error
+				c, err = newUnauthenticatedClient(cmd)
+				if err != nil {
+					return err
+				}
+			}
 
 			resp, err := c.Inner.GetIntegrationSetupSpec(cmd.Context(), args[0])
 			if err != nil {
@@ -104,4 +120,20 @@ This endpoint does not require authentication.`,
 			return output.Print(cmd.OutOrStdout(), format, spec, nil)
 		},
 	}
+}
+
+// newUnauthenticatedClient builds a minimal API client that does not require
+// authentication credentials. It resolves the API URL from the --api-url flag,
+// environment variables (OODLE_API_URL, OODLE_DEPLOYMENT, OODLE_URL), or the
+// default. This is used by endpoints marked security: [] in the OpenAPI spec.
+func newUnauthenticatedClient(cmd *cobra.Command) (*api.Client, error) {
+	apiURL, _ := cmd.Flags().GetString("api-url")
+	if apiURL == "" {
+		apiURL = config.ResolveAPIURL()
+	}
+	gen, err := client.NewClientWithResponses(apiURL)
+	if err != nil {
+		return nil, fmt.Errorf("creating API client: %w", err)
+	}
+	return &api.Client{Inner: gen}, nil
 }

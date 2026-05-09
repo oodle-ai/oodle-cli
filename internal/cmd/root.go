@@ -107,12 +107,23 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	return root
 }
 
+// skipConfigAnnotation is the cobra annotation key that marks a command as not
+// requiring a fully-resolved config. Commands that carry this annotation with
+// value "true" bypass the normal config/auth loading in PersistentPreRunE.
+const skipConfigAnnotation = "skipConfig"
+
 // shouldSkipConfig returns true if the command (or any ancestor) is in the
-// skip list, or if the command IS the root (invoked bare, e.g. just "oodle"
-// with no subcommand — its RunE shows help and needs no credentials).
+// skip list, carries the skipConfig annotation, or IS the root (invoked bare,
+// e.g. just "oodle" with no subcommand — its RunE shows help and needs no
+// credentials).
 func shouldSkipConfig(cmd *cobra.Command) bool {
 	if cmd.Parent() == nil {
 		// Root command itself: bare "oodle" shows help, no API needed.
+		return true
+	}
+	// Check annotations on the command itself (not ancestors — the
+	// annotation is opt-in per leaf command).
+	if cmd.Annotations[skipConfigAnnotation] == "true" {
 		return true
 	}
 	for c := cmd; c != nil; c = c.Parent() {
