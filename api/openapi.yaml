@@ -2339,6 +2339,12 @@ components:
         url:
           type: string
           description: URL to send POST request to.
+    integrationResponse:
+      type: object
+      additionalProperties: true
+    integrationSetupSpecResponse:
+      type: object
+      additionalProperties: true
     net_url_Userinfo:
       type: object
       description: |-
@@ -2624,7 +2630,7 @@ paths:
       tags:
         - OAuth
       summary: List Oauth Protected Resource
-      operationId: listOauthProtectedResource
+      operationId: listOauthProtectedResourceV1
       responses:
         "200":
           description: ""
@@ -3368,16 +3374,7 @@ paths:
               schema:
                 type: array
                 items:
-                  type: object
-                  nullable: true
-                  additionalProperties:
-                    oneOf:
-                      - type: string
-                      - type: integer
-                        format: int64
-                      - type: number
-                      - type: boolean
-                    description: Primitive JSON value whose concrete type is declared by the sibling `type` field.
+                  $ref: '#/components/schemas/integrationResponse'
         "401":
           description: ""
           content:
@@ -5856,16 +5853,7 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                nullable: true
-                additionalProperties:
-                  oneOf:
-                    - type: string
-                    - type: integer
-                      format: int64
-                    - type: number
-                    - type: boolean
-                  description: Primitive JSON value whose concrete type is declared by the sibling `type` field.
+                $ref: '#/components/schemas/integrationSetupSpecResponse'
         "404":
           description: ""
           content:
