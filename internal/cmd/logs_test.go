@@ -94,7 +94,7 @@ func TestInjectTimeRange_SimpleQuery(t *testing.T) {
 	input := []byte(`{"index": "logs-*"}
 {"query": {"match_all": {}}, "size": 10}
 `)
-	startMs := int64(1700000000000)
+	startMs := int64(0)
 	endMs := int64(1700003600000)
 
 	search, boolQ := mustInjectAndParseBool(t, input, startMs, endMs)
@@ -125,9 +125,9 @@ func TestInjectTimeRange_SimpleQuery(t *testing.T) {
 	if !ok {
 		t.Fatal("expected range in filter")
 	}
-	ts, ok := rangeField["@timestamp"].(map[string]any)
+	ts, ok := rangeField["timestamp"].(map[string]any)
 	if !ok {
-		t.Fatal("expected @timestamp in range")
+		t.Fatal("expected timestamp in range")
 	}
 	if gte, _ := ts["gte"].(float64); int64(gte) != startMs {
 		t.Errorf("gte = %v, want %d", ts["gte"], startMs)
@@ -142,6 +142,43 @@ func TestInjectTimeRange_SimpleQuery(t *testing.T) {
 	// Verify size is preserved.
 	if size, _ := search["size"].(float64); int(size) != 10 {
 		t.Errorf("size = %v, want 10", search["size"])
+	}
+}
+
+func TestInjectTimeRange_UsesTimestampFieldForOodleLogIndices(t *testing.T) {
+	input := []byte(`{"index": "inst_oodle_claude_code_otel_etsvw8_logs"}
+{"query": {"bool": {"filter": [{"term": {"cluster": "minikube"}}]}}, "size": 3, "sort": [{"timestamp": "desc"}], "_source": ["timestamp", "namespace", "pod_name", "message", "log"]}
+`)
+	startMs := int64(1700000000000)
+	endMs := int64(1700003600000)
+
+	search, boolQ := mustInjectAndParseBool(t, input, startMs, endMs)
+
+	filter := boolQ["filter"].([]any)
+	if len(filter) != 2 {
+		t.Fatalf("expected original filter plus injected range, got %d clauses", len(filter))
+	}
+
+	rangeClause := filter[1].(map[string]any)
+	rangeField := rangeClause["range"].(map[string]any)
+	if _, ok := rangeField["@timestamp"]; ok {
+		t.Fatal("did not expect @timestamp range field for Oodle log indices")
+	}
+	ts, ok := rangeField["timestamp"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected timestamp range field, got %v", rangeField)
+	}
+	if gte, _ := ts["gte"].(float64); int64(gte) != startMs {
+		t.Errorf("gte = %v, want %d", ts["gte"], startMs)
+	}
+	if lte, _ := ts["lte"].(float64); int64(lte) != endMs {
+		t.Errorf("lte = %v, want %d", ts["lte"], endMs)
+	}
+
+	sortFields := search["sort"].([]any)
+	sortField := sortFields[0].(map[string]any)
+	if _, ok := sortField["timestamp"]; !ok {
+		t.Fatalf("expected original timestamp sort to be preserved, got %v", sortField)
 	}
 }
 

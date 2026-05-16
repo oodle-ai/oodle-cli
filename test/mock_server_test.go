@@ -1451,7 +1451,7 @@ func TestMock_LogsQuery_DefaultTimeRange_OnWire(t *testing.T) {
 		t.Fatal("expected a range filter in the filter array")
 	}
 	rangeField := rangeClause["range"].(map[string]any)
-	ts := rangeField["@timestamp"].(map[string]any)
+	ts := rangeField["timestamp"].(map[string]any)
 
 	gte := int64(ts["gte"].(float64))
 	lte := int64(ts["lte"].(float64))
@@ -1517,7 +1517,7 @@ func TestMock_LogsQuery_ExplicitEpochMs_OnWire(t *testing.T) {
 		t.Fatal("expected range filter in body")
 	}
 	rangeField := rangeClause["range"].(map[string]any)
-	ts := rangeField["@timestamp"].(map[string]any)
+	ts := rangeField["timestamp"].(map[string]any)
 	if int64(ts["gte"].(float64)) != 1700000000000 {
 		t.Errorf("gte=%v, want 1700000000000", ts["gte"])
 	}
@@ -1573,7 +1573,7 @@ func TestMock_LogsQuery_RelativeDuration_OnWire(t *testing.T) {
 	if rangeClause == nil {
 		t.Fatal("expected range filter")
 	}
-	ts := rangeClause["range"].(map[string]any)["@timestamp"].(map[string]any)
+	ts := rangeClause["range"].(map[string]any)["timestamp"].(map[string]any)
 	gte := int64(ts["gte"].(float64))
 	lte := int64(ts["lte"].(float64))
 
@@ -1683,7 +1683,7 @@ func TestMock_LogsQuery_ExistingBoolFilter_Appended(t *testing.T) {
 
 func TestMock_LogsQuery_BodyContainsTimestamp(t *testing.T) {
 	// Regression: after the --start/--end change, every logs query must inject
-	// @timestamp into the body. This test extends the existing LogsQuery_JSON
+	// timestamp into the body. This test extends the existing LogsQuery_JSON
 	// coverage to verify the new field is present.
 	payload := `{"responses":[{"status":200,"hits":{"total":{"value":1,"relation":"eq"},"hits":[{"_source":{"message":"hello"}}]},"timed_out":false,"took":5}],"took":10}`
 	var capturedBody string
@@ -1700,8 +1700,11 @@ func TestMock_LogsQuery_BodyContainsTimestamp(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
 	}
-	if !strings.Contains(capturedBody, "@timestamp") {
-		t.Errorf("expected @timestamp in request body, got: %s", capturedBody)
+	if strings.Contains(capturedBody, "@timestamp") {
+		t.Errorf("did not expect @timestamp in request body, got: %s", capturedBody)
+	}
+	if !strings.Contains(capturedBody, "timestamp") {
+		t.Errorf("expected timestamp in request body, got: %s", capturedBody)
 	}
 	if !strings.Contains(capturedBody, "epoch_millis") {
 		t.Errorf("expected epoch_millis in request body, got: %s", capturedBody)
