@@ -287,6 +287,27 @@ func TestResolveAPIURL_TrimsTrailingSlash(t *testing.T) {
 	}
 }
 
+func TestResolveAPIURL_FromConfigFile(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "api_key: file-key\ninstance: file-instance\napi_url: https://file.example.com/\n")
+	os.Setenv("OODLE_CONFIG", path)
+
+	if got := ResolveAPIURL(); got != "https://file.example.com" {
+		t.Errorf("ResolveAPIURL() = %q, want config file API URL", got)
+	}
+}
+
+func TestResolveAPIURL_EnvOverridesConfigFile(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "api_key: file-key\ninstance: file-instance\napi_url: https://file.example.com\n")
+	os.Setenv("OODLE_CONFIG", path)
+	os.Setenv("OODLE_API_URL", "https://env.example.com")
+
+	if got := ResolveAPIURL(); got != "https://env.example.com" {
+		t.Errorf("ResolveAPIURL() = %q, want env API URL", got)
+	}
+}
+
 func TestOAuthExpiryTime(t *testing.T) {
 	now := "2026-05-02T15:04:05Z"
 	cfg := &Config{OAuthTokenExpiry: now}

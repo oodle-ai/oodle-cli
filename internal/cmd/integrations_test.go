@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -328,6 +330,83 @@ func TestIntegrationsGetSetupSpec_NoAuth(t *testing.T) {
 	if spec["name"] != "kubernetes" {
 		t.Errorf("expected name 'kubernetes', got %v", spec["name"])
 	}
+}
+
+// TestIntegrationsGetSetupSpec_UsesConfigFileAPIURL verifies get-setup-spec
+// can use the saved config file API URL without requiring auth or instance.
+func TestIntegrationsGetSetupSpec_UsesConfigFileAPIURL(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/integrations/kubernetes/setup-spec") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("unexpected Authorization header: %s", auth)
+		}
+		if key := r.Header.Get("X-API-Key"); key != "" {
+			t.Errorf("unexpected X-API-Key header: %s", key)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `{"name":"kubernetes","requirements":["helm"]}`)
+	}))
+	defer srv.Close()
+
+	oldConfig, hadConfig := os.LookupEnv("OODLE_CONFIG")
+	oldHome, hadHome := os.LookupEnv("HOME")
+	oldAPIKey, hadAPIKey := os.LookupEnv("OODLE_API_KEY")
+	oldOAuth, hadOAuth := os.LookupEnv("OODLE_OAUTH_ACCESS_TOKEN")
+	oldInstance, hadInstance := os.LookupEnv("OODLE_INSTANCE")
+	oldURL, hadURL := os.LookupEnv("OODLE_URL")
+	oldAPIURL, hadAPIURL := os.LookupEnv("OODLE_API_URL")
+	oldDeployment, hadDeployment := os.LookupEnv("OODLE_DEPLOYMENT")
+	t.Cleanup(func() {
+		restoreIntegrationTestEnv("OODLE_CONFIG", oldConfig, hadConfig)
+		restoreIntegrationTestEnv("HOME", oldHome, hadHome)
+		restoreIntegrationTestEnv("OODLE_API_KEY", oldAPIKey, hadAPIKey)
+		restoreIntegrationTestEnv("OODLE_OAUTH_ACCESS_TOKEN", oldOAuth, hadOAuth)
+		restoreIntegrationTestEnv("OODLE_INSTANCE", oldInstance, hadInstance)
+		restoreIntegrationTestEnv("OODLE_URL", oldURL, hadURL)
+		restoreIntegrationTestEnv("OODLE_API_URL", oldAPIURL, hadAPIURL)
+		restoreIntegrationTestEnv("OODLE_DEPLOYMENT", oldDeployment, hadDeployment)
+	})
+	os.Unsetenv("OODLE_API_KEY")
+	os.Unsetenv("OODLE_OAUTH_ACCESS_TOKEN")
+	os.Unsetenv("OODLE_INSTANCE")
+	os.Unsetenv("OODLE_URL")
+	os.Unsetenv("OODLE_API_URL")
+	os.Unsetenv("OODLE_DEPLOYMENT")
+	tmp := t.TempDir()
+	os.Setenv("HOME", tmp)
+	os.Setenv("OODLE_CONFIG", filepath.Join(tmp, "config.yaml"))
+	if err := os.WriteFile(filepath.Join(tmp, "config.yaml"), []byte("api_url: "+srv.URL+"/\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+
+	root := NewRootCmd()
+	root.SetArgs([]string{"integrations", "get-setup-spec", "kubernetes", "-o", "json"})
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	var spec map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &spec); err != nil {
+		t.Fatalf("invalid JSON output: %v\noutput: %s", err, out)
+	}
+	if spec["name"] != "kubernetes" {
+		t.Errorf("expected name 'kubernetes', got %v", spec["name"])
+	}
+}
+
+func restoreIntegrationTestEnv(key, value string, ok bool) {
+	if ok {
+		os.Setenv(key, value)
+		return
+	}
+	os.Unsetenv(key)
 }
 
 // TestIntegrationsGetSetupSpec_HasSkipConfigAnnotation verifies the command

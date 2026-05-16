@@ -62,15 +62,8 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	if v := os.Getenv("OODLE_INSTANCE"); v != "" {
 		cfg.Instance = v
 	}
-	// OODLE_URL / OODLE_API_URL / OODLE_DEPLOYMENT — later entries win.
-	if v := os.Getenv("OODLE_URL"); v != "" {
-		cfg.APIURL = strings.TrimRight(v, "/")
-	}
-	if v := os.Getenv("OODLE_API_URL"); v != "" {
-		cfg.APIURL = strings.TrimRight(v, "/")
-	}
-	if v := os.Getenv("OODLE_DEPLOYMENT"); v != "" {
-		cfg.APIURL = strings.TrimRight(v, "/")
+	if url := resolveAPIURLEnv(); url != "" {
+		cfg.APIURL = url
 	}
 
 	// Flags override env vars.
@@ -100,11 +93,20 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 }
 
 // ResolveAPIURL returns the Oodle API URL from environment variables
-// (OODLE_DEPLOYMENT > OODLE_API_URL > OODLE_URL) or the default URL.
-// The precedence matches LoadConfig: OODLE_DEPLOYMENT wins over OODLE_API_URL,
-// which wins over OODLE_URL. This is useful for commands that need an API URL
-// without full config resolution (e.g. unauthenticated endpoints).
+// (OODLE_DEPLOYMENT > OODLE_API_URL > OODLE_URL), the config file, or the
+// default URL. This is useful for commands that need an API URL without full
+// config resolution (e.g. unauthenticated endpoints).
 func ResolveAPIURL() string {
+	if url := resolveAPIURLEnv(); url != "" {
+		return url
+	}
+	if fileCfg, err := loadConfigFile(); err == nil && fileCfg != nil && fileCfg.APIURL != "" {
+		return strings.TrimRight(fileCfg.APIURL, "/")
+	}
+	return DefaultAPIURL
+}
+
+func resolveAPIURLEnv() string {
 	if v := os.Getenv("OODLE_DEPLOYMENT"); v != "" {
 		return strings.TrimRight(v, "/")
 	}
@@ -114,7 +116,7 @@ func ResolveAPIURL() string {
 	if v := os.Getenv("OODLE_URL"); v != "" {
 		return strings.TrimRight(v, "/")
 	}
-	return DefaultAPIURL
+	return ""
 }
 
 // OAuthExpiryTime parses OAuthTokenExpiry when set.
