@@ -41,7 +41,7 @@ The request body uses NDJSON format with two JSON objects separated by a newline
 the first selects the index, the second contains the search query using OpenSearch
 Query DSL. Pass the body via -f <file>.
 
-When --start and --end are provided (or defaulted), a range filter on @timestamp
+When --start and --end are provided (or defaulted), a range filter on timestamp
 is injected into the query body automatically. If the query already contains a
 bool filter, the range clause is appended to the existing filter array.
 
@@ -109,7 +109,7 @@ Example NDJSON file contents:
 }
 
 // injectTimeRange parses the NDJSON body (header + search lines) and injects
-// a range filter on @timestamp into the search query. If the query is already
+// a range filter on timestamp into the search query. If the query is already
 // wrapped in a bool query with a filter clause, the range is appended;
 // otherwise the original query is wrapped in a bool/must+filter structure.
 func injectTimeRange(data []byte, startMs, endMs int64) ([]byte, error) {
@@ -127,7 +127,7 @@ func injectTimeRange(data []byte, startMs, endMs int64) ([]byte, error) {
 	// Build the range filter clause.
 	rangeFilter := map[string]any{
 		"range": map[string]any{
-			"@timestamp": map[string]any{
+			"timestamp": map[string]any{
 				"gte":    startMs,
 				"lte":    endMs,
 				"format": "epoch_millis",
