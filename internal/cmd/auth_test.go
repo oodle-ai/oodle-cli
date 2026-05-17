@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"bytes"
+	"encoding/base64"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 
 	"github.com/oodle-ai/oodle-cli/internal/config"
 )
@@ -63,6 +66,97 @@ func TestListenOnAllowedOAuthCallbackPort(t *testing.T) {
 	if len(got) < len("127.0.0.1:9400") || got[:len("127.0.0.1:")] != "127.0.0.1:" {
 		t.Fatalf("unexpected listener address: %s", got)
 	}
+}
+
+func TestResolveAuthLoginInstance_PrefersSelectedTokenInstanceOverExistingConfig(t *testing.T) {
+	existing := &config.Config{Instance: "old-instance"}
+	token := &oauth2.Token{AccessToken: testJWTWithClaims(`{"oodle_instance":"selected-instance"}`)}
+
+	got, err := resolveAuthLoginInstance(strings.NewReader(""), &bytes.Buffer{}, "", existing, token)
+	if err != nil {
+		t.Fatalf("resolveAuthLoginInstance returned error: %v", err)
+	}
+	if got != "selected-instance" {
+		t.Fatalf("resolveAuthLoginInstance = %q, want selected-instance", got)
+	}
+}
+
+func TestResolveAuthLoginInstance_PrefersFlagOverSelectedTokenInstance(t *testing.T) {
+	existing := &config.Config{Instance: "old-instance"}
+	token := &oauth2.Token{AccessToken: testJWTWithClaims(`{"oodle_instance":"selected-instance"}`)}
+
+	got, err := resolveAuthLoginInstance(strings.NewReader(""), &bytes.Buffer{}, "flag-instance", existing, token)
+	if err != nil {
+		t.Fatalf("resolveAuthLoginInstance returned error: %v", err)
+	}
+	if got != "flag-instance" {
+		t.Fatalf("resolveAuthLoginInstance = %q, want flag-instance", got)
+	}
+}
+
+func TestInstanceFromOAuthToken_UsesAccessTokenClaim(t *testing.T) {
+	token := &oauth2.Token{AccessToken: testJWTWithClaims(`{"oodle_instance":"selected-instance"}`)}
+
+	got := instanceFromOAuthToken(token)
+	if got != "selected-instance" {
+		t.Fatalf("instanceFromOAuthToken = %q, want selected-instance", got)
+	}
+}
+
+func TestInstanceFromOAuthToken_FallsBackToIDTokenClaim(t *testing.T) {
+	token := (&oauth2.Token{AccessToken: "opaque-access-token"}).WithExtra(map[string]any{
+		"id_token": testJWTWithClaims(`{"org_name":"selected-from-id-token"}`),
+	})
+
+	got := instanceFromOAuthToken(token)
+	if got != "selected-from-id-token" {
+		t.Fatalf("instanceFromOAuthToken = %q, want selected-from-id-token", got)
+	}
+}
+
+func TestInstanceFromOAuthToken_EmptyWhenNoInstanceClaim(t *testing.T) {
+	token := (&oauth2.Token{AccessToken: testJWTWithClaims(`{"sub":"user"}`)}).WithExtra(map[string]any{
+		"id_token": testJWTWithClaims(`{"email":"user@example.com"}`),
+	})
+
+	got := instanceFromOAuthToken(token)
+	if got != "" {
+		t.Fatalf("instanceFromOAuthToken = %q, want empty", got)
+	}
+}
+
+func TestInstanceFromOAuthToken_UsesNumericOrgIDClaim(t *testing.T) {
+	token := &oauth2.Token{AccessToken: testJWTWithClaims(`{"org_id":12345}`)}
+
+	got := instanceFromOAuthToken(token)
+	if got != "12345" {
+		t.Fatalf("instanceFromOAuthToken = %q, want 12345", got)
+	}
+}
+
+func TestResolveAuthLoginInstance_WhitespaceValuesFallBackToPrompt(t *testing.T) {
+	existing := &config.Config{Instance: "   "}
+	token := &oauth2.Token{AccessToken: testJWTWithClaims(`{"oodle_instance":"   "}`)}
+	out := &bytes.Buffer{}
+
+	got, err := resolveAuthLoginInstance(strings.NewReader("prompt-instance\n"), out, "   ", existing, token)
+	if err != nil {
+		t.Fatalf("resolveAuthLoginInstance returned error: %v", err)
+	}
+	if got != "prompt-instance" {
+		t.Fatalf("resolveAuthLoginInstance = %q, want prompt-instance", got)
+	}
+	if !strings.Contains(out.String(), "Instance ID:") {
+		t.Fatalf("expected prompt output, got %q", out.String())
+	}
+}
+
+func testJWTWithClaims(claims string) string {
+	return fmt.Sprintf(
+		"%s.%s.signature",
+		base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"none"}`)),
+		base64.RawURLEncoding.EncodeToString([]byte(claims)),
+	)
 }
 
 func TestRunAuthLogout_RemovesOAuthTokens(t *testing.T) {
