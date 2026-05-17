@@ -109,21 +109,6 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 	}
 	apiURL := "https://" + host
 
-	instance := instanceFlag
-	if instance == "" && existing != nil {
-		instance = existing.Instance
-	}
-	if instance == "" {
-		line, err := promptLine(in, out, "Instance ID", "")
-		if err != nil {
-			return err
-		}
-		instance = line
-	}
-	if strings.TrimSpace(instance) == "" {
-		return fmt.Errorf("instance is required to configure CLI usage after login")
-	}
-
 	meta, err := fetchOAuthProtectedResourceMetadata(cmd.Context(), apiURL)
 	if err != nil {
 		return err
@@ -198,6 +183,14 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 		return fmt.Errorf("OAuth token response did not include an access token")
 	}
 
+	instance, err := resolveAuthLoginInstance(in, out, instanceFlag, existing, token)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(instance) == "" {
+		return fmt.Errorf("instance is required to configure CLI usage after login")
+	}
+
 	apiKey := ""
 	if existing != nil {
 		apiKey = existing.APIKey
@@ -231,6 +224,79 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 	path, _ := config.ConfigPath()
 	fmt.Fprintf(out, "OAuth login successful. Configuration saved to %s\n", path)
 	return nil
+}
+
+func resolveAuthLoginInstance(in io.Reader, out io.Writer, instanceFlag string, existing *config.Config, token *oauth2.Token) (string, error) {
+	instance := firstNonEmpty(strings.TrimSpace(instanceFlag), instanceFromOAuthToken(token))
+	if instance == "" && existing != nil {
+		instance = strings.TrimSpace(existing.Instance)
+	}
+	if instance == "" {
+		line, err := promptLine(in, out, "Instance ID", "")
+		if err != nil {
+			return "", err
+		}
+		instance = strings.TrimSpace(line)
+	}
+	return instance, nil
+}
+
+func instanceFromOAuthToken(token *oauth2.Token) string {
+	if token == nil {
+		return ""
+	}
+	if instance := instanceFromJWTClaims(token.AccessToken); instance != "" {
+		return instance
+	}
+	if idToken, ok := token.Extra("id_token").(string); ok {
+		return instanceFromJWTClaims(idToken)
+	}
+	return ""
+}
+
+func instanceFromJWTClaims(rawToken string) string {
+	parts := strings.Split(rawToken, ".")
+	if len(parts) < 2 {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return ""
+	}
+	var claims map[string]any
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return ""
+	}
+	for _, key := range []string{
+		"oodle_instance",
+		"instance",
+		"org_name",
+		"organization_name",
+		"org_id",
+		"organization",
+		"https://oodle.ai/instance",
+		"https://oodle.ai/oodle_instance",
+		"https://oodle.ai/org_name",
+		"https://oodle.ai/org_id",
+	} {
+		if v := stringClaimValue(claims[key]); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func stringClaimValue(v any) string {
+	switch value := v.(type) {
+	case string:
+		return strings.TrimSpace(value)
+	case json.Number:
+		return strings.TrimSpace(value.String())
+	case float64:
+		return strings.TrimSpace(fmt.Sprintf("%.0f", value))
+	default:
+		return ""
+	}
 }
 
 func promptDeleteAPIKey(in io.Reader, out io.Writer) (bool, error) {
@@ -275,14 +341,14 @@ func runAuthLogout(cmd *cobra.Command) error {
 }
 
 type authStatusRow struct {
-	PreferredAuth   string `json:"preferred_auth"`
-	OAuthConfigured bool   `json:"oauth_configured"`
-	APIKeyConfigured bool  `json:"api_key_configured"`
-	RefreshEnabled  bool   `json:"refresh_enabled"`
-	OAuthExpired    bool   `json:"oauth_expired"`
-	OAuthExpiresAt  string `json:"oauth_expires_at,omitempty"`
-	Instance        string `json:"instance,omitempty"`
-	APIURL          string `json:"api_url,omitempty"`
+	PreferredAuth    string `json:"preferred_auth"`
+	OAuthConfigured  bool   `json:"oauth_configured"`
+	APIKeyConfigured bool   `json:"api_key_configured"`
+	RefreshEnabled   bool   `json:"refresh_enabled"`
+	OAuthExpired     bool   `json:"oauth_expired"`
+	OAuthExpiresAt   string `json:"oauth_expires_at,omitempty"`
+	Instance         string `json:"instance,omitempty"`
+	APIURL           string `json:"api_url,omitempty"`
 }
 
 func runAuthStatus(cmd *cobra.Command, flags *rootFlags) error {
