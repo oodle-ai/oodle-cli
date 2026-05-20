@@ -22,6 +22,7 @@ func newIntegrationsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newIntegrationsListCmd())
 	cmd.AddCommand(newIntegrationsGetSetupSpecCmd())
+	cmd.AddCommand(newIntegrationsListSetupSpecsCmd())
 	return cmd
 }
 
@@ -119,6 +120,59 @@ This endpoint does not require authentication.`,
 			}
 			return output.Print(cmd.OutOrStdout(), format, spec, nil)
 		},
+	}
+}
+
+func newIntegrationsListSetupSpecsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list-setup-specs",
+		Short: "List all available integration setup specs",
+		Long: `Returns a list of all available integration types that have a setup spec.
+Each entry contains the type slug and description. Includes aliases.
+
+This endpoint does not require authentication.`,
+		Args: cobra.NoArgs,
+		Annotations: map[string]string{
+			skipConfigAnnotation: "true",
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := getClient(cmd)
+			format := getOutputFormat(cmd)
+
+			if c == nil {
+				var err error
+				c, err = newUnauthenticatedClient(cmd)
+				if err != nil {
+					return err
+				}
+			}
+
+			resp, err := c.Inner.ListIntegrationSetupSpecs(cmd.Context())
+			if err != nil {
+				return fmt.Errorf("API request failed: %w", err)
+			}
+			defer resp.Body.Close()
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return fmt.Errorf("reading response: %w", err)
+			}
+			if resp.StatusCode >= 300 {
+				return api.CheckResponse(resp, body)
+			}
+
+			var items []map[string]interface{}
+			if err := json.Unmarshal(body, &items); err != nil {
+				return fmt.Errorf("parsing response: %w", err)
+			}
+			return output.Print(cmd.OutOrStdout(), format, items, setupSpecColumns())
+		},
+	}
+}
+
+func setupSpecColumns() []output.Column {
+	return []output.Column{
+		{Header: "TYPE", Field: "type"},
+		{Header: "DESCRIPTION", Field: "description"},
 	}
 }
 

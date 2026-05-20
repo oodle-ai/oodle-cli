@@ -32,7 +32,7 @@ func TestNewIntegrationsCmd_Structure(t *testing.T) {
 		t.Errorf("Aliases = %v, want %v", cmd.Aliases, wantAliases)
 	}
 
-	wantSubs := []string{"get-setup-spec", "list"}
+	wantSubs := []string{"get-setup-spec", "list", "list-setup-specs"}
 	got := subcommandNames(cmd)
 	if strings.Join(got, ",") != strings.Join(wantSubs, ",") {
 		t.Errorf("subcommands = %v, want %v", got, wantSubs)
@@ -398,6 +398,205 @@ func TestIntegrationsGetSetupSpec_UsesConfigFileAPIURL(t *testing.T) {
 	}
 	if spec["name"] != "kubernetes" {
 		t.Errorf("expected name 'kubernetes', got %v", spec["name"])
+	}
+}
+
+// TestSetupSpecColumns verifies the column definitions for list-setup-specs.
+func TestSetupSpecColumns(t *testing.T) {
+	cols := setupSpecColumns()
+	if len(cols) != 2 {
+		t.Fatalf("expected 2 columns, got %d", len(cols))
+	}
+	wantHeaders := []string{"TYPE", "DESCRIPTION"}
+	for i, col := range cols {
+		if col.Header != wantHeaders[i] {
+			t.Errorf("column %d: Header = %q, want %q", i, col.Header, wantHeaders[i])
+		}
+	}
+}
+
+// TestIntegrationsListSetupSpecs_JSON verifies the list-setup-specs subcommand
+// parses a JSON array response and outputs it correctly.
+func TestIntegrationsListSetupSpecs_JSON(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "/integrations/setup-specs") {
+			t.Errorf("unexpected path: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `[{"type":"kubernetes","description":"Kubernetes integration"},{"type":"aws-cloudwatch","description":"AWS CloudWatch integration"}]`)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	cmd := newIntegrationsListSetupSpecsCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	ctx := context.Background()
+	ctx = withClient(ctx, c)
+	ctx = withOutput(ctx, output.FormatJSON)
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("invalid JSON output: %v\noutput: %s", err, out)
+	}
+	if len(items) != 2 {
+		t.Errorf("expected 2 items, got %d", len(items))
+	}
+	if items[0]["type"] != "kubernetes" {
+		t.Errorf("expected first item type 'kubernetes', got %v", items[0]["type"])
+	}
+}
+
+// TestIntegrationsListSetupSpecs_Table verifies table output includes column headers.
+func TestIntegrationsListSetupSpecs_Table(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `[{"type":"kubernetes","description":"Kubernetes integration"}]`)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	cmd := newIntegrationsListSetupSpecsCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	ctx := context.Background()
+	ctx = withClient(ctx, c)
+	ctx = withOutput(ctx, output.FormatTable)
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	for _, header := range []string{"TYPE", "DESCRIPTION"} {
+		if !strings.Contains(out, header) {
+			t.Errorf("expected %q column header in table output, got: %s", header, out)
+		}
+	}
+	if !strings.Contains(out, "kubernetes") {
+		t.Errorf("expected 'kubernetes' in table output, got: %s", out)
+	}
+}
+
+// TestIntegrationsListSetupSpecs_EmptyArray verifies list-setup-specs handles
+// an empty array response.
+func TestIntegrationsListSetupSpecs_EmptyArray(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `[]`)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	cmd := newIntegrationsListSetupSpecsCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	ctx := context.Background()
+	ctx = withClient(ctx, c)
+	ctx = withOutput(ctx, output.FormatJSON)
+	cmd.SetContext(ctx)
+
+	if err := cmd.RunE(cmd, []string{}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := strings.TrimSpace(buf.String())
+	if out != "[]" {
+		t.Errorf("expected '[]', got: %s", out)
+	}
+}
+
+// TestIntegrationsListSetupSpecs_APIError verifies list-setup-specs returns an
+// error on non-2xx responses.
+func TestIntegrationsListSetupSpecs_APIError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(500)
+		fmt.Fprint(w, `{"errors":[{"message":"internal error","code":"INTERNAL"}]}`)
+	}))
+	defer srv.Close()
+
+	c := newTestClient(t, srv.URL)
+	cmd := newIntegrationsListSetupSpecsCmd()
+	var buf bytes.Buffer
+	cmd.SetOut(&buf)
+	ctx := context.Background()
+	ctx = withClient(ctx, c)
+	ctx = withOutput(ctx, output.FormatJSON)
+	cmd.SetContext(ctx)
+
+	err := cmd.RunE(cmd, []string{})
+	if err == nil {
+		t.Fatal("expected error on 500 response")
+	}
+	if !strings.Contains(err.Error(), "internal error") {
+		t.Errorf("expected 'internal error' in error message, got: %v", err)
+	}
+}
+
+// TestIntegrationsListSetupSpecs_HasSkipConfigAnnotation verifies the command
+// carries the annotation that lets it bypass config loading.
+func TestIntegrationsListSetupSpecs_HasSkipConfigAnnotation(t *testing.T) {
+	cmd := newIntegrationsListSetupSpecsCmd()
+	if cmd.Annotations[skipConfigAnnotation] != "true" {
+		t.Errorf("list-setup-specs should have skipConfig annotation, got annotations: %v", cmd.Annotations)
+	}
+}
+
+// TestIntegrationsListSetupSpecs_NoAuth verifies that list-setup-specs works
+// without any authentication configured.
+func TestIntegrationsListSetupSpecs_NoAuth(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth := r.Header.Get("Authorization"); auth != "" {
+			t.Errorf("unexpected Authorization header: %s", auth)
+		}
+		if key := r.Header.Get("X-API-Key"); key != "" {
+			t.Errorf("unexpected X-API-Key header: %s", key)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		fmt.Fprint(w, `[{"type":"kubernetes","description":"Kubernetes integration"}]`)
+	}))
+	defer srv.Close()
+
+	root := NewRootCmd()
+	root.SetArgs([]string{"integrations", "list-setup-specs", "--api-url", srv.URL, "-o", "json"})
+	var buf bytes.Buffer
+	root.SetOut(&buf)
+
+	if err := root.Execute(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	var items []map[string]interface{}
+	if err := json.Unmarshal([]byte(out), &items); err != nil {
+		t.Fatalf("invalid JSON output: %v\noutput: %s", err, out)
+	}
+	if len(items) != 1 {
+		t.Errorf("expected 1 item, got %d", len(items))
+	}
+	if items[0]["type"] != "kubernetes" {
+		t.Errorf("expected type 'kubernetes', got %v", items[0]["type"])
+	}
+}
+
+// TestIntegrationsListSetupSpecs_RejectsArgs verifies that list-setup-specs
+// rejects positional arguments.
+func TestIntegrationsListSetupSpecs_RejectsArgs(t *testing.T) {
+	cmd := newIntegrationsListSetupSpecsCmd()
+	if err := cmd.Args(cmd, []string{"extra"}); err == nil {
+		t.Error("expected error with extra args")
 	}
 }
 
