@@ -1475,6 +1475,9 @@ type IntegrationResponse map[string]interface{}
 // IntegrationSetupSpecResponse defines model for integrationSetupSpecResponse.
 type IntegrationSetupSpecResponse map[string]interface{}
 
+// IntegrationSetupSpecsListResponse defines model for integrationSetupSpecsListResponse.
+type IntegrationSetupSpecsListResponse map[string]interface{}
+
 // NetUrlUserinfo The Userinfo type is an immutable encapsulation of username and
 // password details for a [URL]. An existing Userinfo value is guaranteed
 // to have a username set (potentially empty, as allowed by RFC 2396),

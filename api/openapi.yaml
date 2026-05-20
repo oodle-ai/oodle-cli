@@ -2345,6 +2345,9 @@ components:
     integrationSetupSpecResponse:
       type: object
       additionalProperties: true
+    integrationSetupSpecsListResponse:
+      type: object
+      additionalProperties: true
     net_url_Userinfo:
       type: object
       description: |-
@@ -5860,6 +5863,27 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+      security: []
+  /v1/api/integrations/setup-specs:
+    get:
+      tags:
+        - Integrations
+      summary: List integration setup specs
+      description: Returns a list of all available integration types that have a setup spec. Each entry contains the type slug and description. Includes aliases. No authentication required.
+      operationId: listIntegrationSetupSpecs
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/integrationSetupSpecsListResponse'
         default:
           description: Unexpected error
           content:

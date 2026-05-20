@@ -331,6 +331,9 @@ type ClientInterface interface {
 	// DeleteInvitationsById request
 	DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListIntegrationSetupSpecs request
+	ListIntegrationSetupSpecs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetIntegrationSetupSpec request
 	GetIntegrationSetupSpec(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
@@ -1369,6 +1372,18 @@ func (c *Client) CreateBulk(ctx context.Context, instance string, body CreateBul
 
 func (c *Client) DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteInvitationsByIdRequest(c.Server, instance, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListIntegrationSetupSpecs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIntegrationSetupSpecsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -4707,6 +4722,33 @@ func NewDeleteInvitationsByIdRequest(server string, instance string, id string) 
 	return req, nil
 }
 
+// NewListIntegrationSetupSpecsRequest generates requests for ListIntegrationSetupSpecs
+func NewListIntegrationSetupSpecsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/integrations/setup-specs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetIntegrationSetupSpecRequest generates requests for GetIntegrationSetupSpec
 func NewGetIntegrationSetupSpecRequest(server string, integrationType string) (*http.Request, error) {
 	var err error
@@ -5025,6 +5067,9 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteInvitationsByIdWithResponse request
 	DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error)
+
+	// ListIntegrationSetupSpecsWithResponse request
+	ListIntegrationSetupSpecsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIntegrationSetupSpecsResponse, error)
 
 	// GetIntegrationSetupSpecWithResponse request
 	GetIntegrationSetupSpecWithResponse(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*GetIntegrationSetupSpecResponse, error)
@@ -6781,6 +6826,29 @@ func (r DeleteInvitationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+type ListIntegrationSetupSpecsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *IntegrationSetupSpecsListResponse
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListIntegrationSetupSpecsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListIntegrationSetupSpecsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetIntegrationSetupSpecResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -7567,6 +7635,15 @@ func (c *ClientWithResponses) DeleteInvitationsByIdWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseDeleteInvitationsByIdResponse(rsp)
+}
+
+// ListIntegrationSetupSpecsWithResponse request returning *ListIntegrationSetupSpecsResponse
+func (c *ClientWithResponses) ListIntegrationSetupSpecsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIntegrationSetupSpecsResponse, error) {
+	rsp, err := c.ListIntegrationSetupSpecs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListIntegrationSetupSpecsResponse(rsp)
 }
 
 // GetIntegrationSetupSpecWithResponse request returning *GetIntegrationSetupSpecResponse
@@ -11118,6 +11195,39 @@ func ParseDeleteInvitationsByIdResponse(rsp *http.Response) (*DeleteInvitationsB
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListIntegrationSetupSpecsResponse parses an HTTP response from a ListIntegrationSetupSpecsWithResponse call
+func ParseListIntegrationSetupSpecsResponse(rsp *http.Response) (*ListIntegrationSetupSpecsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListIntegrationSetupSpecsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IntegrationSetupSpecsListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
