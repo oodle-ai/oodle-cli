@@ -25,13 +25,33 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
-const appDevClientID = "HGPO3BrlV70EvFDSWyRjZF3airBmD01T"
+const (
+	appDevClientID           = "HGPO3BrlV70EvFDSWyRjZF3airBmD01T"
+	ap1ClientID              = "BtkEridc4BuBIhm8E3IKK0XEDYh82s43"
+	devDeploymentDomain      = "app-dev.oodle.ai"
+	us1DeploymentDomain      = "us1.oodle.ai"
+	ap1DeploymentDomain      = "ap1.oodle.ai"
+	us1OAuthDeploymentDomain = "prod-02-us-west-2.api.oodle.ai"
+	ap1OAuthDeploymentDomain = "prod-01-ap-south1.api.oodle.ai"
+)
 
 type oauthProtectedResourceMetadata struct {
 	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
 	AuthorizationServer  string   `json:"authorization_server"`
 	ScopesSupported      []string `json:"scopes_supported"`
+}
+
+type oauthOrgResponse struct {
+	ID        string             `json:"id"`
+	Name      string             `json:"name"`
+	Instances []oauthOrgInstance `json:"instances"`
+}
+
+type oauthOrgInstance struct {
+	ID     string `json:"id"`
+	Name   string `json:"name"`
+	Status string `json:"status"`
 }
 
 func (m oauthProtectedResourceMetadata) authServer() string {
@@ -42,8 +62,8 @@ func (m oauthProtectedResourceMetadata) authServer() string {
 }
 
 func newAuthCmd(flags *rootFlags) *cobra.Command {
-	var domain string
-	var instance string
+	var loginDeployment string
+	var getInstanceDeployment string
 
 	cmd := &cobra.Command{
 		Use:   "auth",
@@ -55,11 +75,20 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 		Short: "Run OAuth login flow",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runAuthLogin(cmd, flags, domain, instance)
+			return runAuthLogin(cmd, flags, loginDeployment)
 		},
 	}
-	loginCmd.Flags().StringVar(&domain, "domain", "", "Deployment domain (for example: app-dev.oodle.ai)")
-	loginCmd.Flags().StringVar(&instance, "instance", "", "Oodle instance ID to store with OAuth credentials")
+	loginCmd.Flags().StringVarP(&loginDeployment, "deployment", "d", "", "Deployment (us1, ap1, or full deployment URL/host)")
+
+	getInstanceCmd := &cobra.Command{
+		Use:   "get-instance",
+		Short: "Fetch and store instance from OAuth session",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAuthGetInstance(cmd, flags, getInstanceDeployment)
+		},
+	}
+	getInstanceCmd.Flags().StringVarP(&getInstanceDeployment, "deployment", "d", "", "Deployment (us1, ap1, or full deployment URL/host)")
 
 	logoutCmd := &cobra.Command{
 		Use:   "logout",
@@ -79,62 +108,58 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 	}
 
 	cmd.AddCommand(loginCmd)
+	cmd.AddCommand(getInstanceCmd)
 	cmd.AddCommand(logoutCmd)
 	cmd.AddCommand(statusCmd)
 	return cmd
 }
 
-func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag string) error {
+func runAuthLogin(cmd *cobra.Command, flags *rootFlags, deploymentFlag string) error {
 	out := cmd.OutOrStdout()
+	errOut := cmd.ErrOrStderr()
 	in := cmd.InOrStdin()
 
 	existing, _ := loadExistingConfig()
 
-	domain := firstNonEmpty(domainFlag, flags.apiURL)
-	if domain == "" {
-		line, err := promptLine(in, out, "Deployment domain", "app-dev.oodle.ai")
+	deployment := firstNonEmpty(deploymentFlag, flags.apiURL)
+	if deployment == "" {
+		defaultDeployment := deploymentSlugDefaultValue(existing)
+		line, err := promptLine(in, out, deploymentSlugLabel(defaultDeployment), defaultDeployment)
 		if err != nil {
 			return err
 		}
-		domain = line
+		deployment = line
 	}
-	host, err := normalizeDomain(domain)
+	deployment = strings.TrimSpace(deployment)
+	if deployment == "" {
+		return fmt.Errorf("deployment is required")
+	}
+
+	deploymentDomain, err := normalizeDomain(deployment)
 	if err != nil {
 		return err
 	}
+	deploymentDomain = deploymentDomainForDomain(deploymentDomain)
+	oauthDeploymentDomain := oauthDeploymentDomainForDomain(deploymentDomain)
 
-	clientID, err := oauthClientIDForDomain(host)
+	clientID, err := oauthClientIDForDomain(deploymentDomain)
 	if err != nil {
 		return err
 	}
-	apiURL := "https://" + host
+	oauthAPIURL := "https://" + oauthDeploymentDomain
+	deploymentAPIURL := "https://" + deploymentDomain
 
-	instance := instanceFlag
-	if instance == "" && existing != nil {
-		instance = existing.Instance
-	}
-	if instance == "" {
-		line, err := promptLine(in, out, "Instance ID", "")
-		if err != nil {
-			return err
-		}
-		instance = line
-	}
-	if strings.TrimSpace(instance) == "" {
-		return fmt.Errorf("instance is required to configure CLI usage after login")
-	}
-
-	meta, err := fetchOAuthProtectedResourceMetadata(cmd.Context(), apiURL)
+	meta, err := fetchOAuthProtectedResourceMetadata(cmd.Context(), oauthAPIURL)
 	if err != nil {
 		return err
 	}
 	authServer := strings.TrimRight(meta.authServer(), "/")
 	if authServer == "" {
-		return fmt.Errorf("OAuth metadata at %s did not include an authorization server", apiURL)
+		return fmt.Errorf("OAuth metadata at %s did not include an authorization server", oauthAPIURL)
 	}
 	resource := strings.TrimSpace(meta.Resource)
 	if resource == "" {
-		resource = strings.TrimRight(apiURL, "/") + "/v1/api"
+		resource = strings.TrimRight(oauthAPIURL, "/")
 	}
 
 	state, err := randomToken(32)
@@ -212,6 +237,12 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 		}
 	}
 
+	defaultInstance := ""
+	if existing != nil {
+		defaultInstance = strings.TrimSpace(existing.Instance)
+	}
+	instance := defaultInstance
+
 	cfg := &config.Config{
 		APIKey:            apiKey,
 		OAuthAccessToken:  token.AccessToken,
@@ -219,7 +250,8 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 		OAuthClientID:     clientID,
 		OAuthAuthServer:   authServer,
 		Instance:          instance,
-		APIURL:            apiURL,
+		APIURL:            deploymentAPIURL,
+		Deployment:        deployment,
 	}
 	if !token.Expiry.IsZero() {
 		cfg.OAuthTokenExpiry = token.Expiry.UTC().Format(time.RFC3339)
@@ -230,6 +262,27 @@ func runAuthLogin(cmd *cobra.Command, flags *rootFlags, domainFlag, instanceFlag
 
 	path, _ := config.ConfigPath()
 	fmt.Fprintf(out, "OAuth login successful. Configuration saved to %s\n", path)
+
+	org, err := fetchOAuthOrg(cmd.Context(), deploymentAPIURL, token.AccessToken)
+	if err != nil {
+		fmt.Fprintf(errOut, "Warning: could not fetch instances now: %v\n", err)
+		fmt.Fprintln(errOut, "Run 'oodle auth get-instance' to fetch and save the instance later.")
+		return nil
+	}
+	resolvedInstance, err := resolveInstanceForLogin(in, out, org.Instances, defaultInstance)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(resolvedInstance) == "" {
+		return fmt.Errorf("instance is required to configure CLI usage after login")
+	}
+	if resolvedInstance != cfg.Instance {
+		cfg.Instance = resolvedInstance
+		if err := cfg.Save(); err != nil {
+			return err
+		}
+		fmt.Fprintf(out, "Saved instance %q to %s\n", resolvedInstance, path)
+	}
 	return nil
 }
 
@@ -274,15 +327,91 @@ func runAuthLogout(cmd *cobra.Command) error {
 	return nil
 }
 
+func runAuthGetInstance(cmd *cobra.Command, flags *rootFlags, deploymentFlag string) error {
+	out := cmd.OutOrStdout()
+	in := cmd.InOrStdin()
+
+	existing, err := loadExistingConfig()
+	if err != nil {
+		return fmt.Errorf("loading existing config: %w", err)
+	}
+	if existing == nil {
+		return fmt.Errorf("OAuth login is required. Run 'oodle auth login' first")
+	}
+
+	accessToken := strings.TrimSpace(existing.OAuthAccessToken)
+	if accessToken == "" {
+		return fmt.Errorf("OAuth login is required. Run 'oodle auth login' first")
+	}
+
+	deployment := firstNonEmpty(
+		deploymentFlag,
+		flags.apiURL,
+		os.Getenv("OODLE_DEPLOYMENT"),
+		os.Getenv("OODLE_API_URL"),
+		os.Getenv("OODLE_URL"),
+	)
+	if deployment == "" {
+		defaultDeployment := deploymentSlugDefaultValue(existing)
+		line, err := promptLine(in, out, deploymentSlugLabel(defaultDeployment), defaultDeployment)
+		if err != nil {
+			return err
+		}
+		deployment = line
+	}
+	deployment = strings.TrimSpace(deployment)
+	if deployment == "" {
+		return fmt.Errorf("deployment is required")
+	}
+
+	deploymentDomain, err := normalizeDomain(deployment)
+	if err != nil {
+		return err
+	}
+	deploymentDomain = deploymentDomainForDomain(deploymentDomain)
+	deploymentAPIURL := "https://" + deploymentDomain
+
+	org, err := fetchOAuthOrg(cmd.Context(), deploymentAPIURL, accessToken)
+	if err != nil {
+		return fmt.Errorf("fetching organization details from %s/api/org: %w", deploymentAPIURL, err)
+	}
+
+	defaultInstance := strings.TrimSpace(firstNonEmpty(os.Getenv("OODLE_INSTANCE")))
+	if defaultInstance == "" {
+		defaultInstance = strings.TrimSpace(existing.Instance)
+	}
+
+	selectedInstance, err := resolveInstanceForLogin(in, out, org.Instances, defaultInstance)
+	if err != nil {
+		return err
+	}
+
+	cfg := &config.Config{}
+	*cfg = *existing
+	cfg.Instance = selectedInstance
+	cfg.APIURL = deploymentAPIURL
+	cfg.Deployment = deployment
+	if cfg.OAuthAccessToken == "" {
+		cfg.OAuthAccessToken = accessToken
+	}
+
+	if err := cfg.Save(); err != nil {
+		return err
+	}
+	path, _ := config.ConfigPath()
+	fmt.Fprintf(out, "Saved instance %q to %s\n", selectedInstance, path)
+	return nil
+}
+
 type authStatusRow struct {
-	PreferredAuth   string `json:"preferred_auth"`
-	OAuthConfigured bool   `json:"oauth_configured"`
-	APIKeyConfigured bool  `json:"api_key_configured"`
-	RefreshEnabled  bool   `json:"refresh_enabled"`
-	OAuthExpired    bool   `json:"oauth_expired"`
-	OAuthExpiresAt  string `json:"oauth_expires_at,omitempty"`
-	Instance        string `json:"instance,omitempty"`
-	APIURL          string `json:"api_url,omitempty"`
+	PreferredAuth    string `json:"preferred_auth"`
+	OAuthConfigured  bool   `json:"oauth_configured"`
+	APIKeyConfigured bool   `json:"api_key_configured"`
+	RefreshEnabled   bool   `json:"refresh_enabled"`
+	OAuthExpired     bool   `json:"oauth_expired"`
+	OAuthExpiresAt   string `json:"oauth_expires_at,omitempty"`
+	Instance         string `json:"instance,omitempty"`
+	APIURL           string `json:"api_url,omitempty"`
 }
 
 func runAuthStatus(cmd *cobra.Command, flags *rootFlags) error {
@@ -365,33 +494,127 @@ func computeAuthStatus(existing *config.Config, flags *rootFlags) authStatusRow 
 
 func oauthClientIDForDomain(domain string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(domain)) {
-	case "app-dev.oodle.ai":
+	case devDeploymentDomain:
 		return appDevClientID, nil
+	case us1DeploymentDomain, us1OAuthDeploymentDomain:
+		return appDevClientID, nil
+	case ap1DeploymentDomain, ap1OAuthDeploymentDomain:
+		return ap1ClientID, nil
 	default:
-		return "", fmt.Errorf("oauth not supported for deployment domain %q", domain)
+		return "", fmt.Errorf("oauth not supported for deployment %q", domain)
 	}
+}
+
+func oauthDeploymentDomainForDomain(domain string) string {
+	switch strings.ToLower(strings.TrimSpace(domain)) {
+	case us1DeploymentDomain:
+		return us1OAuthDeploymentDomain
+	case ap1DeploymentDomain:
+		return ap1OAuthDeploymentDomain
+	default:
+		return strings.ToLower(strings.TrimSpace(domain))
+	}
+}
+
+func deploymentDomainForDomain(domain string) string {
+	switch strings.ToLower(strings.TrimSpace(domain)) {
+	case us1OAuthDeploymentDomain:
+		return us1DeploymentDomain
+	case ap1OAuthDeploymentDomain:
+		return ap1DeploymentDomain
+	default:
+		return strings.ToLower(strings.TrimSpace(domain))
+	}
+}
+
+func deploymentSlugDefaultValue(existing *config.Config) string {
+	if existing == nil {
+		return ""
+	}
+	if strings.TrimSpace(existing.Deployment) != "" {
+		return strings.TrimSpace(existing.Deployment)
+	}
+	if strings.TrimSpace(existing.APIURL) == "" {
+		return ""
+	}
+	normalized, err := normalizeDomain(existing.APIURL)
+	if err != nil {
+		return strings.TrimSpace(existing.APIURL)
+	}
+	return deploymentSlugFromDomain(deploymentDomainForDomain(normalized))
+}
+
+func deploymentSlugFromDomain(domain string) string {
+	switch strings.ToLower(strings.TrimSpace(domain)) {
+	case devDeploymentDomain:
+		return "dev"
+	case us1DeploymentDomain:
+		return "us1"
+	case ap1DeploymentDomain:
+		return "ap1"
+	default:
+		return strings.TrimSpace(domain)
+	}
+}
+
+func deploymentSlugLabel(defaultValue string) string {
+	if strings.TrimSpace(defaultValue) == "" {
+		return "Deployment (us1, ap1)"
+	}
+	return "Deployment (us1, ap1; press Enter to use default)"
 }
 
 func normalizeDomain(input string) (string, error) {
 	trimmed := strings.TrimSpace(input)
 	if trimmed == "" {
-		return "", fmt.Errorf("deployment domain is required")
+		return "", fmt.Errorf("deployment is required")
 	}
+	var host string
 	if strings.Contains(trimmed, "://") {
 		u, err := url.Parse(trimmed)
 		if err != nil {
-			return "", fmt.Errorf("invalid deployment domain %q: %w", input, err)
+			return "", fmt.Errorf("invalid deployment %q: %w", input, err)
 		}
 		if u.Host == "" {
-			return "", fmt.Errorf("invalid deployment domain %q", input)
+			return "", fmt.Errorf("invalid deployment %q", input)
 		}
-		return strings.ToLower(u.Host), nil
+		host = u.Host
+	} else {
+		host = strings.TrimRight(trimmed, "/")
 	}
-	return strings.ToLower(strings.TrimRight(trimmed, "/")), nil
+	normalized := strings.ToLower(host)
+	switch normalized {
+	case "dev":
+		return devDeploymentDomain, nil
+	case "us1":
+		return us1DeploymentDomain, nil
+	case "ap1":
+		return ap1DeploymentDomain, nil
+	default:
+		return normalized, nil
+	}
 }
 
 func fetchOAuthProtectedResourceMetadata(ctx context.Context, apiURL string) (*oauthProtectedResourceMetadata, error) {
-	wellKnownURL := strings.TrimRight(apiURL, "/") + "/v1/api/.well-known/oauth-protected-resource"
+	wellKnownURLs := []string{
+		strings.TrimRight(apiURL, "/") + "/.well-known/oauth-protected-resource",
+		strings.TrimRight(apiURL, "/") + "/v1/api/.well-known/oauth-protected-resource",
+	}
+	var lastErr error
+	for _, wellKnownURL := range wellKnownURLs {
+		meta, err := fetchOAuthProtectedResourceMetadataFromURL(ctx, wellKnownURL)
+		if err == nil {
+			return meta, nil
+		}
+		lastErr = err
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no OAuth metadata URLs attempted")
+	}
+	return nil, lastErr
+}
+
+func fetchOAuthProtectedResourceMetadataFromURL(ctx context.Context, wellKnownURL string) (*oauthProtectedResourceMetadata, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wellKnownURL, nil)
 	if err != nil {
 		return nil, err
@@ -410,6 +633,80 @@ func fetchOAuthProtectedResourceMetadata(ctx context.Context, apiURL string) (*o
 		return nil, fmt.Errorf("decoding OAuth metadata from %s: %w", wellKnownURL, err)
 	}
 	return &meta, nil
+}
+
+func fetchOAuthOrg(ctx context.Context, apiURL, accessToken string) (*oauthOrgResponse, error) {
+	orgURL := strings.TrimRight(apiURL, "/") + "/v1/api/org"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, orgURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.AddCookie(&http.Cookie{Name: "__oodle_session", Value: accessToken})
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("requesting %s: %w", orgURL, err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 8*1024))
+		return nil, fmt.Errorf("failed to fetch organization from %s: status %d: %s", orgURL, resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var org oauthOrgResponse
+	if err := json.NewDecoder(resp.Body).Decode(&org); err != nil {
+		return nil, fmt.Errorf("decoding organization from %s: %w", orgURL, err)
+	}
+	return &org, nil
+}
+
+func resolveInstanceForLogin(in io.Reader, out io.Writer, instances []oauthOrgInstance, defaultInstance string) (string, error) {
+	if len(instances) == 0 {
+		return "", fmt.Errorf("organization response did not include any instances")
+	}
+	if len(instances) == 1 {
+		selected := strings.TrimSpace(instances[0].ID)
+		if selected == "" {
+			return "", fmt.Errorf("organization response returned one instance without an id")
+		}
+		fmt.Fprintf(out, "Detected single instance %q; using it automatically.\n", selected)
+		return selected, nil
+	}
+
+	fmt.Fprintln(out, "Available instances:")
+	for _, instance := range instances {
+		fmt.Fprintf(out, "- %s (%s) status=%s\n", instance.ID, instance.Name, instance.Status)
+	}
+
+	defaultValue := ""
+	if instanceExists(instances, defaultInstance) {
+		defaultValue = defaultInstance
+	}
+	line, err := promptLine(in, out, "Instance ID", defaultValue)
+	if err != nil {
+		return "", err
+	}
+	selected := strings.TrimSpace(line)
+	if selected == "" {
+		return "", fmt.Errorf("instance is required")
+	}
+	if !instanceExists(instances, selected) {
+		return "", fmt.Errorf("instance %q not found in organization instances", selected)
+	}
+	return selected, nil
+}
+
+func instanceExists(instances []oauthOrgInstance, id string) bool {
+	trimmedID := strings.TrimSpace(id)
+	if trimmedID == "" {
+		return false
+	}
+	for _, instance := range instances {
+		if strings.TrimSpace(instance.ID) == trimmedID {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveRequestedScopes(supported []string) []string {

@@ -2,6 +2,10 @@ package cmd
 
 import (
 	"bytes"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,17 +18,32 @@ import (
 )
 
 func TestOAuthClientIDForDomain(t *testing.T) {
-	id, err := oauthClientIDForDomain("app-dev.oodle.ai")
-	if err != nil {
-		t.Fatalf("oauthClientIDForDomain returned error: %v", err)
+	tests := []struct {
+		name   string
+		domain string
+		wantID string
+	}{
+		{name: "app-dev", domain: devDeploymentDomain, wantID: appDevClientID},
+		{name: "us1 deployment domain", domain: us1DeploymentDomain, wantID: appDevClientID},
+		{name: "us1 oauth deployment domain", domain: us1OAuthDeploymentDomain, wantID: appDevClientID},
+		{name: "ap1 deployment domain", domain: ap1DeploymentDomain, wantID: ap1ClientID},
+		{name: "ap1 oauth deployment domain", domain: ap1OAuthDeploymentDomain, wantID: ap1ClientID},
 	}
-	if id != appDevClientID {
-		t.Fatalf("oauthClientIDForDomain returned %q, want %q", id, appDevClientID)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			id, err := oauthClientIDForDomain(tt.domain)
+			if err != nil {
+				t.Fatalf("oauthClientIDForDomain returned error: %v", err)
+			}
+			if id != tt.wantID {
+				t.Fatalf("oauthClientIDForDomain returned %q, want %q", id, tt.wantID)
+			}
+		})
 	}
 }
 
 func TestOAuthClientIDForDomainUnsupported(t *testing.T) {
-	_, err := oauthClientIDForDomain("us1.oodle.ai")
+	_, err := oauthClientIDForDomain("example.com")
 	if err == nil {
 		t.Fatal("expected error for unsupported deployment domain")
 	}
@@ -38,6 +57,16 @@ func TestNormalizeDomain(t *testing.T) {
 		{in: "app-dev.oodle.ai", want: "app-dev.oodle.ai"},
 		{in: "https://app-dev.oodle.ai", want: "app-dev.oodle.ai"},
 		{in: "https://APP-DEV.OODLE.AI/", want: "app-dev.oodle.ai"},
+		{in: "dev", want: devDeploymentDomain},
+		{in: "DEV", want: devDeploymentDomain},
+		{in: "us1", want: us1DeploymentDomain},
+		{in: "US1", want: us1DeploymentDomain},
+		{in: "us1.oodle.ai", want: us1DeploymentDomain},
+		{in: "https://us1.oodle.ai", want: us1DeploymentDomain},
+		{in: "ap1", want: ap1DeploymentDomain},
+		{in: "AP1", want: ap1DeploymentDomain},
+		{in: "ap1.oodle.ai", want: ap1DeploymentDomain},
+		{in: "https://ap1.oodle.ai/", want: ap1DeploymentDomain},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
@@ -49,6 +78,195 @@ func TestNormalizeDomain(t *testing.T) {
 				t.Fatalf("normalizeDomain(%q) = %q, want %q", tt.in, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestOAuthDeploymentDomainForDomain(t *testing.T) {
+	tests := []struct {
+		in   string
+		want string
+	}{
+		{in: us1DeploymentDomain, want: us1OAuthDeploymentDomain},
+		{in: ap1DeploymentDomain, want: ap1OAuthDeploymentDomain},
+		{in: us1OAuthDeploymentDomain, want: us1OAuthDeploymentDomain},
+		{in: ap1OAuthDeploymentDomain, want: ap1OAuthDeploymentDomain},
+		{in: "app-dev.oodle.ai", want: "app-dev.oodle.ai"},
+	}
+	for _, tt := range tests {
+		if got := oauthDeploymentDomainForDomain(tt.in); got != tt.want {
+			t.Fatalf("oauthDeploymentDomainForDomain(%q) = %q, want %q", tt.in, got, tt.want)
+		}
+	}
+}
+
+func TestResolveInstanceForLogin_SingleInstanceAutoSelects(t *testing.T) {
+	instances := []oauthOrgInstance{{ID: "oodle_internal", Name: "internal", Status: "ACTIVE"}}
+	out := &bytes.Buffer{}
+	got, err := resolveInstanceForLogin(strings.NewReader(""), out, instances, "")
+	if err != nil {
+		t.Fatalf("resolveInstanceForLogin returned error: %v", err)
+	}
+	if got != "oodle_internal" {
+		t.Fatalf("resolveInstanceForLogin returned %q, want oodle_internal", got)
+	}
+	if !strings.Contains(out.String(), "Detected single instance") {
+		t.Fatalf("expected auto-select output, got: %q", out.String())
+	}
+}
+
+func TestResolveInstanceForLogin_MultipleInstancesPromptsAndSelects(t *testing.T) {
+	instances := []oauthOrgInstance{
+		{ID: "a", Name: "alpha", Status: "ACTIVE"},
+		{ID: "b", Name: "beta", Status: "ACTIVE"},
+	}
+	out := &bytes.Buffer{}
+	got, err := resolveInstanceForLogin(strings.NewReader("b\n"), out, instances, "")
+	if err != nil {
+		t.Fatalf("resolveInstanceForLogin returned error: %v", err)
+	}
+	if got != "b" {
+		t.Fatalf("resolveInstanceForLogin returned %q, want b", got)
+	}
+	if !strings.Contains(out.String(), "Available instances:") {
+		t.Fatalf("expected available instances prompt, got: %q", out.String())
+	}
+}
+
+func TestResolveInstanceForLogin_RejectsUnknownInstance(t *testing.T) {
+	instances := []oauthOrgInstance{
+		{ID: "a", Name: "alpha", Status: "ACTIVE"},
+		{ID: "b", Name: "beta", Status: "ACTIVE"},
+	}
+	_, err := resolveInstanceForLogin(strings.NewReader("c\n"), &bytes.Buffer{}, instances, "")
+	if err == nil {
+		t.Fatal("expected error for unknown instance")
+	}
+	if !strings.Contains(err.Error(), "not found") {
+		t.Fatalf("expected not found error, got: %v", err)
+	}
+}
+
+func TestFetchOAuthOrg_SendsSessionAsCookie(t *testing.T) {
+	const token = "token-value"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/api/org" {
+			t.Fatalf("request path = %q, want /v1/api/org", r.URL.Path)
+		}
+		if got := r.Header.Get("__oodle_session"); got != "" {
+			t.Fatalf("__oodle_session header = %q, want empty", got)
+		}
+		if got := r.Header.Get("Authorization"); got != "" {
+			t.Fatalf("Authorization header = %q, want empty", got)
+		}
+		cookie, err := r.Cookie("__oodle_session")
+		if err != nil {
+			t.Fatalf("expected __oodle_session cookie: %v", err)
+		}
+		if cookie.Value != token {
+			t.Fatalf("__oodle_session cookie value = %q, want %q", cookie.Value, token)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"org-1","name":"test-org","instances":[{"id":"inst-1","name":"one","status":"ACTIVE"}]}`))
+	}))
+	defer srv.Close()
+
+	org, err := fetchOAuthOrg(context.Background(), srv.URL, token)
+	if err != nil {
+		t.Fatalf("fetchOAuthOrg returned error: %v", err)
+	}
+	if org.ID != "org-1" {
+		t.Fatalf("org id = %q, want org-1", org.ID)
+	}
+	if len(org.Instances) != 1 || org.Instances[0].ID != "inst-1" {
+		t.Fatalf("instances = %#v, want one instance with id inst-1", org.Instances)
+	}
+}
+
+func TestRunAuthGetInstance_SavesSingleInstance(t *testing.T) {
+	const token = "oauth-token"
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/api/org" {
+			t.Fatalf("request path = %q, want /v1/api/org", r.URL.Path)
+		}
+		cookie, err := r.Cookie("__oodle_session")
+		if err != nil {
+			t.Fatalf("expected __oodle_session cookie: %v", err)
+		}
+		if cookie.Value != token {
+			t.Fatalf("__oodle_session cookie value = %q, want %q", cookie.Value, token)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"id":"org-1","name":"test-org","instances":[{"id":"oodle_internal","name":"internal","status":"ACTIVE"}]}`))
+	}))
+	defer srv.Close()
+
+	oldHTTPClient := http.DefaultClient
+	http.DefaultClient = srv.Client()
+	t.Cleanup(func() { http.DefaultClient = oldHTTPClient })
+
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte(strings.Join([]string{
+		"oauth_access_token: " + token,
+		"api_url: https://ap1.oodle.ai",
+		"",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("OODLE_CONFIG", cfgPath)
+
+	out := &bytes.Buffer{}
+	errOut := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetErr(errOut)
+	cmd.SetIn(strings.NewReader(""))
+	cmd.SetContext(context.Background())
+
+	flags := &rootFlags{apiURL: srv.URL}
+	if err := runAuthGetInstance(cmd, flags, ""); err != nil {
+		t.Fatalf("runAuthGetInstance returned error: %v", err)
+	}
+
+	saved, err := loadExistingConfig()
+	if err != nil {
+		t.Fatalf("loadExistingConfig returned error: %v", err)
+	}
+	if saved.Instance != "oodle_internal" {
+		t.Fatalf("saved instance = %q, want oodle_internal", saved.Instance)
+	}
+
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatalf("parse test server URL: %v", err)
+	}
+	expectedAPIURL := "https://" + u.Host
+	if saved.APIURL != expectedAPIURL {
+		t.Fatalf("saved api_url = %q, want %q", saved.APIURL, expectedAPIURL)
+	}
+	if !strings.Contains(out.String(), "Saved instance") {
+		t.Fatalf("expected success output, got %q", out.String())
+	}
+}
+
+func TestRunAuthGetInstance_RequiresSavedOAuthLogin(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	t.Setenv("OODLE_CONFIG", cfgPath)
+
+	cmd := &cobra.Command{}
+	cmd.SetOut(&bytes.Buffer{})
+	cmd.SetErr(&bytes.Buffer{})
+	cmd.SetContext(context.Background())
+
+	err := runAuthGetInstance(cmd, &rootFlags{}, "")
+	if err == nil {
+		t.Fatal("expected error when OAuth login is missing")
+	}
+	if !strings.Contains(err.Error(), "OAuth login is required") {
+		t.Fatalf("expected OAuth login error, got: %v", err)
 	}
 }
 

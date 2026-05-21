@@ -21,6 +21,7 @@ type Config struct {
 	OAuthTokenExpiry  string `yaml:"oauth_token_expiry,omitempty"`
 	OAuthClientID     string `yaml:"oauth_client_id,omitempty"`
 	OAuthAuthServer   string `yaml:"oauth_auth_server,omitempty"`
+	Deployment        string `yaml:"deployment,omitempty"`
 	Instance          string `yaml:"instance"`
 	APIURL            string `yaml:"api_url"`
 }
@@ -45,6 +46,7 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 		cfg.OAuthTokenExpiry = fileCfg.OAuthTokenExpiry
 		cfg.OAuthClientID = fileCfg.OAuthClientID
 		cfg.OAuthAuthServer = fileCfg.OAuthAuthServer
+		cfg.Deployment = fileCfg.Deployment
 		cfg.Instance = fileCfg.Instance
 		cfg.APIURL = fileCfg.APIURL
 	}
