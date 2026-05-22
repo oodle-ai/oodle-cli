@@ -26,9 +26,8 @@ import (
 )
 
 const (
-	appDevClientID           = "HGPO3BrlV70EvFDSWyRjZF3airBmD01T"
+	us1ClientID              = "HGPO3BrlV70EvFDSWyRjZF3airBmD01T"
 	ap1ClientID              = "BtkEridc4BuBIhm8E3IKK0XEDYh82s43"
-	devDeploymentDomain      = "app-dev.oodle.ai"
 	us1DeploymentDomain      = "us1.oodle.ai"
 	ap1DeploymentDomain      = "ap1.oodle.ai"
 	us1OAuthDeploymentDomain = "prod-02-us-west-2.api.oodle.ai"
@@ -494,10 +493,8 @@ func computeAuthStatus(existing *config.Config, flags *rootFlags) authStatusRow 
 
 func oauthClientIDForDomain(domain string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(domain)) {
-	case devDeploymentDomain:
-		return appDevClientID, nil
 	case us1DeploymentDomain, us1OAuthDeploymentDomain:
-		return appDevClientID, nil
+		return us1ClientID, nil
 	case ap1DeploymentDomain, ap1OAuthDeploymentDomain:
 		return ap1ClientID, nil
 	default:
@@ -546,8 +543,6 @@ func deploymentSlugDefaultValue(existing *config.Config) string {
 
 func deploymentSlugFromDomain(domain string) string {
 	switch strings.ToLower(strings.TrimSpace(domain)) {
-	case devDeploymentDomain:
-		return "dev"
 	case us1DeploymentDomain:
 		return "us1"
 	case ap1DeploymentDomain:
@@ -584,8 +579,6 @@ func normalizeDomain(input string) (string, error) {
 	}
 	normalized := strings.ToLower(host)
 	switch normalized {
-	case "dev":
-		return devDeploymentDomain, nil
 	case "us1":
 		return us1DeploymentDomain, nil
 	case "ap1":
@@ -669,7 +662,6 @@ func resolveInstanceForLogin(in io.Reader, out io.Writer, instances []oauthOrgIn
 		if selected == "" {
 			return "", fmt.Errorf("organization response returned one instance without an id")
 		}
-		fmt.Fprintf(out, "Detected single instance %q; using it automatically.\n", selected)
 		return selected, nil
 	}
 

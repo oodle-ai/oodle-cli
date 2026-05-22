@@ -23,9 +23,8 @@ func TestOAuthClientIDForDomain(t *testing.T) {
 		domain string
 		wantID string
 	}{
-		{name: "app-dev", domain: devDeploymentDomain, wantID: appDevClientID},
-		{name: "us1 deployment domain", domain: us1DeploymentDomain, wantID: appDevClientID},
-		{name: "us1 oauth deployment domain", domain: us1OAuthDeploymentDomain, wantID: appDevClientID},
+		{name: "us1 deployment domain", domain: us1DeploymentDomain, wantID: us1ClientID},
+		{name: "us1 oauth deployment domain", domain: us1OAuthDeploymentDomain, wantID: us1ClientID},
 		{name: "ap1 deployment domain", domain: ap1DeploymentDomain, wantID: ap1ClientID},
 		{name: "ap1 oauth deployment domain", domain: ap1OAuthDeploymentDomain, wantID: ap1ClientID},
 	}
@@ -54,11 +53,6 @@ func TestNormalizeDomain(t *testing.T) {
 		in   string
 		want string
 	}{
-		{in: "app-dev.oodle.ai", want: "app-dev.oodle.ai"},
-		{in: "https://app-dev.oodle.ai", want: "app-dev.oodle.ai"},
-		{in: "https://APP-DEV.OODLE.AI/", want: "app-dev.oodle.ai"},
-		{in: "dev", want: devDeploymentDomain},
-		{in: "DEV", want: devDeploymentDomain},
 		{in: "us1", want: us1DeploymentDomain},
 		{in: "US1", want: us1DeploymentDomain},
 		{in: "us1.oodle.ai", want: us1DeploymentDomain},
@@ -90,7 +84,6 @@ func TestOAuthDeploymentDomainForDomain(t *testing.T) {
 		{in: ap1DeploymentDomain, want: ap1OAuthDeploymentDomain},
 		{in: us1OAuthDeploymentDomain, want: us1OAuthDeploymentDomain},
 		{in: ap1OAuthDeploymentDomain, want: ap1OAuthDeploymentDomain},
-		{in: "app-dev.oodle.ai", want: "app-dev.oodle.ai"},
 	}
 	for _, tt := range tests {
 		if got := oauthDeploymentDomainForDomain(tt.in); got != tt.want {
@@ -108,9 +101,6 @@ func TestResolveInstanceForLogin_SingleInstanceAutoSelects(t *testing.T) {
 	}
 	if got != "oodle_internal" {
 		t.Fatalf("resolveInstanceForLogin returned %q, want oodle_internal", got)
-	}
-	if !strings.Contains(out.String(), "Detected single instance") {
-		t.Fatalf("expected auto-select output, got: %q", out.String())
 	}
 }
 
