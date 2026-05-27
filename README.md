@@ -153,6 +153,15 @@ oodle auth status
 oodle auth status -o json
 ```
 
+### `oodle auth token`
+
+Print the current OAuth access token (environment override first, then saved config).
+If the saved token has expired, the command returns an error and does not print it.
+
+```bash
+oodle auth token
+```
+
 ### Config file format
 
 `~/.oodle/config.yaml`:

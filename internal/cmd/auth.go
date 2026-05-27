@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	us1ClientID              = "HGPO3BrlV70EvFDSWyRjZF3airBmD01T"
+	us1ClientID              = "9aSE9FiizGd2cvES9fkRXVeoH2NbMlkI"
 	ap1ClientID              = "BtkEridc4BuBIhm8E3IKK0XEDYh82s43"
 	us1DeploymentDomain      = "us1.oodle.ai"
 	ap1DeploymentDomain      = "ap1.oodle.ai"
@@ -105,11 +105,20 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 			return runAuthStatus(cmd, flags)
 		},
 	}
+	tokenCmd := &cobra.Command{
+		Use:   "token",
+		Short: "Show current OAuth access token",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runAuthToken(cmd)
+		},
+	}
 
 	cmd.AddCommand(loginCmd)
 	cmd.AddCommand(getInstanceCmd)
 	cmd.AddCommand(logoutCmd)
 	cmd.AddCommand(statusCmd)
+	cmd.AddCommand(tokenCmd)
 	return cmd
 }
 
@@ -430,6 +439,31 @@ func runAuthStatus(cmd *cobra.Command, flags *rootFlags) error {
 		{Header: "API_URL", Field: "APIURL"},
 	}
 	return output.Print(cmd.OutOrStdout(), getOutputFormat(cmd), []authStatusRow{row}, cols)
+}
+
+func runAuthToken(cmd *cobra.Command) error {
+	existing, err := loadExistingConfig()
+	if err != nil {
+		return fmt.Errorf("loading existing config: %w", err)
+	}
+	accessToken := strings.TrimSpace(os.Getenv("OODLE_OAUTH_ACCESS_TOKEN"))
+	if accessToken != "" {
+		fmt.Fprintln(cmd.OutOrStdout(), accessToken)
+		return nil
+	}
+	if existing != nil {
+		accessToken = strings.TrimSpace(existing.OAuthAccessToken)
+		if accessToken != "" {
+			if expiry, hasExpiry := existing.OAuthExpiryTime(); hasExpiry && time.Now().After(expiry) {
+				return fmt.Errorf("OAuth access token is expired. Run 'oodle auth login' first")
+			}
+		}
+	}
+	if accessToken == "" {
+		return fmt.Errorf("OAuth login is required. Run 'oodle auth login' first")
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), accessToken)
+	return nil
 }
 
 func computeAuthStatus(existing *config.Config, flags *rootFlags) authStatusRow {
