@@ -288,3 +288,56 @@ func TestSplitNDJSON(t *testing.T) {
 		t.Fatalf("expected 3 lines, got %d", len(lines))
 	}
 }
+
+func TestQueryContainsTimestampRange(t *testing.T) {
+	tests := []struct {
+		name string
+		data string
+		want bool
+	}{
+		{
+			name: "no range filter",
+			data: "{\"index\": \"logs-*\"}\n{\"query\": {\"match_all\": {}}, \"size\": 10}\n",
+			want: false,
+		},
+		{
+			name: "range on timestamp in bool filter array",
+			data: "{\"index\": \"logs-*\"}\n{\"query\": {\"bool\": {\"filter\": [{\"range\": {\"timestamp\": {\"gte\": 1700000000000, \"lte\": 1700003600000}}}]}}, \"size\": 10}\n",
+			want: true,
+		},
+		{
+			name: "range on timestamp as single filter object",
+			data: "{\"index\": \"logs-*\"}\n{\"query\": {\"bool\": {\"filter\": {\"range\": {\"timestamp\": {\"gte\": 1700000000000}}}}}}\n",
+			want: true,
+		},
+		{
+			name: "range on different field",
+			data: "{\"index\": \"logs-*\"}\n{\"query\": {\"bool\": {\"filter\": [{\"range\": {\"@timestamp\": {\"gte\": 1700000000000}}}]}}}\n",
+			want: false,
+		},
+		{
+			name: "range on timestamp nested in must",
+			data: "{\"index\": \"logs-*\"}\n{\"query\": {\"bool\": {\"must\": [{\"range\": {\"timestamp\": {\"gte\": 0}}}]}}}\n",
+			want: true,
+		},
+		{
+			name: "single line NDJSON",
+			data: "{\"index\": \"logs-*\"}\n",
+			want: false,
+		},
+		{
+			name: "invalid JSON in search body",
+			data: "{\"index\": \"logs-*\"}\n{bad json}\n",
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := queryContainsTimestampRange([]byte(tt.data))
+			if got != tt.want {
+				t.Errorf("queryContainsTimestampRange() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

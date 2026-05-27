@@ -59,6 +59,10 @@ Example NDJSON file contents:
 				return fmt.Errorf("reading %q: %w", file, err)
 			}
 
+			// Track whether the user explicitly provided --start/--end.
+			startExplicit := startStr != ""
+			endExplicit := endStr != ""
+
 			// Apply default time range values.
 			if startStr == "" {
 				startStr = defaultStartOffset
@@ -74,6 +78,15 @@ Example NDJSON file contents:
 			endMs, err := parseTimeFlagMs(endStr)
 			if err != nil {
 				return fmt.Errorf("--end: %w", err)
+			}
+
+			// Warn if query body already contains a timestamp range but
+			// the user did not explicitly provide --start/--end.
+			if !startExplicit && !endExplicit && queryContainsTimestampRange(data) {
+				fmt.Fprintln(cmd.ErrOrStderr(),
+					`Warning: query body contains a range filter on "timestamp", but --start/--end were not provided`+
+						" (defaulting to "+defaultStartOffset+"/"+defaultEndValue+"). The CLI injects its own time range"+
+						" which may narrow your results. Use --start and --end to control the time window.")
 			}
 
 			data, err = injectTimeRange(data, startMs, endMs)
@@ -195,6 +208,50 @@ func splitNDJSON(data []byte) [][]byte {
 		}
 	}
 	return lines
+}
+
+// queryContainsTimestampRange checks whether the NDJSON search body (second
+// line) contains a range filter referencing "timestamp". It returns false on
+// any parse error so the warning is silently skipped.
+func queryContainsTimestampRange(data []byte) bool {
+	lines := splitNDJSON(data)
+	if len(lines) < 2 {
+		return false
+	}
+	var body any
+	if err := json.Unmarshal(lines[1], &body); err != nil {
+		return false
+	}
+	return containsTimestampRange(body)
+}
+
+// containsTimestampRange recursively walks a JSON-decoded value looking for
+// a map with key "range" whose value is a map containing key "timestamp".
+func containsTimestampRange(v any) bool {
+	switch val := v.(type) {
+	case map[string]any:
+		// Direct check: is this a {"range": {"timestamp": ...}} node?
+		if rangeVal, ok := val["range"]; ok {
+			if rangeMap, ok := rangeVal.(map[string]any); ok {
+				if _, ok := rangeMap["timestamp"]; ok {
+					return true
+				}
+			}
+		}
+		// Recurse into all values.
+		for _, child := range val {
+			if containsTimestampRange(child) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range val {
+			if containsTimestampRange(child) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // newLogsIndexPatternsCmd returns the `oodle logs index-patterns` subcommand
