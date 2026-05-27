@@ -260,6 +260,85 @@ func TestRunAuthGetInstance_RequiresSavedOAuthLogin(t *testing.T) {
 	}
 }
 
+func TestRunAuthToken_UsesEnvOverrideWhenSavedTokenExpired(t *testing.T) {
+	const (
+		configToken = "config-token"
+		envToken    = "env-token"
+	)
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	expiredAt := time.Now().Add(-10 * time.Minute).UTC().Format(time.RFC3339)
+	if err := os.WriteFile(cfgPath, []byte(strings.Join([]string{
+		"oauth_access_token: " + configToken,
+		"oauth_token_expiry: " + expiredAt,
+		"",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	t.Setenv("OODLE_OAUTH_ACCESS_TOKEN", envToken)
+
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+
+	if err := runAuthToken(cmd); err != nil {
+		t.Fatalf("runAuthToken returned error: %v", err)
+	}
+	if out.String() != envToken+"\n" {
+		t.Fatalf("output = %q, want %q", out.String(), envToken+"\n")
+	}
+}
+
+func TestRunAuthToken_RequiresOAuthLogin(t *testing.T) {
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	t.Setenv("OODLE_OAUTH_ACCESS_TOKEN", "")
+
+	cmd := &cobra.Command{}
+	cmd.SetOut(&bytes.Buffer{})
+
+	err := runAuthToken(cmd)
+	if err == nil {
+		t.Fatal("expected error when OAuth login is missing")
+	}
+	if !strings.Contains(err.Error(), "OAuth login is required") {
+		t.Fatalf("expected OAuth login error, got: %v", err)
+	}
+}
+
+func TestRunAuthToken_RejectsExpiredSavedToken(t *testing.T) {
+	const token = "expired-token"
+	dir := t.TempDir()
+	cfgPath := filepath.Join(dir, "config.yaml")
+	expiredAt := time.Now().Add(-5 * time.Minute).UTC().Format(time.RFC3339)
+	if err := os.WriteFile(cfgPath, []byte(strings.Join([]string{
+		"oauth_access_token: " + token,
+		"oauth_token_expiry: " + expiredAt,
+		"",
+	}, "\n")), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	t.Setenv("OODLE_OAUTH_ACCESS_TOKEN", "")
+
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+
+	err := runAuthToken(cmd)
+	if err == nil {
+		t.Fatal("expected error when saved OAuth token is expired")
+	}
+	if !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("expected expired token error, got: %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("expected no token output for expired token, got %q", out.String())
+	}
+}
+
 func TestListenOnAllowedOAuthCallbackPort(t *testing.T) {
 	ln, err := listenOnAllowedOAuthCallbackPort()
 	if err != nil {
