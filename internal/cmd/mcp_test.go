@@ -77,15 +77,18 @@ func TestPatchClaudeCodeConfig_NewFile(t *testing.T) {
 	if !ok {
 		t.Fatal("oodle-ai entry missing")
 	}
+	if entry["type"] != "http" {
+		t.Errorf("type = %v, want http", entry["type"])
+	}
 	if entry["url"] != "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp" {
 		t.Errorf("url = %v, want MCP endpoint URL", entry["url"])
 	}
-	auth, ok := entry["auth"].(map[string]interface{})
+	oauth, ok := entry["oauth"].(map[string]interface{})
 	if !ok {
-		t.Fatal("auth key missing")
+		t.Fatal("oauth key missing")
 	}
-	if auth["CLIENT_ID"] == "" {
-		t.Error("CLIENT_ID is empty")
+	if oauth["clientId"] == "" {
+		t.Error("clientId is empty")
 	}
 }
 

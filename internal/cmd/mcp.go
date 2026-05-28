@@ -188,9 +188,10 @@ func patchClaudeCodeConfig(path, name, deployment, instance string) error {
 
 	// Claude Code supports native OAuth with a static client_id — no proxy needed.
 	servers[name] = map[string]interface{}{
-		"url": endpointURL,
-		"auth": map[string]interface{}{
-			"CLIENT_ID": clientID,
+		"type": "http",
+		"url":  endpointURL,
+		"oauth": map[string]interface{}{
+			"clientId": clientID,
 		},
 	}
 	cfg["mcpServers"] = servers
