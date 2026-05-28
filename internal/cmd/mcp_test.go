@@ -32,20 +32,22 @@ func TestMcpEndpointURL(t *testing.T) {
 	tests := []struct {
 		deployment string
 		instance   string
+		toolsets   string
 		want       string
 	}{
-		{"ap1", "oodle_internal", "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp"},
-		{"us1", "my-inst", "https://us1.oodle.ai/v1/api/instance/my-inst/mcp"},
-		{"https://custom.oodle.ai", "inst-1", "https://custom.oodle.ai/v1/api/instance/inst-1/mcp"},
+		{"ap1", "oodle_internal", "", "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp"},
+		{"us1", "my-inst", "", "https://us1.oodle.ai/v1/api/instance/my-inst/mcp"},
+		{"https://custom.oodle.ai", "inst-1", "", "https://custom.oodle.ai/v1/api/instance/inst-1/mcp"},
+		{"ap1", "oodle_internal", "metrics,logs", "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp?toolsets=metrics%2Clogs"},
 	}
 	for _, tt := range tests {
-		got, err := mcpEndpointURL(tt.deployment, tt.instance)
+		got, err := mcpEndpointURL(tt.deployment, tt.instance, tt.toolsets)
 		if err != nil {
-			t.Errorf("mcpEndpointURL(%q, %q) error: %v", tt.deployment, tt.instance, err)
+			t.Errorf("mcpEndpointURL(%q, %q, %q) error: %v", tt.deployment, tt.instance, tt.toolsets, err)
 			continue
 		}
 		if got != tt.want {
-			t.Errorf("mcpEndpointURL(%q, %q) = %q, want %q", tt.deployment, tt.instance, got, tt.want)
+			t.Errorf("mcpEndpointURL(%q, %q, %q) = %q, want %q", tt.deployment, tt.instance, tt.toolsets, got, tt.want)
 		}
 	}
 }

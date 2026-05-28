@@ -55,6 +55,7 @@ so no tokens are stored in agent config files.`,
 func newMcpSetupCmd() *cobra.Command {
 	var deployment string
 	var name string
+	var toolsets string
 
 	cmd := &cobra.Command{
 		Use:   "setup <agent>",
@@ -66,19 +67,21 @@ Supported agents: codex, claude-code
 
 Examples:
   oodle mcp setup codex --deployment ap1
-  oodle mcp setup claude-code -d us1 --name my-oodle`,
+  oodle mcp setup claude-code -d us1 --name my-oodle
+  oodle mcp setup codex -d ap1 --toolsets metrics,logs`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMcpSetup(cmd, args[0], deployment, name)
+			return runMcpSetup(cmd, args[0], deployment, name, toolsets)
 		},
 	}
 	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
 	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name in agent config")
+	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
 	_ = cmd.MarkFlagRequired("deployment")
 	return cmd
 }
 
-func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
+func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) error {
 	out := cmd.OutOrStdout()
 
 	cfg, err := loadExistingConfig()
@@ -105,7 +108,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 		return err
 	}
 
-	if err := patchAgentConfig(kind, name, deployment, cfg.Instance); err != nil {
+	if err := patchAgentConfig(kind, name, deployment, cfg.Instance, toolsets); err != nil {
 		return fmt.Errorf("patching %s config: %w", agent, err)
 	}
 
@@ -113,7 +116,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 
 	// Validate by listing tools via the proxy.
 	fmt.Fprintf(out, "Verifying MCP connectivity...\n")
-	if err := verifyMcpSetup(cmd.Context(), cfg, deployment); err != nil {
+	if err := verifyMcpSetup(cmd.Context(), cfg, deployment, toolsets); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: MCP verification failed: %v\n", err)
 		fmt.Fprintln(cmd.ErrOrStderr(), "The config was written; check 'oodle auth status' and try 'oodle mcp serve' manually.")
 	} else {
@@ -205,18 +208,18 @@ func mcpAgentConfigPath(agent string) (string, agentKind, error) {
 	}
 }
 
-func patchAgentConfig(kind agentKind, name, deployment, instance string) error {
+func patchAgentConfig(kind agentKind, name, deployment, instance, toolsets string) error {
 	switch kind {
 	case agentKindClaudeCode:
-		return patchClaudeCodeConfig(name, deployment, instance)
+		return patchClaudeCodeConfig(name, deployment, instance, toolsets)
 	case agentKindCodex:
-		return patchCodexConfig(name, deployment)
+		return patchCodexConfig(name, deployment, toolsets)
 	default:
 		return fmt.Errorf("unknown agent kind %d", kind)
 	}
 }
 
-func patchClaudeCodeConfig(name, deployment, instance string) error {
+func patchClaudeCodeConfig(name, deployment, instance, toolsets string) error {
 	domain, err := normalizeDomain(deployment)
 	if err != nil {
 		return err
@@ -228,6 +231,9 @@ func patchClaudeCodeConfig(name, deployment, instance string) error {
 	// the URL origin.
 	oauthDomain := oauthDeploymentDomainForDomain(domain)
 	endpointURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, url.PathEscape(instance))
+	if toolsets != "" {
+		endpointURL += "?toolsets=" + url.QueryEscape(toolsets)
+	}
 
 	clientID, err := oauthClientIDForDomain(domain)
 	if err != nil {
@@ -247,23 +253,27 @@ func patchClaudeCodeConfig(name, deployment, instance string) error {
 	)
 }
 
-func patchCodexConfig(name, deployment string) error {
+func patchCodexConfig(name, deployment, toolsets string) error {
 	codexBin := findCodexBinary()
 
 	// Remove first to make the operation idempotent.
 	_ = runAgentCLI(codexBin, "mcp", "remove", name)
 
-	// codex mcp add <name> -- oodle mcp serve --deployment <dep>
-	return runAgentCLI(codexBin, "mcp", "add",
-		name,
+	// codex mcp add <name> -- oodle mcp serve --deployment <dep> [--toolsets ...]
+	serveArgs := []string{
+		"mcp", "add", name,
 		"--", "oodle", "mcp", "serve", "--deployment", deployment,
-	)
+	}
+	if toolsets != "" {
+		serveArgs = append(serveArgs, "--toolsets", toolsets)
+	}
+	return runAgentCLI(codexBin, serveArgs...)
 }
 
 // verifyMcpSetup sends an initialize JSON-RPC request to the remote MCP
 // endpoint to verify auth and connectivity.
-func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment string) error {
-	endpointURL, err := mcpEndpointURL(deployment, cfg.Instance)
+func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment, toolsets string) error {
+	endpointURL, err := mcpEndpointURL(deployment, cfg.Instance, toolsets)
 	if err != nil {
 		return err
 	}
@@ -309,6 +319,7 @@ func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment string) 
 
 func newMcpServeCmd() *cobra.Command {
 	var deployment string
+	var toolsets string
 
 	cmd := &cobra.Command{
 		Use:   "serve",
@@ -322,15 +333,16 @@ Claude Code) as a stdio MCP server. Use 'oodle mcp setup' to configure
 the agent automatically.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMcpServe(cmd, deployment)
+			return runMcpServe(cmd, deployment, toolsets)
 		},
 	}
 	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
+	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
 	_ = cmd.MarkFlagRequired("deployment")
 	return cmd
 }
 
-func runMcpServe(cmd *cobra.Command, deployment string) error {
+func runMcpServe(cmd *cobra.Command, deployment, toolsets string) error {
 	errOut := cmd.ErrOrStderr()
 
 	cfg, err := loadExistingConfig()
@@ -346,7 +358,7 @@ func runMcpServe(cmd *cobra.Command, deployment string) error {
 		return fmt.Errorf("no instance configured; run 'oodle auth login --deployment %s' first", deployment)
 	}
 
-	endpointURL, err := mcpEndpointURL(deployment, instance)
+	endpointURL, err := mcpEndpointURL(deployment, instance, toolsets)
 	if err != nil {
 		return err
 	}
@@ -508,13 +520,17 @@ func writeJSONRPCError(out io.Writer, id interface{}, code int, message string) 
 // helpers
 // ---------------------------------------------------------------------------
 
-func mcpEndpointURL(deployment, instance string) (string, error) {
+func mcpEndpointURL(deployment, instance, toolsets string) (string, error) {
 	domain, err := normalizeDomain(deployment)
 	if err != nil {
 		return "", err
 	}
 	domain = deploymentDomainForDomain(domain)
-	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, url.PathEscape(instance)), nil
+	u := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, url.PathEscape(instance))
+	if toolsets != "" {
+		u += "?toolsets=" + url.QueryEscape(toolsets)
+	}
+	return u, nil
 }
 
 // runAgentCLI runs an agent CLI command and returns an error that includes
