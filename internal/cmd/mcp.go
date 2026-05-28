@@ -42,6 +42,7 @@ so no tokens are stored in agent config files.`,
 		},
 	}
 	cmd.AddCommand(newMcpSetupCmd())
+	cmd.AddCommand(newMcpRemoveCmd())
 	cmd.AddCommand(newMcpServeCmd())
 	return cmd
 }
@@ -83,12 +84,19 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
-	if cfg == nil || cfg.OAuthAccessToken == "" {
-		return fmt.Errorf("no OAuth credentials found; run 'oodle auth login --deployment %s' first", deployment)
-	}
-
-	if strings.TrimSpace(cfg.Instance) == "" {
-		return fmt.Errorf("no instance configured; run 'oodle auth login --deployment %s' first", deployment)
+	if cfg == nil || cfg.OAuthAccessToken == "" || strings.TrimSpace(cfg.Instance) == "" {
+		fmt.Fprintln(out, "No OAuth credentials found. Running login flow...")
+		if err := runAuthLogin(cmd, &rootFlags{}, deployment); err != nil {
+			return fmt.Errorf("login failed: %w", err)
+		}
+		// Reload config after successful login.
+		cfg, err = loadExistingConfig()
+		if err != nil {
+			return fmt.Errorf("loading config after login: %w", err)
+		}
+		if cfg == nil || cfg.OAuthAccessToken == "" || strings.TrimSpace(cfg.Instance) == "" {
+			return fmt.Errorf("login completed but credentials are still missing")
+		}
 	}
 
 	path, kind, err := mcpAgentConfigPath(agent)
@@ -113,6 +121,61 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 
 	fmt.Fprintf(out, "\nRestart %s to pick up the new MCP server.\n", agentDisplayName(agent))
 	return nil
+}
+
+// ---------------------------------------------------------------------------
+// mcp remove
+// ---------------------------------------------------------------------------
+
+func newMcpRemoveCmd() *cobra.Command {
+	var name string
+
+	cmd := &cobra.Command{
+		Use:   "remove <agent>",
+		Short: "Remove the Oodle MCP server from an AI agent's config",
+		Long: `Removes a previously registered Oodle MCP server from the agent's
+configuration file.
+
+Supported agents: codex, claude-code
+
+Examples:
+  oodle mcp remove codex
+  oodle mcp remove claude-code --name my-oodle`,
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMcpRemove(cmd, args[0], name)
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name to remove")
+	return cmd
+}
+
+func runMcpRemove(cmd *cobra.Command, agent, name string) error {
+	out := cmd.OutOrStdout()
+
+	_, kind, err := mcpAgentConfigPath(agent)
+	if err != nil {
+		return err
+	}
+
+	if err := removeAgentMcp(kind, name); err != nil {
+		return fmt.Errorf("removing MCP server from %s config: %w", agent, err)
+	}
+
+	fmt.Fprintf(out, "Removed MCP server %q from %s config.\n", name, agentDisplayName(agent))
+	fmt.Fprintf(out, "Restart %s to pick up the change.\n", agentDisplayName(agent))
+	return nil
+}
+
+func removeAgentMcp(kind agentKind, name string) error {
+	switch kind {
+	case agentKindClaudeCode:
+		return runAgentCLI(findClaudeBinary(), "mcp", "remove", name)
+	case agentKindCodex:
+		return runAgentCLI(findCodexBinary(), "mcp", "remove", name)
+	default:
+		return fmt.Errorf("unknown agent kind %d", kind)
+	}
 }
 
 func agentDisplayName(agent string) string {
@@ -173,39 +236,27 @@ func patchClaudeCodeConfig(name, deployment, instance string) error {
 	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
 	// Remove first to make the operation idempotent.
 	claudeBin := findClaudeBinary()
-	_ = exec.Command(claudeBin, "mcp", "remove", name).Run()
+	_ = runAgentCLI(claudeBin, "mcp", "remove", name)
 
-	cmd := exec.Command(claudeBin, "mcp", "add",
+	return runAgentCLI(claudeBin, "mcp", "add",
 		name, endpointURL,
 		"--transport", "http",
 		"--client-id", clientID,
 		"--callback-port", "9400",
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running '%s mcp add': %w", claudeBin, err)
-	}
-	return nil
 }
 
 func patchCodexConfig(name, deployment string) error {
 	codexBin := findCodexBinary()
 
 	// Remove first to make the operation idempotent.
-	_ = exec.Command(codexBin, "mcp", "remove", name).Run()
+	_ = runAgentCLI(codexBin, "mcp", "remove", name)
 
 	// codex mcp add <name> -- oodle mcp serve --deployment <dep>
-	cmd := exec.Command(codexBin, "mcp", "add",
+	return runAgentCLI(codexBin, "mcp", "add",
 		name,
 		"--", "oodle", "mcp", "serve", "--deployment", deployment,
 	)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running '%s mcp add': %w", codexBin, err)
-	}
-	return nil
 }
 
 // verifyMcpSetup sends an initialize JSON-RPC request to the remote MCP
@@ -463,6 +514,22 @@ func mcpEndpointURL(deployment, instance string) (string, error) {
 	}
 	domain = deploymentDomainForDomain(domain)
 	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, instance), nil
+}
+
+// runAgentCLI runs an agent CLI command and returns an error that includes
+// the captured stderr output for diagnostics.
+func runAgentCLI(bin string, args ...string) error {
+	cmd := exec.Command(bin, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return fmt.Errorf("running '%s %s': %s", bin, strings.Join(args, " "), msg)
+		}
+		return fmt.Errorf("running '%s %s': %w", bin, strings.Join(args, " "), err)
+	}
+	return nil
 }
 
 // findClaudeBinary returns the path to the Claude Code CLI binary.

@@ -14,6 +14,7 @@ func TestMcpCmd_SkipsConfig(t *testing.T) {
 	for _, path := range [][]string{
 		{"mcp"},
 		{"mcp", "setup"},
+		{"mcp", "remove"},
 		{"mcp", "serve"},
 	} {
 		c, _, err := root.Find(path)
