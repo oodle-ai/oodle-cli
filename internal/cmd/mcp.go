@@ -169,12 +169,11 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	}
 
 	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
-	cmd := exec.Command("claude", "mcp", "add",
-		name, endpointURL,
-		"--transport", "http",
-		"--client-id", clientID,
-		"--callback-port", "9400",
-	)
+	// Run via shell so that shell aliases are resolved — users often have
+	// multiple `claude` binaries and the alias points at the current one.
+	shellArgs := fmt.Sprintf("claude mcp add %s %s --transport http --client-id %s --callback-port 9400",
+		shellQuote(name), shellQuote(endpointURL), shellQuote(clientID))
+	cmd := exec.Command("sh", "-ic", shellArgs)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -470,4 +469,9 @@ func mcpEndpointURL(deployment, instance string) (string, error) {
 	}
 	domain = deploymentDomainForDomain(domain)
 	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, instance), nil
+}
+
+// shellQuote wraps s in single quotes, escaping any embedded single quotes.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
 }
