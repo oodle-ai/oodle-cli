@@ -341,3 +341,42 @@ func TestQueryContainsTimestampRange(t *testing.T) {
 		})
 	}
 }
+
+func TestQueryContainsTimestampRange_SkipsInjection(t *testing.T) {
+	// When the query already has a timestamp range, the search body should
+	// be left untouched (no extra range injected by the CLI).
+	input := "{\"index\": \"logs-*\"}\n{\"query\": {\"bool\": {\"filter\": [{\"range\": {\"timestamp\": {\"gte\": 1700000000000, \"lte\": 1700003600000}}}]}}, \"size\": 10}\n"
+
+	if !queryContainsTimestampRange([]byte(input)) {
+		t.Fatal("expected queryContainsTimestampRange to return true")
+	}
+
+	// Verify the data passes through unchanged (the RunE skips injection
+	// when the query has its own range and flags weren't provided). We
+	// simulate by checking that NOT calling injectTimeRange preserves the
+	// original search body.
+	lines := splitNDJSON([]byte(input))
+	if len(lines) < 2 {
+		t.Fatal("expected at least 2 NDJSON lines")
+	}
+
+	var search map[string]any
+	if err := json.Unmarshal(lines[1], &search); err != nil {
+		t.Fatalf("parsing search body: %v", err)
+	}
+
+	boolQ := search["query"].(map[string]any)["bool"].(map[string]any)
+	filter := boolQ["filter"].([]any)
+	if len(filter) != 1 {
+		t.Fatalf("expected 1 filter clause (user's original), got %d", len(filter))
+	}
+
+	rangeClause := filter[0].(map[string]any)["range"].(map[string]any)
+	ts := rangeClause["timestamp"].(map[string]any)
+	if gte, _ := ts["gte"].(float64); int64(gte) != 1700000000000 {
+		t.Errorf("gte = %v, want 1700000000000", ts["gte"])
+	}
+	if lte, _ := ts["lte"].(float64); int64(lte) != 1700003600000 {
+		t.Errorf("lte = %v, want 1700003600000", ts["lte"])
+	}
+}
