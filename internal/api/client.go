@@ -242,7 +242,7 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 		tokenSource oauth2.TokenSource
 	)
 	if cfg.OAuthAccessToken != "" {
-		tokenSource = buildOAuthTokenSource(cfg)
+		tokenSource = BuildOAuthTokenSource(cfg)
 	}
 
 	authEditor := func(_ context.Context, req *http.Request) error {
@@ -250,7 +250,7 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 			tok, err := tokenSource.Token()
 			if err == nil && tok != nil && tok.AccessToken != "" {
 				req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-				maybePersistRefreshedOAuthToken(cfg, tok, &mu)
+				MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
 				return nil
 			}
 		}
@@ -270,7 +270,9 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 	return &Client{Inner: gen, Config: cfg}, nil
 }
 
-func buildOAuthTokenSource(cfg *config.Config) oauth2.TokenSource {
+// BuildOAuthTokenSource creates an oauth2.TokenSource from the given config.
+// If refresh credentials are available, the source auto-refreshes expired tokens.
+func BuildOAuthTokenSource(cfg *config.Config) oauth2.TokenSource {
 	if cfg == nil || cfg.OAuthAccessToken == "" {
 		return nil
 	}
@@ -298,7 +300,9 @@ func buildOAuthTokenSource(cfg *config.Config) oauth2.TokenSource {
 	return oauth2.ReuseTokenSource(seed, oauthCfg.TokenSource(context.Background(), seed))
 }
 
-func maybePersistRefreshedOAuthToken(cfg *config.Config, tok *oauth2.Token, mu *sync.Mutex) {
+// MaybePersistRefreshedOAuthToken writes a refreshed token back to the config
+// file if the access token, refresh token, or expiry has changed.
+func MaybePersistRefreshedOAuthToken(cfg *config.Config, tok *oauth2.Token, mu *sync.Mutex) {
 	if cfg == nil || tok == nil {
 		return
 	}
