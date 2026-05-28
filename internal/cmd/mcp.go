@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -226,7 +227,7 @@ func patchClaudeCodeConfig(name, deployment, instance string) error {
 	// domain — the protected resource metadata `resource` field must match
 	// the URL origin.
 	oauthDomain := oauthDeploymentDomainForDomain(domain)
-	endpointURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, instance)
+	endpointURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, url.PathEscape(instance))
 
 	clientID, err := oauthClientIDForDomain(domain)
 	if err != nil {
@@ -513,7 +514,7 @@ func mcpEndpointURL(deployment, instance string) (string, error) {
 		return "", err
 	}
 	domain = deploymentDomainForDomain(domain)
-	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, instance), nil
+	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, url.PathEscape(instance)), nil
 }
 
 // runAgentCLI runs an agent CLI command and returns an error that includes

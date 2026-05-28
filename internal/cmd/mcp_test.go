@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -118,7 +119,7 @@ func TestRelaySSE(t *testing.T) {
 	reader := strings.NewReader(sse)
 	var buf strings.Builder
 
-	err := relaySSE(nopCloser{reader}, &buf)
+	err := relaySSE(io.NopCloser(reader), &buf)
 	if err != nil {
 		t.Fatalf("relaySSE: %v", err)
 	}
@@ -135,7 +136,7 @@ func TestRelaySSE_MultiLineData(t *testing.T) {
 	reader := strings.NewReader(sse)
 	var buf strings.Builder
 
-	err := relaySSE(nopCloser{reader}, &buf)
+	err := relaySSE(io.NopCloser(reader), &buf)
 	if err != nil {
 		t.Fatalf("relaySSE: %v", err)
 	}
@@ -152,7 +153,7 @@ func TestRelaySSE_MultipleEvents(t *testing.T) {
 	reader := strings.NewReader(sse)
 	var buf strings.Builder
 
-	err := relaySSE(nopCloser{reader}, &buf)
+	err := relaySSE(io.NopCloser(reader), &buf)
 	if err != nil {
 		t.Fatalf("relaySSE: %v", err)
 	}
@@ -168,10 +169,6 @@ func TestRelaySSE_MultipleEvents(t *testing.T) {
 		t.Errorf("second event = %q, want id:2", lines[1])
 	}
 }
-
-type nopCloser struct{ *strings.Reader }
-
-func (nopCloser) Close() error { return nil }
 
 func TestMcpProxyLoop_ForwardsRequest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
