@@ -95,7 +95,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 		return err
 	}
 
-	if err := patchAgentConfig(path, kind, name, deployment); err != nil {
+	if err := patchAgentConfig(path, kind, name, deployment, cfg.Instance); err != nil {
 		return fmt.Errorf("patching %s config: %w", agent, err)
 	}
 
@@ -140,10 +140,10 @@ func mcpAgentConfigPath(agent string) (string, agentKind, error) {
 	}
 }
 
-func patchAgentConfig(path string, kind agentKind, name, deployment string) error {
+func patchAgentConfig(path string, kind agentKind, name, deployment, instance string) error {
 	switch kind {
 	case agentKindClaudeCode:
-		return patchClaudeCodeConfig(path, name, deployment)
+		return patchClaudeCodeConfig(path, name, deployment, instance)
 	case agentKindCodex:
 		return patchCodexConfig(path, name, deployment)
 	default:
@@ -151,7 +151,22 @@ func patchAgentConfig(path string, kind agentKind, name, deployment string) erro
 	}
 }
 
-func patchClaudeCodeConfig(path, name, deployment string) error {
+func patchClaudeCodeConfig(path, name, deployment, instance string) error {
+	endpointURL, err := mcpEndpointURL(deployment, instance)
+	if err != nil {
+		return fmt.Errorf("resolving MCP endpoint: %w", err)
+	}
+
+	domain, err := normalizeDomain(deployment)
+	if err != nil {
+		return err
+	}
+	domain = deploymentDomainForDomain(domain)
+	clientID, err := oauthClientIDForDomain(domain)
+	if err != nil {
+		return fmt.Errorf("resolving OAuth client ID for %s: %w", deployment, err)
+	}
+
 	var cfg map[string]interface{}
 
 	data, err := os.ReadFile(path)
@@ -171,10 +186,12 @@ func patchClaudeCodeConfig(path, name, deployment string) error {
 		servers = make(map[string]interface{})
 	}
 
+	// Claude Code supports native OAuth with a static client_id — no proxy needed.
 	servers[name] = map[string]interface{}{
-		"type":    "stdio",
-		"command": "oodle",
-		"args":    []interface{}{"mcp", "serve", "--deployment", deployment},
+		"url": endpointURL,
+		"auth": map[string]interface{}{
+			"CLIENT_ID": clientID,
+		},
 	}
 	cfg["mcpServers"] = servers
 

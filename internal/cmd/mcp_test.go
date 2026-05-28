@@ -55,7 +55,7 @@ func TestPatchClaudeCodeConfig_NewFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 
-	if err := patchClaudeCodeConfig(path, "oodle-ai", "ap1"); err != nil {
+	if err := patchClaudeCodeConfig(path, "oodle-ai", "ap1", "oodle_internal"); err != nil {
 		t.Fatalf("patchClaudeCodeConfig: %v", err)
 	}
 
@@ -77,12 +77,15 @@ func TestPatchClaudeCodeConfig_NewFile(t *testing.T) {
 	if !ok {
 		t.Fatal("oodle-ai entry missing")
 	}
-	if entry["command"] != "oodle" {
-		t.Errorf("command = %v, want oodle", entry["command"])
+	if entry["url"] != "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp" {
+		t.Errorf("url = %v, want MCP endpoint URL", entry["url"])
 	}
-	args, _ := entry["args"].([]interface{})
-	if len(args) != 4 || args[0] != "mcp" || args[1] != "serve" || args[2] != "--deployment" || args[3] != "ap1" {
-		t.Errorf("args = %v, want [mcp serve --deployment ap1]", args)
+	auth, ok := entry["auth"].(map[string]interface{})
+	if !ok {
+		t.Fatal("auth key missing")
+	}
+	if auth["CLIENT_ID"] == "" {
+		t.Error("CLIENT_ID is empty")
 	}
 }
 
@@ -100,7 +103,7 @@ func TestPatchClaudeCodeConfig_PreservesExisting(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := patchClaudeCodeConfig(path, "oodle-ai", "us1"); err != nil {
+	if err := patchClaudeCodeConfig(path, "oodle-ai", "us1", "my-inst"); err != nil {
 		t.Fatalf("patchClaudeCodeConfig: %v", err)
 	}
 
@@ -126,10 +129,10 @@ func TestPatchClaudeCodeConfig_Idempotent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "settings.json")
 
-	patchClaudeCodeConfig(path, "oodle-ai", "ap1")
+	patchClaudeCodeConfig(path, "oodle-ai", "ap1", "inst-1")
 	data1, _ := os.ReadFile(path)
 
-	patchClaudeCodeConfig(path, "oodle-ai", "ap1")
+	patchClaudeCodeConfig(path, "oodle-ai", "ap1", "inst-1")
 	data2, _ := os.ReadFile(path)
 
 	if string(data1) != string(data2) {
