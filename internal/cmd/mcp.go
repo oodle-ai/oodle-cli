@@ -153,16 +153,18 @@ func patchAgentConfig(path string, kind agentKind, name, deployment, instance st
 }
 
 func patchClaudeCodeConfig(_, name, deployment, instance string) error {
-	endpointURL, err := mcpEndpointURL(deployment, instance)
-	if err != nil {
-		return fmt.Errorf("resolving MCP endpoint: %w", err)
-	}
-
 	domain, err := normalizeDomain(deployment)
 	if err != nil {
 		return err
 	}
 	domain = deploymentDomainForDomain(domain)
+
+	// Claude Code uses OAuth, so the MCP URL must use the OAuth deployment
+	// domain — the protected resource metadata `resource` field must match
+	// the URL origin.
+	oauthDomain := oauthDeploymentDomainForDomain(domain)
+	endpointURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, instance)
+
 	clientID, err := oauthClientIDForDomain(domain)
 	if err != nil {
 		return fmt.Errorf("resolving OAuth client ID for %s: %w", deployment, err)

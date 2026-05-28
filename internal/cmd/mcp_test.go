@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -52,19 +53,19 @@ func TestMcpEndpointURL(t *testing.T) {
 }
 
 func TestClaudeCodeMcpArgs(t *testing.T) {
-	// Verify the endpoint URL and client ID resolution that feeds into
-	// `claude mcp add`. We don't call patchClaudeCodeConfig directly
-	// because it shells out to the `claude` CLI.
-	url, err := mcpEndpointURL("ap1", "oodle_internal")
-	if err != nil {
-		t.Fatalf("mcpEndpointURL: %v", err)
-	}
-	if url != "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp" {
-		t.Errorf("url = %q, want ap1 MCP endpoint", url)
-	}
-
+	// Verify the OAuth endpoint URL and client ID resolution that feeds
+	// into `claude mcp add`. The MCP URL must use the OAuth deployment
+	// domain so the protected resource metadata `resource` field matches.
 	domain, _ := normalizeDomain("ap1")
 	domain = deploymentDomainForDomain(domain)
+	oauthDomain := oauthDeploymentDomainForDomain(domain)
+
+	wantURL := "https://prod-01-ap-south1.api.oodle.ai/v1/api/instance/oodle_internal/mcp"
+	gotURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, "oodle_internal")
+	if gotURL != wantURL {
+		t.Errorf("url = %q, want %q", gotURL, wantURL)
+	}
+
 	clientID, err := oauthClientIDForDomain(domain)
 	if err != nil {
 		t.Fatalf("oauthClientIDForDomain: %v", err)
