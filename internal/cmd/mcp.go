@@ -169,15 +169,17 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	}
 
 	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
-	// Run via shell so that shell aliases are resolved — users often have
-	// multiple `claude` binaries and the alias points at the current one.
-	shellArgs := fmt.Sprintf("claude mcp add %s %s --transport http --client-id %s --callback-port 9400",
-		shellQuote(name), shellQuote(endpointURL), shellQuote(clientID))
-	cmd := exec.Command("sh", "-ic", shellArgs)
+	claudeBin := findClaudeBinary()
+	cmd := exec.Command(claudeBin, "mcp", "add",
+		name, endpointURL,
+		"--transport", "http",
+		"--client-id", clientID,
+		"--callback-port", "9400",
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("running 'claude mcp add': %w", err)
+		return fmt.Errorf("running '%s mcp add': %w", claudeBin, err)
 	}
 	return nil
 }
@@ -471,7 +473,16 @@ func mcpEndpointURL(deployment, instance string) (string, error) {
 	return fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, instance), nil
 }
 
-// shellQuote wraps s in single quotes, escaping any embedded single quotes.
-func shellQuote(s string) string {
-	return "'" + strings.ReplaceAll(s, "'", "'\"'\"'") + "'"
+// findClaudeBinary returns the path to the Claude Code CLI binary.
+// It checks ~/.claude/local/claude first (Claude Code's standard install
+// location), then falls back to whatever "claude" resolves to on PATH.
+func findClaudeBinary() string {
+	home, err := os.UserHomeDir()
+	if err == nil {
+		localBin := filepath.Join(home, ".claude", "local", "claude")
+		if _, err := os.Stat(localBin); err == nil {
+			return localBin
+		}
+	}
+	return "claude"
 }
