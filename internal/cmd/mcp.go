@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -95,7 +96,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name string) error {
 		return err
 	}
 
-	if err := patchAgentConfig(path, kind, name, deployment, cfg.Instance); err != nil {
+	if err := patchAgentConfig(kind, name, deployment, cfg.Instance); err != nil {
 		return fmt.Errorf("patching %s config: %w", agent, err)
 	}
 
@@ -140,18 +141,18 @@ func mcpAgentConfigPath(agent string) (string, agentKind, error) {
 	}
 }
 
-func patchAgentConfig(path string, kind agentKind, name, deployment, instance string) error {
+func patchAgentConfig(kind agentKind, name, deployment, instance string) error {
 	switch kind {
 	case agentKindClaudeCode:
-		return patchClaudeCodeConfig(path, name, deployment, instance)
+		return patchClaudeCodeConfig(name, deployment, instance)
 	case agentKindCodex:
-		return patchCodexConfig(path, name, deployment)
+		return patchCodexConfig(name, deployment)
 	default:
 		return fmt.Errorf("unknown agent kind %d", kind)
 	}
 }
 
-func patchClaudeCodeConfig(_, name, deployment, instance string) error {
+func patchClaudeCodeConfig(name, deployment, instance string) error {
 	domain, err := normalizeDomain(deployment)
 	if err != nil {
 		return err
@@ -188,7 +189,7 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	return nil
 }
 
-func patchCodexConfig(_, name, deployment string) error {
+func patchCodexConfig(name, deployment string) error {
 	codexBin := findCodexBinary()
 
 	// Remove first to make the operation idempotent.
@@ -207,7 +208,7 @@ func patchCodexConfig(_, name, deployment string) error {
 	return nil
 }
 
-// verifyMcpSetup sends a tools/list JSON-RPC request to the remote MCP
+// verifyMcpSetup sends an initialize JSON-RPC request to the remote MCP
 // endpoint to verify auth and connectivity.
 func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment string) error {
 	endpointURL, err := mcpEndpointURL(deployment, cfg.Instance)
@@ -224,6 +225,9 @@ func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment string) 
 	if err != nil {
 		return fmt.Errorf("obtaining token: %w", err)
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	reqBody := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"oodle-cli","version":"1.0.0"}}}`)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(reqBody))
@@ -370,29 +374,32 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 			continue
 		}
 
-		// Capture session ID from the server.
-		if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
-			sessionID = sid
-		}
+		func() {
+			defer resp.Body.Close()
 
-		ct := resp.Header.Get("Content-Type")
-		if strings.HasPrefix(ct, "text/event-stream") {
-			if err := relaySSE(resp.Body, out); err != nil {
-				fmt.Fprintf(errOut, "oodle mcp: SSE relay error: %v\n", err)
+			// Capture session ID from the server.
+			if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
+				sessionID = sid
 			}
-		} else {
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				fmt.Fprintf(errOut, "oodle mcp: reading response: %v\n", err)
-				writeJSONRPCError(out, rpcID, -32603, "error reading response")
+
+			ct := resp.Header.Get("Content-Type")
+			if strings.HasPrefix(ct, "text/event-stream") {
+				if err := relaySSE(resp.Body, out); err != nil {
+					fmt.Fprintf(errOut, "oodle mcp: SSE relay error: %v\n", err)
+				}
 			} else {
-				_, _ = out.Write(body)
-				if len(body) > 0 && body[len(body)-1] != '\n' {
-					_, _ = out.Write([]byte("\n"))
+				body, err := io.ReadAll(resp.Body)
+				if err != nil {
+					fmt.Fprintf(errOut, "oodle mcp: reading response: %v\n", err)
+					writeJSONRPCError(out, rpcID, -32603, "error reading response")
+				} else {
+					_, _ = out.Write(body)
+					if len(body) > 0 && body[len(body)-1] != '\n' {
+						_, _ = out.Write([]byte("\n"))
+					}
 				}
 			}
-		}
-		resp.Body.Close()
+		}()
 	}
 
 	return scanner.Err()
