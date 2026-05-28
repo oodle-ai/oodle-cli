@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/BurntSushi/toml"
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
@@ -189,42 +188,23 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	return nil
 }
 
-func patchCodexConfig(path, name, deployment string) error {
-	var cfg map[string]interface{}
+func patchCodexConfig(_, name, deployment string) error {
+	codexBin := findCodexBinary()
 
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("reading %s: %w", path, err)
-		}
-		cfg = make(map[string]interface{})
-	} else {
-		if _, err := toml.Decode(string(data), &cfg); err != nil {
-			return fmt.Errorf("parsing %s: %w", path, err)
-		}
-	}
+	// Remove first to make the operation idempotent.
+	_ = exec.Command(codexBin, "mcp", "remove", name).Run()
 
-	servers, ok := cfg["mcp_servers"].(map[string]interface{})
-	if !ok {
-		servers = make(map[string]interface{})
+	// codex mcp add <name> -- oodle mcp serve --deployment <dep>
+	cmd := exec.Command(codexBin, "mcp", "add",
+		name,
+		"--", "oodle", "mcp", "serve", "--deployment", deployment,
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("running '%s mcp add': %w", codexBin, err)
 	}
-
-	servers[name] = map[string]interface{}{
-		"command": "oodle",
-		"args":    []interface{}{"mcp", "serve", "--deployment", deployment},
-	}
-	cfg["mcp_servers"] = servers
-
-	var buf bytes.Buffer
-	enc := toml.NewEncoder(&buf)
-	if err := enc.Encode(cfg); err != nil {
-		return fmt.Errorf("encoding TOML: %w", err)
-	}
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("creating directory: %w", err)
-	}
-	return os.WriteFile(path, buf.Bytes(), 0o600)
+	return nil
 }
 
 // verifyMcpSetup sends a tools/list JSON-RPC request to the remote MCP
@@ -490,4 +470,12 @@ func findClaudeBinary() string {
 		}
 	}
 	return "claude"
+}
+
+// findCodexBinary returns the path to the Codex CLI binary.
+func findCodexBinary() string {
+	if p, err := exec.LookPath("codex"); err == nil {
+		return p
+	}
+	return "codex"
 }

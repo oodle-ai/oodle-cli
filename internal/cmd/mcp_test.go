@@ -5,12 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/BurntSushi/toml"
 )
 
 func TestMcpCmd_SkipsConfig(t *testing.T) {
@@ -75,67 +71,11 @@ func TestClaudeCodeMcpArgs(t *testing.T) {
 	}
 }
 
-func TestPatchCodexConfig_NewFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-
-	if err := patchCodexConfig(path, "oodle-ai", "ap1"); err != nil {
-		t.Fatalf("patchCodexConfig: %v", err)
-	}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("reading file: %v", err)
-	}
-
-	var cfg map[string]interface{}
-	if _, err := toml.Decode(string(data), &cfg); err != nil {
-		t.Fatalf("parsing TOML: %v", err)
-	}
-
-	servers, ok := cfg["mcp_servers"].(map[string]interface{})
-	if !ok {
-		t.Fatal("mcp_servers key missing")
-	}
-	entry, ok := servers["oodle-ai"].(map[string]interface{})
-	if !ok {
-		t.Fatal("oodle-ai entry missing")
-	}
-	if entry["command"] != "oodle" {
-		t.Errorf("command = %v, want oodle", entry["command"])
-	}
-}
-
-func TestPatchCodexConfig_PreservesExisting(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.toml")
-
-	existing := `model = "gpt-5.5"
-
-[mcp_servers.other-server]
-url = "https://example.com"
-`
-	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := patchCodexConfig(path, "oodle-ai", "ap1"); err != nil {
-		t.Fatalf("patchCodexConfig: %v", err)
-	}
-
-	data, _ := os.ReadFile(path)
-	var cfg map[string]interface{}
-	toml.Decode(string(data), &cfg)
-
-	if cfg["model"] != "gpt-5.5" {
-		t.Error("existing model key was lost")
-	}
-	servers, _ := cfg["mcp_servers"].(map[string]interface{})
-	if _, ok := servers["other-server"]; !ok {
-		t.Error("existing MCP server was lost")
-	}
-	if _, ok := servers["oodle-ai"]; !ok {
-		t.Error("new oodle-ai entry was not added")
+func TestFindCodexBinary(t *testing.T) {
+	// Should return a path (either from LookPath or the fallback "codex").
+	bin := findCodexBinary()
+	if bin == "" {
+		t.Error("findCodexBinary returned empty string")
 	}
 }
 
