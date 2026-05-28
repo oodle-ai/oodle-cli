@@ -172,7 +172,6 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	cmd := exec.Command("claude", "mcp", "add",
 		name, endpointURL,
 		"--transport", "http",
-		"--scope", "user",
 		"--client-id", clientID,
 		"--callback-port", "9400",
 	)
