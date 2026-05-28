@@ -171,7 +171,10 @@ func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	}
 
 	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
+	// Remove first to make the operation idempotent.
 	claudeBin := findClaudeBinary()
+	_ = exec.Command(claudeBin, "mcp", "remove", name).Run()
+
 	cmd := exec.Command(claudeBin, "mcp", "add",
 		name, endpointURL,
 		"--transport", "http",
