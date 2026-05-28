@@ -63,35 +63,33 @@ Example NDJSON file contents:
 			startExplicit := startStr != ""
 			endExplicit := endStr != ""
 
-			// Apply default time range values.
-			if startStr == "" {
-				startStr = defaultStartOffset
-			}
-			if endStr == "" {
-				endStr = defaultEndValue
-			}
-
-			startMs, err := parseTimeFlagMs(startStr)
-			if err != nil {
-				return fmt.Errorf("--start: %w", err)
-			}
-			endMs, err := parseTimeFlagMs(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
-			}
-
-			// Warn if query body already contains a timestamp range but
-			// the user did not explicitly provide --start/--end.
+			// If the query body already contains a timestamp range and
+			// the user did not explicitly provide --start/--end, honour
+			// the range from the query and skip injection.
 			if !startExplicit && !endExplicit && queryContainsTimestampRange(data) {
-				fmt.Fprintln(cmd.ErrOrStderr(),
-					`Warning: query body contains a range filter on "timestamp", but --start/--end were not provided`+
-						" (defaulting to "+defaultStartOffset+"/"+defaultEndValue+"). The CLI injects its own time range"+
-						" which may narrow your results. Use --start and --end to control the time window.")
-			}
+				// Use the query's own timestamp range as-is.
+			} else {
+				// Apply default time range values.
+				if startStr == "" {
+					startStr = defaultStartOffset
+				}
+				if endStr == "" {
+					endStr = defaultEndValue
+				}
 
-			data, err = injectTimeRange(data, startMs, endMs)
-			if err != nil {
-				return fmt.Errorf("injecting time range: %w", err)
+				startMs, err := parseTimeFlagMs(startStr)
+				if err != nil {
+					return fmt.Errorf("--start: %w", err)
+				}
+				endMs, err := parseTimeFlagMs(endStr)
+				if err != nil {
+					return fmt.Errorf("--end: %w", err)
+				}
+
+				data, err = injectTimeRange(data, startMs, endMs)
+				if err != nil {
+					return fmt.Errorf("injecting time range: %w", err)
+				}
 			}
 
 			params := &client.QueryLogsParams{
