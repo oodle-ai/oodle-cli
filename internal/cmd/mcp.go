@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -151,7 +152,7 @@ func patchAgentConfig(path string, kind agentKind, name, deployment, instance st
 	}
 }
 
-func patchClaudeCodeConfig(path, name, deployment, instance string) error {
+func patchClaudeCodeConfig(_, name, deployment, instance string) error {
 	endpointURL, err := mcpEndpointURL(deployment, instance)
 	if err != nil {
 		return fmt.Errorf("resolving MCP endpoint: %w", err)
@@ -167,45 +168,20 @@ func patchClaudeCodeConfig(path, name, deployment, instance string) error {
 		return fmt.Errorf("resolving OAuth client ID for %s: %w", deployment, err)
 	}
 
-	var cfg map[string]interface{}
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return fmt.Errorf("reading %s: %w", path, err)
-		}
-		cfg = make(map[string]interface{})
-	} else {
-		if err := json.Unmarshal(data, &cfg); err != nil {
-			return fmt.Errorf("parsing %s: %w", path, err)
-		}
+	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
+	cmd := exec.Command("claude", "mcp", "add",
+		name, endpointURL,
+		"--transport", "http",
+		"--scope", "user",
+		"--client-id", clientID,
+		"--callback-port", "9400",
+	)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("running 'claude mcp add': %w", err)
 	}
-
-	servers, ok := cfg["mcpServers"].(map[string]interface{})
-	if !ok {
-		servers = make(map[string]interface{})
-	}
-
-	// Claude Code supports native OAuth with a static client_id — no proxy needed.
-	servers[name] = map[string]interface{}{
-		"type": "http",
-		"url":  endpointURL,
-		"oauth": map[string]interface{}{
-			"clientId": clientID,
-		},
-	}
-	cfg["mcpServers"] = servers
-
-	out, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("marshaling config: %w", err)
-	}
-	out = append(out, '\n')
-
-	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
-		return fmt.Errorf("creating directory: %w", err)
-	}
-	return os.WriteFile(path, out, 0o600)
+	return nil
 }
 
 func patchCodexConfig(path, name, deployment string) error {

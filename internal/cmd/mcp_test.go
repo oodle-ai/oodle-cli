@@ -51,95 +51,26 @@ func TestMcpEndpointURL(t *testing.T) {
 	}
 }
 
-func TestPatchClaudeCodeConfig_NewFile(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-
-	if err := patchClaudeCodeConfig(path, "oodle-ai", "ap1", "oodle_internal"); err != nil {
-		t.Fatalf("patchClaudeCodeConfig: %v", err)
-	}
-
-	data, err := os.ReadFile(path)
+func TestClaudeCodeMcpArgs(t *testing.T) {
+	// Verify the endpoint URL and client ID resolution that feeds into
+	// `claude mcp add`. We don't call patchClaudeCodeConfig directly
+	// because it shells out to the `claude` CLI.
+	url, err := mcpEndpointURL("ap1", "oodle_internal")
 	if err != nil {
-		t.Fatalf("reading file: %v", err)
+		t.Fatalf("mcpEndpointURL: %v", err)
+	}
+	if url != "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp" {
+		t.Errorf("url = %q, want ap1 MCP endpoint", url)
 	}
 
-	var cfg map[string]interface{}
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		t.Fatalf("parsing JSON: %v", err)
+	domain, _ := normalizeDomain("ap1")
+	domain = deploymentDomainForDomain(domain)
+	clientID, err := oauthClientIDForDomain(domain)
+	if err != nil {
+		t.Fatalf("oauthClientIDForDomain: %v", err)
 	}
-
-	servers, ok := cfg["mcpServers"].(map[string]interface{})
-	if !ok {
-		t.Fatal("mcpServers key missing or wrong type")
-	}
-	entry, ok := servers["oodle-ai"].(map[string]interface{})
-	if !ok {
-		t.Fatal("oodle-ai entry missing")
-	}
-	if entry["type"] != "http" {
-		t.Errorf("type = %v, want http", entry["type"])
-	}
-	if entry["url"] != "https://ap1.oodle.ai/v1/api/instance/oodle_internal/mcp" {
-		t.Errorf("url = %v, want MCP endpoint URL", entry["url"])
-	}
-	oauth, ok := entry["oauth"].(map[string]interface{})
-	if !ok {
-		t.Fatal("oauth key missing")
-	}
-	if oauth["clientId"] == "" {
-		t.Error("clientId is empty")
-	}
-}
-
-func TestPatchClaudeCodeConfig_PreservesExisting(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-
-	existing := `{
-  "env": {"FOO": "bar"},
-  "mcpServers": {
-    "other-server": {"command": "other"}
-  }
-}`
-	if err := os.WriteFile(path, []byte(existing), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := patchClaudeCodeConfig(path, "oodle-ai", "us1", "my-inst"); err != nil {
-		t.Fatalf("patchClaudeCodeConfig: %v", err)
-	}
-
-	data, _ := os.ReadFile(path)
-	var cfg map[string]interface{}
-	json.Unmarshal(data, &cfg)
-
-	// Check existing keys preserved.
-	env, _ := cfg["env"].(map[string]interface{})
-	if env["FOO"] != "bar" {
-		t.Error("existing env key was lost")
-	}
-	servers, _ := cfg["mcpServers"].(map[string]interface{})
-	if _, ok := servers["other-server"]; !ok {
-		t.Error("existing MCP server was lost")
-	}
-	if _, ok := servers["oodle-ai"]; !ok {
-		t.Error("new oodle-ai entry was not added")
-	}
-}
-
-func TestPatchClaudeCodeConfig_Idempotent(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "settings.json")
-
-	patchClaudeCodeConfig(path, "oodle-ai", "ap1", "inst-1")
-	data1, _ := os.ReadFile(path)
-
-	patchClaudeCodeConfig(path, "oodle-ai", "ap1", "inst-1")
-	data2, _ := os.ReadFile(path)
-
-	if string(data1) != string(data2) {
-		t.Error("second patch changed the file content")
+	if clientID == "" {
+		t.Error("clientID is empty")
 	}
 }
 
