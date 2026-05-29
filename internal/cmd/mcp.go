@@ -404,6 +404,12 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 
 	// Track the Mcp-Session-Id header for Streamable HTTP session continuity.
 	var sessionID string
+	var sessionMu sync.Mutex
+
+	// Serialize writes to stdout — multiple goroutines may write concurrently.
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
 
 	for scanner.Scan() {
 		line := scanner.Bytes()
@@ -411,48 +417,86 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 			continue
 		}
 
-		// Extract JSON-RPC id for error responses.
-		var rpcID interface{}
-		var msg struct {
-			ID interface{} `json:"id"`
-		}
-		if json.Unmarshal(line, &msg) == nil {
-			rpcID = msg.ID
-		}
+		// Copy the line — scanner reuses the buffer.
+		lineCopy := make([]byte, len(line))
+		copy(lineCopy, line)
 
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(line))
-		if err != nil {
-			writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("building request: %v", err))
-			continue
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Accept", "application/json, text/event-stream")
-		if sessionID != "" {
-			req.Header.Set("Mcp-Session-Id", sessionID)
-		}
+		wg.Add(1)
+		go func(line []byte) {
+			defer wg.Done()
 
-		resp, err := httpClient.Do(req)
-		if err != nil {
-			fmt.Fprintf(errOut, "oodle mcp: request error: %v\n", err)
-			writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("transport error: %v", err))
-			continue
-		}
+			// Extract JSON-RPC id for error responses.
+			var rpcID interface{}
+			var msg struct {
+				ID interface{} `json:"id"`
+			}
+			if json.Unmarshal(line, &msg) == nil {
+				rpcID = msg.ID
+			}
 
-		func() {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(line))
+			if err != nil {
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("building request: %v", err))
+				outMu.Unlock()
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			sessionMu.Lock()
+			if sessionID != "" {
+				req.Header.Set("Mcp-Session-Id", sessionID)
+			}
+			sessionMu.Unlock()
+
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				fmt.Fprintf(errOut, "oodle mcp: request error: %v\n", err)
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("transport error: %v", err))
+				outMu.Unlock()
+				return
+			}
+
 			defer resp.Body.Close()
 
 			// Capture session ID from the server.
 			if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
+				sessionMu.Lock()
 				sessionID = sid
+				sessionMu.Unlock()
+			}
+
+			// Wrap non-2xx responses in a JSON-RPC error so the client
+			// never receives raw HTML error pages as invalid JSON.
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				body, _ := io.ReadAll(resp.Body)
+				detail := strings.TrimSpace(string(body))
+				if len(detail) > 200 {
+					detail = detail[:200] + "…"
+				}
+				msg := fmt.Sprintf("upstream HTTP %d", resp.StatusCode)
+				if detail != "" {
+					msg += ": " + detail
+				}
+				fmt.Fprintf(errOut, "oodle mcp: %s\n", msg)
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, msg)
+				outMu.Unlock()
+				return
 			}
 
 			ct := resp.Header.Get("Content-Type")
 			if strings.HasPrefix(ct, "text/event-stream") {
-				if err := relaySSE(resp.Body, out); err != nil {
+				outMu.Lock()
+				err := relaySSE(resp.Body, out)
+				outMu.Unlock()
+				if err != nil {
 					fmt.Fprintf(errOut, "oodle mcp: SSE relay error: %v\n", err)
 				}
 			} else {
 				body, err := io.ReadAll(resp.Body)
+				outMu.Lock()
 				if err != nil {
 					fmt.Fprintf(errOut, "oodle mcp: reading response: %v\n", err)
 					writeJSONRPCError(out, rpcID, -32603, "error reading response")
@@ -462,10 +506,12 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 						_, _ = out.Write([]byte("\n"))
 					}
 				}
+				outMu.Unlock()
 			}
-		}()
+		}(lineCopy)
 	}
 
+	wg.Wait()
 	return scanner.Err()
 }
 

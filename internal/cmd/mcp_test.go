@@ -241,6 +241,38 @@ func TestMcpProxyLoop_SSEResponse(t *testing.T) {
 	}
 }
 
+func TestMcpProxyLoop_Non2xxError(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.WriteHeader(http.StatusBadGateway)
+		w.Write([]byte("<html><body>Bad Gateway</body></html>"))
+	}))
+	defer srv.Close()
+
+	input := `{"jsonrpc":"2.0","id":7,"method":"tools/list","params":{}}` + "\n"
+	var outBuf strings.Builder
+
+	client := &http.Client{}
+
+	err := runMcpProxyLoop(t.Context(), strings.NewReader(input), &outBuf, &strings.Builder{}, client, srv.URL)
+	if err != nil {
+		t.Fatalf("runMcpProxyLoop: %v", err)
+	}
+
+	var resp map[string]interface{}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(outBuf.String())), &resp); err != nil {
+		t.Fatalf("expected valid JSON-RPC error, got %q: %v", outBuf.String(), err)
+	}
+	errObj, ok := resp["error"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected error object, got %v", resp)
+	}
+	msg, _ := errObj["message"].(string)
+	if !strings.Contains(msg, "502") {
+		t.Errorf("error message = %q, want it to contain status code 502", msg)
+	}
+}
+
 func TestWriteJSONRPCError(t *testing.T) {
 	var buf strings.Builder
 	writeJSONRPCError(&buf, 42, -32603, "test error")
