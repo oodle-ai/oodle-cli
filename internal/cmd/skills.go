@@ -95,8 +95,11 @@ func newSkillsInstallCmd() *cobra.Command {
 
 			installDir := dir
 			if installDir == "" {
-				root := skills.FindProjectRoot()
-				installDir = skills.SkillsDir(agent, root)
+				d, err := skills.SkillsDir(agent)
+				if err != nil {
+					return err
+				}
+				installDir = d
 			}
 
 			format := getOutputFormat(cmd)
@@ -175,8 +178,10 @@ func newSkillsPathCmd() *cobra.Command {
 			if agent == "" {
 				agent = skills.DetectAgent()
 			}
-			root := skills.FindProjectRoot()
-			dir := skills.SkillsDir(agent, root)
+			dir, err := skills.SkillsDir(agent)
+			if err != nil {
+				return err
+			}
 			fmt.Fprintln(cmd.OutOrStdout(), dir)
 			return nil
 		},
