@@ -316,9 +316,9 @@ func TestBuildOAuthTokenSourceWithoutRefreshFallsBackToStatic(t *testing.T) {
 	cfg := &config.Config{
 		OAuthAccessToken: "only-access",
 	}
-	ts := buildOAuthTokenSource(cfg)
+	ts := BuildOAuthTokenSource(cfg)
 	if ts == nil {
-		t.Fatal("buildOAuthTokenSource returned nil")
+		t.Fatal("BuildOAuthTokenSource returned nil")
 	}
 	tok, err := ts.Token()
 	if err != nil {
@@ -340,7 +340,7 @@ func TestMaybePersistRefreshedOAuthTokenUpdatesConfig(t *testing.T) {
 		Expiry:       time.Now().Add(1 * time.Hour),
 	}
 	var mu sync.Mutex
-	maybePersistRefreshedOAuthToken(cfg, tok, &mu)
+	MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
 	if cfg.OAuthAccessToken != "new" {
 		t.Fatalf("OAuthAccessToken = %q, want new", cfg.OAuthAccessToken)
 	}

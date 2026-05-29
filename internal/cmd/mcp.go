@@ -1,0 +1,618 @@
+package cmd
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/spf13/cobra"
+
+	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/config"
+)
+
+type agentKind int
+
+const (
+	agentKindClaudeCode agentKind = iota
+	agentKindCodex
+)
+
+func newMcpCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "mcp",
+		Short: "Manage MCP server integrations for AI coding agents",
+		Long: `Set up and run a local MCP proxy that authenticates with the Oodle API.
+
+The proxy runs as a stdio process that AI agents (Codex, Claude Code) launch
+automatically. It injects a fresh OAuth Bearer token on every request,
+so no tokens are stored in agent config files.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return cmd.Help()
+		},
+	}
+	cmd.AddCommand(newMcpSetupCmd())
+	cmd.AddCommand(newMcpRemoveCmd())
+	cmd.AddCommand(newMcpServeCmd())
+	return cmd
+}
+
+// ---------------------------------------------------------------------------
+// mcp setup
+// ---------------------------------------------------------------------------
+
+func newMcpSetupCmd() *cobra.Command {
+	var deployment string
+	var name string
+	var toolsets string
+
+	cmd := &cobra.Command{
+		Use:   "setup <agent>",
+		Short: "Configure an AI agent to use Oodle via a local MCP proxy",
+		Long: `Patches the agent's configuration file to register an Oodle MCP server
+that runs as a local stdio proxy (oodle mcp serve).
+
+Supported agents: codex, claude-code
+
+Examples:
+  oodle mcp setup codex --deployment ap1
+  oodle mcp setup claude-code -d us1 --name my-oodle
+  oodle mcp setup codex -d ap1 --toolsets metrics,logs`,
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMcpSetup(cmd, args[0], deployment, name, toolsets)
+		},
+	}
+	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
+	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name in agent config")
+	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
+	_ = cmd.MarkFlagRequired("deployment")
+	return cmd
+}
+
+func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) error {
+	out := cmd.OutOrStdout()
+
+	cfg, err := loadExistingConfig()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	if cfg == nil || cfg.OAuthAccessToken == "" || strings.TrimSpace(cfg.Instance) == "" {
+		fmt.Fprintln(out, "No OAuth credentials found. Running login flow...")
+		if err := runAuthLogin(cmd, &rootFlags{}, deployment); err != nil {
+			return fmt.Errorf("login failed: %w", err)
+		}
+		// Reload config after successful login.
+		cfg, err = loadExistingConfig()
+		if err != nil {
+			return fmt.Errorf("loading config after login: %w", err)
+		}
+		if cfg == nil || cfg.OAuthAccessToken == "" || strings.TrimSpace(cfg.Instance) == "" {
+			return fmt.Errorf("login completed but credentials are still missing")
+		}
+	}
+
+	path, kind, err := mcpAgentConfigPath(agent)
+	if err != nil {
+		return err
+	}
+
+	if err := patchAgentConfig(kind, name, deployment, cfg.Instance, toolsets); err != nil {
+		return fmt.Errorf("patching %s config: %w", agent, err)
+	}
+
+	fmt.Fprintf(out, "Configured MCP server %q in %s\n", name, path)
+
+	// Validate by listing tools via the proxy.
+	fmt.Fprintf(out, "Verifying MCP connectivity...\n")
+	if err := verifyMcpSetup(cmd.Context(), cfg, deployment, toolsets); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: MCP verification failed: %v\n", err)
+		fmt.Fprintln(cmd.ErrOrStderr(), "The config was written; check 'oodle auth status' and try 'oodle mcp serve' manually.")
+	} else {
+		fmt.Fprintln(out, "MCP connectivity verified (initialize succeeded).")
+	}
+
+	fmt.Fprintf(out, "\nRestart %s to pick up the new MCP server.\n", agentDisplayName(agent))
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// mcp remove
+// ---------------------------------------------------------------------------
+
+func newMcpRemoveCmd() *cobra.Command {
+	var name string
+
+	cmd := &cobra.Command{
+		Use:   "remove <agent>",
+		Short: "Remove the Oodle MCP server from an AI agent's config",
+		Long: `Removes a previously registered Oodle MCP server from the agent's
+configuration file.
+
+Supported agents: codex, claude-code
+
+Examples:
+  oodle mcp remove codex
+  oodle mcp remove claude-code --name my-oodle`,
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMcpRemove(cmd, args[0], name)
+		},
+	}
+	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name to remove")
+	return cmd
+}
+
+func runMcpRemove(cmd *cobra.Command, agent, name string) error {
+	out := cmd.OutOrStdout()
+
+	_, kind, err := mcpAgentConfigPath(agent)
+	if err != nil {
+		return err
+	}
+
+	if err := removeAgentMcp(kind, name); err != nil {
+		return fmt.Errorf("removing MCP server from %s config: %w", agent, err)
+	}
+
+	fmt.Fprintf(out, "Removed MCP server %q from %s config.\n", name, agentDisplayName(agent))
+	fmt.Fprintf(out, "Restart %s to pick up the change.\n", agentDisplayName(agent))
+	return nil
+}
+
+func removeAgentMcp(kind agentKind, name string) error {
+	switch kind {
+	case agentKindClaudeCode:
+		return runAgentCLI(findClaudeBinary(), "mcp", "remove", name)
+	case agentKindCodex:
+		return runAgentCLI(findCodexBinary(), "mcp", "remove", name)
+	default:
+		return fmt.Errorf("unknown agent kind %d", kind)
+	}
+}
+
+func agentDisplayName(agent string) string {
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "claude-code", "claude":
+		return "Claude Code"
+	case "codex":
+		return "Codex"
+	default:
+		return agent
+	}
+}
+
+func mcpAgentConfigPath(agent string) (string, agentKind, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", 0, fmt.Errorf("determining home directory: %w", err)
+	}
+	switch strings.ToLower(strings.TrimSpace(agent)) {
+	case "claude-code", "claude":
+		return filepath.Join(home, ".claude", "settings.json"), agentKindClaudeCode, nil
+	case "codex":
+		return filepath.Join(home, ".codex", "config.toml"), agentKindCodex, nil
+	default:
+		return "", 0, fmt.Errorf("unsupported agent %q; supported: codex, claude-code", agent)
+	}
+}
+
+func patchAgentConfig(kind agentKind, name, deployment, instance, toolsets string) error {
+	switch kind {
+	case agentKindClaudeCode:
+		return patchClaudeCodeConfig(name, deployment, instance, toolsets)
+	case agentKindCodex:
+		return patchCodexConfig(name, deployment, toolsets)
+	default:
+		return fmt.Errorf("unknown agent kind %d", kind)
+	}
+}
+
+func patchClaudeCodeConfig(name, deployment, instance, toolsets string) error {
+	domain, err := normalizeDomain(deployment)
+	if err != nil {
+		return err
+	}
+	domain = deploymentDomainForDomain(domain)
+
+	// Claude Code uses OAuth, so the MCP URL must use the OAuth deployment
+	// domain — the protected resource metadata `resource` field must match
+	// the URL origin.
+	oauthDomain := oauthDeploymentDomainForDomain(domain)
+	endpointURL := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", oauthDomain, url.PathEscape(instance))
+	if toolsets != "" {
+		endpointURL += "?toolsets=" + url.QueryEscape(toolsets)
+	}
+
+	clientID, err := oauthClientIDForDomain(domain)
+	if err != nil {
+		return fmt.Errorf("resolving OAuth client ID for %s: %w", deployment, err)
+	}
+
+	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
+	// Remove first to make the operation idempotent.
+	claudeBin := findClaudeBinary()
+	_ = runAgentCLI(claudeBin, "mcp", "remove", name)
+
+	return runAgentCLI(claudeBin, "mcp", "add",
+		name, endpointURL,
+		"--transport", "http",
+		"--client-id", clientID,
+		"--callback-port", "9400",
+	)
+}
+
+func patchCodexConfig(name, deployment, toolsets string) error {
+	codexBin := findCodexBinary()
+
+	// Remove first to make the operation idempotent.
+	_ = runAgentCLI(codexBin, "mcp", "remove", name)
+
+	// codex mcp add <name> -- oodle mcp serve --deployment <dep> [--toolsets ...]
+	serveArgs := []string{
+		"mcp", "add", name,
+		"--", "oodle", "mcp", "serve", "--deployment", deployment,
+	}
+	if toolsets != "" {
+		serveArgs = append(serveArgs, "--toolsets", toolsets)
+	}
+	return runAgentCLI(codexBin, serveArgs...)
+}
+
+// verifyMcpSetup sends an initialize JSON-RPC request to the remote MCP
+// endpoint to verify auth and connectivity.
+func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment, toolsets string) error {
+	endpointURL, err := mcpEndpointURL(deployment, cfg.Instance, toolsets)
+	if err != nil {
+		return err
+	}
+
+	ts := api.BuildOAuthTokenSource(cfg)
+	if ts == nil {
+		return fmt.Errorf("no OAuth token source available")
+	}
+
+	tok, err := ts.Token()
+	if err != nil {
+		return fmt.Errorf("obtaining token: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	reqBody := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"oodle-cli","version":"1.0.0"}}}`)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(reqBody))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json, text/event-stream")
+	req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("connecting to %s: %w", endpointURL, err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4*1024))
+		return fmt.Errorf("MCP endpoint returned %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+	return nil
+}
+
+// ---------------------------------------------------------------------------
+// mcp serve
+// ---------------------------------------------------------------------------
+
+func newMcpServeCmd() *cobra.Command {
+	var deployment string
+	var toolsets string
+
+	cmd := &cobra.Command{
+		Use:   "serve",
+		Short: "Run a stdio MCP proxy with automatic OAuth token injection",
+		Long: `Reads JSON-RPC requests from stdin, injects a fresh OAuth Bearer token,
+forwards them to the remote Oodle MCP endpoint via Streamable HTTP,
+and writes responses to stdout.
+
+This command is intended to be launched by AI coding agents (Codex,
+Claude Code) as a stdio MCP server. Use 'oodle mcp setup' to configure
+the agent automatically.`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runMcpServe(cmd, deployment, toolsets)
+		},
+	}
+	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
+	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
+	_ = cmd.MarkFlagRequired("deployment")
+	return cmd
+}
+
+func runMcpServe(cmd *cobra.Command, deployment, toolsets string) error {
+	errOut := cmd.ErrOrStderr()
+
+	cfg, err := loadExistingConfig()
+	if err != nil {
+		return fmt.Errorf("loading config: %w", err)
+	}
+	if cfg == nil || cfg.OAuthAccessToken == "" {
+		return fmt.Errorf("no OAuth credentials found; run 'oodle auth login --deployment %s' first", deployment)
+	}
+
+	instance := cfg.Instance
+	if strings.TrimSpace(instance) == "" {
+		return fmt.Errorf("no instance configured; run 'oodle auth login --deployment %s' first", deployment)
+	}
+
+	endpointURL, err := mcpEndpointURL(deployment, instance, toolsets)
+	if err != nil {
+		return err
+	}
+
+	ts := api.BuildOAuthTokenSource(cfg)
+	if ts == nil {
+		return fmt.Errorf("unable to build OAuth token source; run 'oodle auth login' first")
+	}
+
+	// Validate token at startup.
+	if _, err := ts.Token(); err != nil {
+		return fmt.Errorf("token validation failed: %w\nRun 'oodle auth login --deployment %s' to re-authenticate", err, deployment)
+	}
+
+	fmt.Fprintf(errOut, "oodle mcp: proxying to %s\n", endpointURL)
+
+	var mu sync.Mutex
+	httpClient := &http.Client{
+		// No Timeout — SSE streams may be long-lived. The context on each
+		// request handles cancellation instead.
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			tok, err := ts.Token()
+			if err != nil {
+				return nil, fmt.Errorf("obtaining OAuth token: %w", err)
+			}
+			req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+			api.MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
+			return http.DefaultTransport.RoundTrip(req)
+		}),
+	}
+
+	return runMcpProxyLoop(cmd.Context(), cmd.InOrStdin(), cmd.OutOrStdout(), errOut, httpClient, endpointURL)
+}
+
+// roundTripFunc adapts a function to the http.RoundTripper interface.
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io.Writer, httpClient *http.Client, endpointURL string) error {
+	scanner := bufio.NewScanner(in)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20) // 1 MiB max line
+
+	// Track the Mcp-Session-Id header for Streamable HTTP session continuity.
+	var sessionID string
+	var sessionMu sync.Mutex
+
+	// Serialize writes to stdout — multiple goroutines may write concurrently.
+	var outMu sync.Mutex
+
+	var wg sync.WaitGroup
+
+	for scanner.Scan() {
+		line := scanner.Bytes()
+		if len(bytes.TrimSpace(line)) == 0 {
+			continue
+		}
+
+		// Copy the line — scanner reuses the buffer.
+		lineCopy := make([]byte, len(line))
+		copy(lineCopy, line)
+
+		wg.Add(1)
+		go func(line []byte) {
+			defer wg.Done()
+
+			// Extract JSON-RPC id for error responses.
+			var rpcID interface{}
+			var msg struct {
+				ID interface{} `json:"id"`
+			}
+			if json.Unmarshal(line, &msg) == nil {
+				rpcID = msg.ID
+			}
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(line))
+			if err != nil {
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("building request: %v", err))
+				outMu.Unlock()
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("Accept", "application/json, text/event-stream")
+			sessionMu.Lock()
+			if sessionID != "" {
+				req.Header.Set("Mcp-Session-Id", sessionID)
+			}
+			sessionMu.Unlock()
+
+			resp, err := httpClient.Do(req)
+			if err != nil {
+				fmt.Fprintf(errOut, "oodle mcp: request error: %v\n", err)
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, fmt.Sprintf("transport error: %v", err))
+				outMu.Unlock()
+				return
+			}
+
+			defer resp.Body.Close()
+
+			// Capture session ID from the server.
+			if sid := resp.Header.Get("Mcp-Session-Id"); sid != "" {
+				sessionMu.Lock()
+				sessionID = sid
+				sessionMu.Unlock()
+			}
+
+			// Wrap non-2xx responses in a JSON-RPC error so the client
+			// never receives raw HTML error pages as invalid JSON.
+			if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+				body, _ := io.ReadAll(resp.Body)
+				detail := strings.TrimSpace(string(body))
+				if len(detail) > 200 {
+					detail = detail[:200] + "…"
+				}
+				msg := fmt.Sprintf("upstream HTTP %d", resp.StatusCode)
+				if detail != "" {
+					msg += ": " + detail
+				}
+				fmt.Fprintf(errOut, "oodle mcp: %s\n", msg)
+				outMu.Lock()
+				writeJSONRPCError(out, rpcID, -32603, msg)
+				outMu.Unlock()
+				return
+			}
+
+			ct := resp.Header.Get("Content-Type")
+			if strings.HasPrefix(ct, "text/event-stream") {
+				outMu.Lock()
+				err := relaySSE(resp.Body, out)
+				outMu.Unlock()
+				if err != nil {
+					fmt.Fprintf(errOut, "oodle mcp: SSE relay error: %v\n", err)
+				}
+			} else {
+				body, err := io.ReadAll(resp.Body)
+				outMu.Lock()
+				if err != nil {
+					fmt.Fprintf(errOut, "oodle mcp: reading response: %v\n", err)
+					writeJSONRPCError(out, rpcID, -32603, "error reading response")
+				} else {
+					_, _ = out.Write(body)
+					if len(body) > 0 && body[len(body)-1] != '\n' {
+						_, _ = out.Write([]byte("\n"))
+					}
+				}
+				outMu.Unlock()
+			}
+		}(lineCopy)
+	}
+
+	wg.Wait()
+	return scanner.Err()
+}
+
+func relaySSE(body io.ReadCloser, out io.Writer) error {
+	scanner := bufio.NewScanner(body)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20)
+
+	// Accumulate data lines per SSE event; a blank line terminates an event.
+	var dataBuf strings.Builder
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.HasPrefix(line, "data:") {
+			data := strings.TrimPrefix(line, "data:")
+			if len(data) > 0 && data[0] == ' ' {
+				data = data[1:] // strip single leading space per SSE spec
+			}
+			if dataBuf.Len() > 0 {
+				dataBuf.WriteByte('\n')
+			}
+			dataBuf.WriteString(data)
+		} else if line == "" {
+			// Blank line = end of event. Flush accumulated data.
+			if dataBuf.Len() > 0 {
+				_, _ = fmt.Fprintln(out, dataBuf.String())
+				dataBuf.Reset()
+			}
+		}
+		// Ignore event:, id:, retry:, and comment lines.
+	}
+	// Flush any trailing data that wasn't terminated by a blank line.
+	if dataBuf.Len() > 0 {
+		_, _ = fmt.Fprintln(out, dataBuf.String())
+	}
+	return scanner.Err()
+}
+
+func writeJSONRPCError(out io.Writer, id interface{}, code int, message string) {
+	resp := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error": map[string]interface{}{
+			"code":    code,
+			"message": message,
+		},
+	}
+	data, _ := json.Marshal(resp)
+	_, _ = out.Write(data)
+	_, _ = out.Write([]byte("\n"))
+}
+
+// ---------------------------------------------------------------------------
+// helpers
+// ---------------------------------------------------------------------------
+
+func mcpEndpointURL(deployment, instance, toolsets string) (string, error) {
+	domain, err := normalizeDomain(deployment)
+	if err != nil {
+		return "", err
+	}
+	domain = deploymentDomainForDomain(domain)
+	u := fmt.Sprintf("https://%s/v1/api/instance/%s/mcp", domain, url.PathEscape(instance))
+	if toolsets != "" {
+		u += "?toolsets=" + url.QueryEscape(toolsets)
+	}
+	return u, nil
+}
+
+// runAgentCLI runs an agent CLI command and returns an error that includes
+// the captured stderr output for diagnostics.
+func runAgentCLI(bin string, args ...string) error {
+	cmd := exec.Command(bin, args...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Run(); err != nil {
+		msg := strings.TrimSpace(stderr.String())
+		if msg != "" {
+			return fmt.Errorf("running '%s %s': %s", bin, strings.Join(args, " "), msg)
+		}
+		return fmt.Errorf("running '%s %s': %w", bin, strings.Join(args, " "), err)
+	}
+	return nil
+}
+
+// findClaudeBinary returns the path to the Claude Code CLI binary.
+// It checks ~/.claude/local/claude first (Claude Code's standard install
+// location), then falls back to whatever "claude" resolves to on PATH.
+func findClaudeBinary() string {
+	home, err := os.UserHomeDir()
+	if err == nil {
+		localBin := filepath.Join(home, ".claude", "local", "claude")
+		if _, err := os.Stat(localBin); err == nil {
+			return localBin
+		}
+	}
+	return "claude"
+}
+
+// findCodexBinary returns the path to the Codex CLI binary.
+func findCodexBinary() string {
+	if p, err := exec.LookPath("codex"); err == nil {
+		return p
+	}
+	return "codex"
+}
