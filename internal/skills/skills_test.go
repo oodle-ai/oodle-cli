@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -99,93 +98,42 @@ func TestDetectAgent_None(t *testing.T) {
 	}
 }
 
-func TestSkillsDir_ClaudeCode_NoExisting(t *testing.T) {
-	tmp := t.TempDir()
-	got := SkillsDir("claude-code", tmp)
-	if !strings.HasSuffix(got, filepath.Join(".claude", "skills")) {
-		t.Errorf("SkillsDir(claude-code) = %q, want suffix .claude/skills", got)
-	}
-}
-
-func TestSkillsDir_Cursor_NoExisting(t *testing.T) {
-	tmp := t.TempDir()
-	got := SkillsDir("cursor", tmp)
-	if !strings.HasSuffix(got, filepath.Join(".cursor", "skills")) {
-		t.Errorf("SkillsDir(cursor) = %q, want suffix .cursor/skills", got)
-	}
-}
-
-func TestSkillsDir_Unknown_NoExisting(t *testing.T) {
-	tmp := t.TempDir()
-	got := SkillsDir("", tmp)
-	if !strings.HasSuffix(got, filepath.Join(".agents", "skills")) {
-		t.Errorf("SkillsDir(\"\") = %q, want suffix .agents/skills", got)
-	}
-}
-
-func TestSkillsDir_ExistingCursorDir(t *testing.T) {
-	tmp := t.TempDir()
-	cursorDir := filepath.Join(tmp, ".cursor", "skills")
-	if err := os.MkdirAll(cursorDir, 0755); err != nil {
-		t.Fatalf("MkdirAll: %v", err)
-	}
-	got := SkillsDir("claude-code", tmp)
-	if got != cursorDir {
-		t.Errorf("SkillsDir(claude-code) = %q, want %q (existing .cursor/skills should win)", got, cursorDir)
-	}
-}
-
-func TestFindProjectRoot_WithGit(t *testing.T) {
-	tmp := t.TempDir()
-	// On macOS, t.TempDir often returns a /var/folders/... path which is a
-	// symlink to /private/var/folders/...; resolve it so the comparison is
-	// stable regardless of which form Getwd returns.
-	resolved, err := filepath.EvalSymlinks(tmp)
+func TestSkillsDir_ClaudeCode(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got, err := SkillsDir("claude-code")
 	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
+		t.Fatalf("SkillsDir: %v", err)
 	}
-	if err := os.MkdirAll(filepath.Join(resolved, ".git"), 0755); err != nil {
-		t.Fatalf("MkdirAll .git: %v", err)
-	}
-	subdir := filepath.Join(resolved, "subdir")
-	if err := os.MkdirAll(subdir, 0755); err != nil {
-		t.Fatalf("MkdirAll subdir: %v", err)
-	}
-
-	orig, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Getwd: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-
-	if err := os.Chdir(subdir); err != nil {
-		t.Fatalf("Chdir: %v", err)
-	}
-	got := FindProjectRoot()
-	if got != resolved {
-		t.Errorf("FindProjectRoot() = %q, want %q", got, resolved)
+	want := filepath.Join(home, ".claude", "skills")
+	if got != want {
+		t.Errorf("SkillsDir(claude-code) = %q, want %q", got, want)
 	}
 }
 
-func TestFindProjectRoot_NoGit(t *testing.T) {
-	tmp := t.TempDir()
-	resolved, err := filepath.EvalSymlinks(tmp)
+func TestSkillsDir_Cursor(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got, err := SkillsDir("cursor")
 	if err != nil {
-		t.Fatalf("EvalSymlinks: %v", err)
+		t.Fatalf("SkillsDir: %v", err)
 	}
+	want := filepath.Join(home, ".cursor", "skills")
+	if got != want {
+		t.Errorf("SkillsDir(cursor) = %q, want %q", got, want)
+	}
+}
 
-	orig, err := os.Getwd()
+func TestSkillsDir_Unknown(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	got, err := SkillsDir("")
 	if err != nil {
-		t.Fatalf("Getwd: %v", err)
+		t.Fatalf("SkillsDir: %v", err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(orig) })
-
-	if err := os.Chdir(resolved); err != nil {
-		t.Fatalf("Chdir: %v", err)
-	}
-	got := FindProjectRoot()
-	if got != resolved {
-		t.Errorf("FindProjectRoot() = %q, want %q", got, resolved)
+	want := filepath.Join(home, ".agents", "skills")
+	if got != want {
+		t.Errorf("SkillsDir(\"\") = %q, want %q", got, want)
 	}
 }
 

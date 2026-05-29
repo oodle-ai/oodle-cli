@@ -230,58 +230,25 @@ func DetectAgent() string {
 	return ""
 }
 
-// knownSkillsDirs is the ordered list of existing skills directories to check.
-var knownSkillsDirs = []string{
-	".agents/skills",
-	".claude/skills",
-	".cursor/skills",
-	".windsurf/skills",
-	".gemini/skills",
-}
-
-// SkillsDir returns the directory where skills should be installed under projectRoot.
-// If any known skills directory already exists under projectRoot, that path is returned.
-// Otherwise the agent-specific default is used.
-func SkillsDir(agent, projectRoot string) string {
-	for _, rel := range knownSkillsDirs {
-		full := filepath.Join(projectRoot, rel)
-		if _, err := os.Stat(full); err == nil {
-			return full
-		}
+// SkillsDir returns the global directory where skills should be installed for
+// the given agent, located under the user's home directory.
+func SkillsDir(agent string) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
 	switch agent {
 	case "claude-code":
-		return filepath.Join(projectRoot, ".claude", "skills")
+		return filepath.Join(home, ".claude", "skills"), nil
 	case "cursor":
-		return filepath.Join(projectRoot, ".cursor", "skills")
+		return filepath.Join(home, ".cursor", "skills"), nil
 	case "windsurf":
-		return filepath.Join(projectRoot, ".windsurf", "skills")
+		return filepath.Join(home, ".windsurf", "skills"), nil
 	case "gemini-code":
-		return filepath.Join(projectRoot, ".gemini", "skills")
+		return filepath.Join(home, ".gemini", "skills"), nil
 	default:
-		return filepath.Join(projectRoot, ".agents", "skills")
+		return filepath.Join(home, ".agents", "skills"), nil
 	}
-}
-
-// FindProjectRoot walks up from cwd looking for a directory containing .git.
-// Returns cwd if no .git ancestor is found.
-func FindProjectRoot() string {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "."
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	cwd, _ := os.Getwd()
-	return cwd
 }
 
 // extractDescription parses YAML frontmatter (between first and second "---" delimiters)
