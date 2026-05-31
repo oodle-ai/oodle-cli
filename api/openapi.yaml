@@ -1,6 +1,4 @@
 # AUTO-GENERATED - do not edit manually.
-# Source: src/go/oodle/api-server/cmd/apispec/apis.go
-# Regenerate: make generate_api_spec
 
 openapi: 3.0.0
 components:
