@@ -13,6 +13,7 @@ import (
 
 const (
 	ApiKeyAuthScopes = "ApiKeyAuth.Scopes"
+	OAuth2AuthScopes = "OAuth2Auth.Scopes"
 )
 
 // Defines values for LogFilterMatchOperator.
@@ -129,6 +130,14 @@ func (e PrometheusQueryResponseStatus) Valid() bool {
 	}
 }
 
+// APIToken defines model for APIToken.
+type APIToken struct {
+	CreatedAtEpochMillis int    `json:"created_at_epoch_millis"`
+	ExpiresAtEpochMillis int    `json:"expires_at_epoch_millis"`
+	IsPrimary            bool   `json:"is_primary"`
+	Token                string `json:"token"`
+}
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -207,6 +216,40 @@ type BulkSendInvitationResultItem struct {
 	Invitation *UserInvitation `json:"invitation,omitempty"`
 }
 
+// CloudWatchMetricPullIntegration defines model for CloudWatchMetricPullIntegration.
+type CloudWatchMetricPullIntegration struct {
+	AccountId                   *string                             `json:"accountId,omitempty"`
+	ExternalId                  *string                             `json:"externalId,omitempty"`
+	LaunchCFStackRegion         *string                             `json:"launchCFStackRegion,omitempty"`
+	LaunchCFStackURL            *string                             `json:"launchCFStackURL,omitempty"`
+	Regions                     *[]string                           `json:"regions,omitempty"`
+	ResourceTypesSearchTagsList *[]CloudWatchResourceTypeSearchTags `json:"resourceTypesSearchTagsList,omitempty"`
+	RoleArn                     *string                             `json:"roleArn,omitempty"`
+}
+
+// CloudWatchMetricPullIntegrationWrapper defines model for CloudWatchMetricPullIntegrationWrapper.
+type CloudWatchMetricPullIntegrationWrapper struct {
+	CloudWatchMetricPullIntegration *CloudWatchMetricPullIntegration `json:"cloudWatchMetricPullIntegration,omitempty"`
+}
+
+// CloudWatchResourceTypeSearchTags CloudWatchResourceTypeSearchTags is a struct that represents a resource type and associated search tags that Oodle will collect metrics from.
+type CloudWatchResourceTypeSearchTags struct {
+	// ResourceTypes ResourceTypes is the type of resources to collect metrics from.
+	ResourceTypes *[]string `json:"resourceTypes,omitempty"`
+
+	// SearchTags SearchTags is a list of search tags that Oodle will use to filter metrics.
+	// It is considered a match if all of the search tags match.
+	SearchTags *[]CloudWatchSearchTag `json:"searchTags,omitempty"`
+}
+
+// CloudWatchSearchTag defines model for CloudWatchSearchTag.
+type CloudWatchSearchTag struct {
+	Key *string `json:"key,omitempty"`
+
+	// Value Value can be regex.
+	Value *string `json:"value,omitempty"`
+}
+
 // Condition Condition is a model for a condition to be evaluated in monitors.
 type Condition struct {
 	// AlertOnNoData Deprecated: use ConditionBySeverity#NoData instead
@@ -261,6 +304,22 @@ type CreateFolderRequest struct {
 	Uid       *string `json:"uid,omitempty"`
 }
 
+// CreateIntegrationRequest CreateIntegrationRequest represents the payload to create a new integration
+// It accepts the same fields as PatchIntegration to allow creating fully configured integrations
+type CreateIntegrationRequest struct {
+	Status           *string                                    `json:"status,omitempty"`
+	Type             string                                     `json:"type"`
+	TypeSpecificData *CreateIntegrationRequest_TypeSpecificData `json:"typeSpecificData,omitempty"`
+}
+
+// CreateIntegrationRequestTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type CreateIntegrationRequestTypeSpecificData1 map[string]interface{}
+
+// CreateIntegrationRequest_TypeSpecificData defines model for CreateIntegrationRequest.TypeSpecificData.
+type CreateIntegrationRequest_TypeSpecificData struct {
+	union json.RawMessage
+}
+
 // DashboardSearchEntry DashboardSearchEntry represents a dashboard search result
 type DashboardSearchEntry struct {
 	FolderId    *int      `json:"folderId,omitempty"`
@@ -282,6 +341,12 @@ type DashboardSearchEntry struct {
 // string for backward compatibility.
 type DeleteDashboardResponse struct {
 	Status string `json:"status"`
+}
+
+// DeleteUserRequest DeleteUserRequest is the request body for removing a
+// user from the organization.
+type DeleteUserRequest struct {
+	UserId string `json:"user_id"`
 }
 
 // DropRule DropRule is the API model for a metric drop rule.
@@ -431,6 +496,41 @@ type IndexPatternField struct {
 	Type string `json:"type"`
 }
 
+// Integration defines model for Integration.
+type Integration struct {
+	ApiDomain *string `json:"apiDomain,omitempty"`
+
+	// ApiKey APIKey and APIKeys is redacted for playground account in
+	// src/ui/oodle-frontend/app/api/integrations/route.ts
+	ApiKey                       *string                       `json:"apiKey,omitempty"`
+	ApiKeys                      *[]APIToken                   `json:"apiKeys"`
+	AreMonitorsInstalled         *bool                         `json:"areMonitorsInstalled,omitempty"`
+	Categories                   *[]string                     `json:"categories,omitempty"`
+	CollectorDomain              *string                       `json:"collectorDomain,omitempty"`
+	CreatedAt                    *time.Time                    `json:"createdAt,omitempty"`
+	DeploymentDomain             *string                       `json:"deploymentDomain,omitempty"`
+	Description                  *string                       `json:"description,omitempty"`
+	DocLink                      *string                       `json:"docLink,omitempty"`
+	ExpectedConnectionTimeInMins *int                          `json:"expectedConnectionTimeInMins,omitempty"`
+	Id                           *string                       `json:"id,omitempty"`
+	LogsCollectorDomain          *string                       `json:"logsCollectorDomain,omitempty"`
+	Name                         *string                       `json:"name,omitempty"`
+	OtlpCollectorDomain          *string                       `json:"otlpCollectorDomain,omitempty"`
+	Status                       *string                       `json:"status,omitempty"`
+	StatusPerSignal              *map[string]string            `json:"statusPerSignal,omitempty"`
+	Type                         *string                       `json:"type,omitempty"`
+	TypeSpecificData             *Integration_TypeSpecificData `json:"typeSpecificData,omitempty"`
+	UpdatedAt                    *time.Time                    `json:"updatedAt,omitempty"`
+}
+
+// IntegrationTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type IntegrationTypeSpecificData1 map[string]interface{}
+
+// Integration_TypeSpecificData defines model for Integration.TypeSpecificData.
+type Integration_TypeSpecificData struct {
+	union json.RawMessage
+}
+
 // Label Label represents a name-value pair for a metric label.
 type Label struct {
 	// Name Name is the name of the label.
@@ -474,6 +574,12 @@ type LabelMatcherNotifications struct {
 // invitations.
 type ListInvitationsResponse struct {
 	Invitations *[]UserInvitation `json:"invitations"`
+}
+
+// ListRolesResponse ListRolesResponse is the response for listing available
+// user roles.
+type ListRolesResponse struct {
+	Roles *[]string `json:"roles"`
 }
 
 // ListSyntheticMonitorsResponse ListSyntheticMonitorsResponse is the response body for listing synthetic
@@ -704,7 +810,7 @@ type MonitorState struct {
 // MonitorTrigger MonitorTrigger represents a monitor that triggers an alert.
 //
 // JSON field names use camelCase (monitorID, startsAt, endsAt, updatedAt) for
-// historical reasons — most other Oodle API schemas use snake_case. The
+// historical reasons - most other Oodle API schemas use snake_case. The
 // camelCase casing is preserved here to avoid breaking existing HTTP clients
 // that depend on the current field names. New schemas should use snake_case.
 type MonitorTrigger struct {
@@ -919,6 +1025,21 @@ type PagerdutyImage struct {
 type PagerdutyLink struct {
 	Href *string `json:"href,omitempty"`
 	Text *string `json:"text,omitempty"`
+}
+
+// PatchIntegration defines model for PatchIntegration.
+type PatchIntegration struct {
+	Status           *string                            `json:"status,omitempty"`
+	Type             *string                            `json:"type,omitempty"`
+	TypeSpecificData *PatchIntegration_TypeSpecificData `json:"typeSpecificData,omitempty"`
+}
+
+// PatchIntegrationTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type PatchIntegrationTypeSpecificData1 map[string]interface{}
+
+// PatchIntegration_TypeSpecificData defines model for PatchIntegration.TypeSpecificData.
+type PatchIntegration_TypeSpecificData struct {
+	union json.RawMessage
 }
 
 // PrometheusQueryResponse defines model for PrometheusQueryResponse.
@@ -1407,6 +1528,13 @@ type URL struct {
 	User *NetUrlUserinfo `json:"User,omitempty"`
 }
 
+// UpdateApiKeyRequest defines model for UpdateApiKeyRequest.
+type UpdateApiKeyRequest struct {
+	Name   string    `json:"name"`
+	Roles  *[]string `json:"roles,omitempty"`
+	Scopes *[]string `json:"scopes"`
+}
+
 // UpdateDropRuleRequest UpdateDropRuleRequest is the request body for updating a drop rule.
 type UpdateDropRuleRequest struct {
 	Filters *[]MetricLabelMatcher `json:"filters"`
@@ -1415,6 +1543,13 @@ type UpdateDropRuleRequest struct {
 	MetricName MetricLabelMatcher `json:"metric_name"`
 	RuleName   string             `json:"rule_name"`
 	Type       string             `json:"type"`
+}
+
+// UpdateUserRequest UpdateUserRequest is the request body for updating a
+// user within the organization.
+type UpdateUserRequest struct {
+	Roles  *[]string `json:"roles"`
+	UserId string    `json:"user_id"`
 }
 
 // User User is the API representation of an org user.
@@ -1468,9 +1603,6 @@ type WebhookConfig struct {
 	// Url URL to send POST request to.
 	Url string `json:"url"`
 }
-
-// IntegrationResponse defines model for integrationResponse.
-type IntegrationResponse map[string]interface{}
 
 // IntegrationSetupSpecResponse defines model for integrationSetupSpecResponse.
 type IntegrationSetupSpecResponse map[string]interface{}
@@ -1654,6 +1786,9 @@ type ListUsersOpParams struct {
 // CreateApiKeysJSONRequestBody defines body for CreateApiKeys for application/json ContentType.
 type CreateApiKeysJSONRequestBody = CreateApiKeyRequest
 
+// PatchApiKeysByIdJSONRequestBody defines body for PatchApiKeysById for application/json ContentType.
+type PatchApiKeysByIdJSONRequestBody = UpdateApiKeyRequest
+
 // CreateDropRulesJSONRequestBody defines body for CreateDropRules for application/json ContentType.
 type CreateDropRulesJSONRequestBody = CreateDropRuleRequest
 
@@ -1665,6 +1800,15 @@ type CreateDashboardsJSONRequestBody = SaveDashboardRequest
 
 // CreateFoldersJSONRequestBody defines body for CreateFolders for application/json ContentType.
 type CreateFoldersJSONRequestBody = CreateFolderRequest
+
+// CreateIntegrationsJSONRequestBody defines body for CreateIntegrations for application/json ContentType.
+type CreateIntegrationsJSONRequestBody = CreateIntegrationRequest
+
+// PatchIntegrationsByIdJSONRequestBody defines body for PatchIntegrationsById for application/json ContentType.
+type PatchIntegrationsByIdJSONRequestBody = PatchIntegration
+
+// UpdateIntegrationsByIdJSONRequestBody defines body for UpdateIntegrationsById for application/json ContentType.
+type UpdateIntegrationsByIdJSONRequestBody = PatchIntegration
 
 // CreateLogmetricsJSONRequestBody defines body for CreateLogmetrics for application/json ContentType.
 type CreateLogmetricsJSONRequestBody = LogMetrics
@@ -1702,11 +1846,203 @@ type CreateSyntheticMonitorsJSONRequestBody = SyntheticMonitor
 // UpdateSyntheticMonitorsByIdJSONRequestBody defines body for UpdateSyntheticMonitorsById for application/json ContentType.
 type UpdateSyntheticMonitorsByIdJSONRequestBody = SyntheticMonitor
 
+// DeleteUsersJSONRequestBody defines body for DeleteUsers for application/json ContentType.
+type DeleteUsersJSONRequestBody = DeleteUserRequest
+
+// PatchUsersJSONRequestBody defines body for PatchUsers for application/json ContentType.
+type PatchUsersJSONRequestBody = UpdateUserRequest
+
 // CreateInvitationsJSONRequestBody defines body for CreateInvitations for application/json ContentType.
 type CreateInvitationsJSONRequestBody = SendInvitationRequest
 
 // CreateBulkJSONRequestBody defines body for CreateBulk for application/json ContentType.
 type CreateBulkJSONRequestBody = BulkSendInvitationRequest
+
+// AsCloudWatchMetricPullIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CloudWatchMetricPullIntegrationWrapper
+func (t CreateIntegrationRequest_TypeSpecificData) AsCloudWatchMetricPullIntegrationWrapper() (CloudWatchMetricPullIntegrationWrapper, error) {
+	var body CloudWatchMetricPullIntegrationWrapper
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCloudWatchMetricPullIntegrationWrapper overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CloudWatchMetricPullIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCloudWatchMetricPullIntegrationWrapper performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CloudWatchMetricPullIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIntegrationRequestTypeSpecificData1 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData1
+func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData1() (CreateIntegrationRequestTypeSpecificData1, error) {
+	var body CreateIntegrationRequestTypeSpecificData1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIntegrationRequestTypeSpecificData1 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData1
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData1(v CreateIntegrationRequestTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIntegrationRequestTypeSpecificData1 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData1
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData1(v CreateIntegrationRequestTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CreateIntegrationRequest_TypeSpecificData) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CreateIntegrationRequest_TypeSpecificData) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCloudWatchMetricPullIntegrationWrapper returns the union data inside the Integration_TypeSpecificData as a CloudWatchMetricPullIntegrationWrapper
+func (t Integration_TypeSpecificData) AsCloudWatchMetricPullIntegrationWrapper() (CloudWatchMetricPullIntegrationWrapper, error) {
+	var body CloudWatchMetricPullIntegrationWrapper
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCloudWatchMetricPullIntegrationWrapper overwrites any union data inside the Integration_TypeSpecificData as the provided CloudWatchMetricPullIntegrationWrapper
+func (t *Integration_TypeSpecificData) FromCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCloudWatchMetricPullIntegrationWrapper performs a merge with any union data inside the Integration_TypeSpecificData, using the provided CloudWatchMetricPullIntegrationWrapper
+func (t *Integration_TypeSpecificData) MergeCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIntegrationTypeSpecificData1 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData1
+func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData1() (IntegrationTypeSpecificData1, error) {
+	var body IntegrationTypeSpecificData1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIntegrationTypeSpecificData1 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData1
+func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData1(v IntegrationTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIntegrationTypeSpecificData1 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData1
+func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData1(v IntegrationTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Integration_TypeSpecificData) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Integration_TypeSpecificData) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCloudWatchMetricPullIntegrationWrapper returns the union data inside the PatchIntegration_TypeSpecificData as a CloudWatchMetricPullIntegrationWrapper
+func (t PatchIntegration_TypeSpecificData) AsCloudWatchMetricPullIntegrationWrapper() (CloudWatchMetricPullIntegrationWrapper, error) {
+	var body CloudWatchMetricPullIntegrationWrapper
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCloudWatchMetricPullIntegrationWrapper overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided CloudWatchMetricPullIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) FromCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCloudWatchMetricPullIntegrationWrapper performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided CloudWatchMetricPullIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) MergeCloudWatchMetricPullIntegrationWrapper(v CloudWatchMetricPullIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPatchIntegrationTypeSpecificData1 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData1
+func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData1() (PatchIntegrationTypeSpecificData1, error) {
+	var body PatchIntegrationTypeSpecificData1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPatchIntegrationTypeSpecificData1 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData1
+func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData1(v PatchIntegrationTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePatchIntegrationTypeSpecificData1 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData1
+func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData1(v PatchIntegrationTypeSpecificData1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PatchIntegration_TypeSpecificData) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PatchIntegration_TypeSpecificData) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsTraceSpanTagValue0 returns the union data inside the TraceSpanTag_Value as a TraceSpanTagValue0
 func (t TraceSpanTag_Value) AsTraceSpanTagValue0() (TraceSpanTagValue0, error) {

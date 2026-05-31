@@ -89,9 +89,6 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// ListOauthProtectedResource request
-	ListOauthProtectedResource(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListLogIndexPatterns request
 	ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -120,6 +117,11 @@ type ClientInterface interface {
 
 	// GetApiKeysById request
 	GetApiKeysById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchApiKeysByIdWithBody request with any body
+	PatchApiKeysByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchApiKeysById(ctx context.Context, instance string, id string, body PatchApiKeysByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListDropRules request
 	ListDropRules(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -164,6 +166,27 @@ type ClientInterface interface {
 
 	// ListIntegrations request
 	ListIntegrations(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateIntegrationsWithBody request with any body
+	CreateIntegrationsWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateIntegrations(ctx context.Context, instance string, body CreateIntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteIntegrationsById request
+	DeleteIntegrationsById(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetIntegrationsById request
+	GetIntegrationsById(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchIntegrationsByIdWithBody request with any body
+	PatchIntegrationsByIdWithBody(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchIntegrationsById(ctx context.Context, instance string, integrationId string, body PatchIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateIntegrationsByIdWithBody request with any body
+	UpdateIntegrationsByIdWithBody(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLogmetrics request
 	ListLogmetrics(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -275,6 +298,9 @@ type ClientInterface interface {
 
 	UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRolesOp request
+	ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSyntheticMonitorsOp request
 	ListSyntheticMonitorsOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -312,8 +338,18 @@ type ClientInterface interface {
 	// GetTracesById request
 	GetTracesById(ctx context.Context, instance string, traceId string, params *GetTracesByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteUsersWithBody request with any body
+	DeleteUsersWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteUsers(ctx context.Context, instance string, body DeleteUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListUsersOp request
 	ListUsersOp(ctx context.Context, instance string, params *ListUsersOpParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PatchUsersWithBody request with any body
+	PatchUsersWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PatchUsers(ctx context.Context, instance string, body PatchUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListInvitationsOp request
 	ListInvitationsOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -329,25 +365,16 @@ type ClientInterface interface {
 	CreateBulk(ctx context.Context, instance string, body CreateBulkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteInvitationsById request
-	DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteInvitationsById(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetInvitationsById request
+	GetInvitationsById(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListIntegrationSetupSpecs request
 	ListIntegrationSetupSpecs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetIntegrationSetupSpec request
 	GetIntegrationSetupSpec(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*http.Response, error)
-}
-
-func (c *Client) ListOauthProtectedResource(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListOauthProtectedResourceRequest(c.Server)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
 }
 
 func (c *Client) ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -460,6 +487,30 @@ func (c *Client) DeleteApiKeysById(ctx context.Context, instance string, id stri
 
 func (c *Client) GetApiKeysById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetApiKeysByIdRequest(c.Server, instance, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiKeysByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiKeysByIdRequestWithBody(c.Server, instance, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchApiKeysById(ctx context.Context, instance string, id string, body PatchApiKeysByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchApiKeysByIdRequest(c.Server, instance, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -652,6 +703,102 @@ func (c *Client) CreateFolders(ctx context.Context, instance string, body Create
 
 func (c *Client) ListIntegrations(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListIntegrationsRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIntegrationsWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIntegrationsRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateIntegrations(ctx context.Context, instance string, body CreateIntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateIntegrationsRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteIntegrationsById(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteIntegrationsByIdRequest(c.Server, instance, integrationId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetIntegrationsById(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetIntegrationsByIdRequest(c.Server, instance, integrationId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchIntegrationsByIdWithBody(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchIntegrationsByIdRequestWithBody(c.Server, instance, integrationId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchIntegrationsById(ctx context.Context, instance string, integrationId string, body PatchIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchIntegrationsByIdRequest(c.Server, instance, integrationId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIntegrationsByIdWithBody(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIntegrationsByIdRequestWithBody(c.Server, instance, integrationId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateIntegrationsByIdRequest(c.Server, instance, integrationId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1142,6 +1289,18 @@ func (c *Client) UpdateNotifiersById(ctx context.Context, instance string, id st
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRolesOpRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListSyntheticMonitorsOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSyntheticMonitorsOpRequest(c.Server, instance)
 	if err != nil {
@@ -1298,8 +1457,56 @@ func (c *Client) GetTracesById(ctx context.Context, instance string, traceId str
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteUsersWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUsersRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteUsers(ctx context.Context, instance string, body DeleteUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteUsersRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListUsersOp(ctx context.Context, instance string, params *ListUsersOpParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUsersOpRequest(c.Server, instance, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchUsersWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchUsersRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PatchUsers(ctx context.Context, instance string, body PatchUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPatchUsersRequest(c.Server, instance, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1370,8 +1577,20 @@ func (c *Client) CreateBulk(ctx context.Context, instance string, body CreateBul
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteInvitationsById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteInvitationsByIdRequest(c.Server, instance, id)
+func (c *Client) DeleteInvitationsById(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteInvitationsByIdRequest(c.Server, instance, invitationId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetInvitationsById(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetInvitationsByIdRequest(c.Server, instance, invitationId)
 	if err != nil {
 		return nil, err
 	}
@@ -1404,33 +1623,6 @@ func (c *Client) GetIntegrationSetupSpec(ctx context.Context, integrationType st
 		return nil, err
 	}
 	return c.Client.Do(req)
-}
-
-// NewListOauthProtectedResourceRequest generates requests for ListOauthProtectedResource
-func NewListOauthProtectedResourceRequest(server string) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/.well-known/oauth-protected-resource")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
 }
 
 // NewListLogIndexPatternsRequest generates requests for ListLogIndexPatterns
@@ -1872,6 +2064,60 @@ func NewGetApiKeysByIdRequest(server string, instance string, id string) (*http.
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPatchApiKeysByIdRequest calls the generic PatchApiKeysById builder with application/json body
+func NewPatchApiKeysByIdRequest(server string, instance string, id string, body PatchApiKeysByIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchApiKeysByIdRequestWithBody(server, instance, id, "application/json", bodyReader)
+}
+
+// NewPatchApiKeysByIdRequestWithBody generates requests for PatchApiKeysById with any type of body
+func NewPatchApiKeysByIdRequestWithBody(server string, instance string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/api-keys/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -2367,6 +2613,243 @@ func NewListIntegrationsRequest(server string, instance string) (*http.Request, 
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewCreateIntegrationsRequest calls the generic CreateIntegrations builder with application/json body
+func NewCreateIntegrationsRequest(server string, instance string, body CreateIntegrationsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateIntegrationsRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewCreateIntegrationsRequestWithBody generates requests for CreateIntegrations with any type of body
+func NewCreateIntegrationsRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteIntegrationsByIdRequest generates requests for DeleteIntegrationsById
+func NewDeleteIntegrationsByIdRequest(server string, instance string, integrationId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "integrationId", integrationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetIntegrationsByIdRequest generates requests for GetIntegrationsById
+func NewGetIntegrationsByIdRequest(server string, instance string, integrationId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "integrationId", integrationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPatchIntegrationsByIdRequest calls the generic PatchIntegrationsById builder with application/json body
+func NewPatchIntegrationsByIdRequest(server string, instance string, integrationId string, body PatchIntegrationsByIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchIntegrationsByIdRequestWithBody(server, instance, integrationId, "application/json", bodyReader)
+}
+
+// NewPatchIntegrationsByIdRequestWithBody generates requests for PatchIntegrationsById with any type of body
+func NewPatchIntegrationsByIdRequestWithBody(server string, instance string, integrationId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "integrationId", integrationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpdateIntegrationsByIdRequest calls the generic UpdateIntegrationsById builder with application/json body
+func NewUpdateIntegrationsByIdRequest(server string, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateIntegrationsByIdRequestWithBody(server, instance, integrationId, "application/json", bodyReader)
+}
+
+// NewUpdateIntegrationsByIdRequestWithBody generates requests for UpdateIntegrationsById with any type of body
+func NewUpdateIntegrationsByIdRequestWithBody(server string, instance string, integrationId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "integrationId", integrationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/integrations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -3807,6 +4290,40 @@ func NewUpdateNotifiersByIdRequestWithBody(server string, instance string, id st
 	return req, nil
 }
 
+// NewListRolesOpRequest generates requests for ListRolesOp
+func NewListRolesOpRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/roles", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSyntheticMonitorsOpRequest generates requests for ListSyntheticMonitorsOp
 func NewListSyntheticMonitorsOpRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -4497,6 +5014,53 @@ func NewGetTracesByIdRequest(server string, instance string, traceId string, par
 	return req, nil
 }
 
+// NewDeleteUsersRequest calls the generic DeleteUsers builder with application/json body
+func NewDeleteUsersRequest(server string, instance string, body DeleteUsersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteUsersRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewDeleteUsersRequestWithBody generates requests for DeleteUsers with any type of body
+func NewDeleteUsersRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListUsersOpRequest generates requests for ListUsersOp
 func NewListUsersOpRequest(server string, instance string, params *ListUsersOpParams) (*http.Request, error) {
 	var err error
@@ -4549,6 +5113,53 @@ func NewListUsersOpRequest(server string, instance string, params *ListUsersOpPa
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewPatchUsersRequest calls the generic PatchUsers builder with application/json body
+func NewPatchUsersRequest(server string, instance string, body PatchUsersJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPatchUsersRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewPatchUsersRequestWithBody generates requests for PatchUsers with any type of body
+func NewPatchUsersRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/users", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -4682,7 +5293,7 @@ func NewCreateBulkRequestWithBody(server string, instance string, contentType st
 }
 
 // NewDeleteInvitationsByIdRequest generates requests for DeleteInvitationsById
-func NewDeleteInvitationsByIdRequest(server string, instance string, id string) (*http.Request, error) {
+func NewDeleteInvitationsByIdRequest(server string, instance string, invitationId string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4694,7 +5305,7 @@ func NewDeleteInvitationsByIdRequest(server string, instance string, id string) 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invitationId", invitationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -4715,6 +5326,47 @@ func NewDeleteInvitationsByIdRequest(server string, instance string, id string) 
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetInvitationsByIdRequest generates requests for GetInvitationsById
+func NewGetInvitationsByIdRequest(server string, instance string, invitationId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "invitationId", invitationId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/users/invitations/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -4826,9 +5478,6 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// ListOauthProtectedResourceWithResponse request
-	ListOauthProtectedResourceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceResponse, error)
-
 	// ListLogIndexPatternsWithResponse request
 	ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error)
 
@@ -4857,6 +5506,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetApiKeysByIdWithResponse request
 	GetApiKeysByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*GetApiKeysByIdResponse, error)
+
+	// PatchApiKeysByIdWithBodyWithResponse request with any body
+	PatchApiKeysByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiKeysByIdResponse, error)
+
+	PatchApiKeysByIdWithResponse(ctx context.Context, instance string, id string, body PatchApiKeysByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiKeysByIdResponse, error)
 
 	// ListDropRulesWithResponse request
 	ListDropRulesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListDropRulesResponse, error)
@@ -4901,6 +5555,27 @@ type ClientWithResponsesInterface interface {
 
 	// ListIntegrationsWithResponse request
 	ListIntegrationsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListIntegrationsResponse, error)
+
+	// CreateIntegrationsWithBodyWithResponse request with any body
+	CreateIntegrationsWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIntegrationsResponse, error)
+
+	CreateIntegrationsWithResponse(ctx context.Context, instance string, body CreateIntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIntegrationsResponse, error)
+
+	// DeleteIntegrationsByIdWithResponse request
+	DeleteIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*DeleteIntegrationsByIdResponse, error)
+
+	// GetIntegrationsByIdWithResponse request
+	GetIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*GetIntegrationsByIdResponse, error)
+
+	// PatchIntegrationsByIdWithBodyWithResponse request with any body
+	PatchIntegrationsByIdWithBodyWithResponse(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchIntegrationsByIdResponse, error)
+
+	PatchIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body PatchIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchIntegrationsByIdResponse, error)
+
+	// UpdateIntegrationsByIdWithBodyWithResponse request with any body
+	UpdateIntegrationsByIdWithBodyWithResponse(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
+
+	UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
 
 	// ListLogmetricsWithResponse request
 	ListLogmetricsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListLogmetricsResponse, error)
@@ -5012,6 +5687,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateNotifiersByIdWithResponse(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
 
+	// ListRolesOpWithResponse request
+	ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error)
+
 	// ListSyntheticMonitorsOpWithResponse request
 	ListSyntheticMonitorsOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsOpResponse, error)
 
@@ -5049,8 +5727,18 @@ type ClientWithResponsesInterface interface {
 	// GetTracesByIdWithResponse request
 	GetTracesByIdWithResponse(ctx context.Context, instance string, traceId string, params *GetTracesByIdParams, reqEditors ...RequestEditorFn) (*GetTracesByIdResponse, error)
 
+	// DeleteUsersWithBodyWithResponse request with any body
+	DeleteUsersWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUsersResponse, error)
+
+	DeleteUsersWithResponse(ctx context.Context, instance string, body DeleteUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUsersResponse, error)
+
 	// ListUsersOpWithResponse request
 	ListUsersOpWithResponse(ctx context.Context, instance string, params *ListUsersOpParams, reqEditors ...RequestEditorFn) (*ListUsersOpResponse, error)
+
+	// PatchUsersWithBodyWithResponse request with any body
+	PatchUsersWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchUsersResponse, error)
+
+	PatchUsersWithResponse(ctx context.Context, instance string, body PatchUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchUsersResponse, error)
 
 	// ListInvitationsOpWithResponse request
 	ListInvitationsOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListInvitationsOpResponse, error)
@@ -5066,37 +5754,16 @@ type ClientWithResponsesInterface interface {
 	CreateBulkWithResponse(ctx context.Context, instance string, body CreateBulkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateBulkResponse, error)
 
 	// DeleteInvitationsByIdWithResponse request
-	DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error)
+	DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error)
+
+	// GetInvitationsByIdWithResponse request
+	GetInvitationsByIdWithResponse(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*GetInvitationsByIdResponse, error)
 
 	// ListIntegrationSetupSpecsWithResponse request
 	ListIntegrationSetupSpecsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListIntegrationSetupSpecsResponse, error)
 
 	// GetIntegrationSetupSpecWithResponse request
 	GetIntegrationSetupSpecWithResponse(ctx context.Context, integrationType string, reqEditors ...RequestEditorFn) (*GetIntegrationSetupSpecResponse, error)
-}
-
-type ListOauthProtectedResourceResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
-	JSON500      *OodleUtilHttputilsModelsErrors
-	JSONDefault  *OodleUtilHttputilsModelsErrors
-}
-
-// Status returns HTTPResponse.Status
-func (r ListOauthProtectedResourceResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListOauthProtectedResourceResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
 }
 
 type ListLogIndexPatternsResponse struct {
@@ -5312,6 +5979,33 @@ func (r GetApiKeysByIdResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetApiKeysByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PatchApiKeysByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKey
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchApiKeysByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchApiKeysByIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -5604,7 +6298,7 @@ func (r CreateFoldersResponse) StatusCode() int {
 type ListIntegrationsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
-	JSON200      *[]IntegrationResponse
+	JSON200      *[]Integration
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
@@ -5620,6 +6314,137 @@ func (r ListIntegrationsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListIntegrationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateIntegrationsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Integration
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateIntegrationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateIntegrationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteIntegrationsByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteIntegrationsByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteIntegrationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetIntegrationsByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Integration
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetIntegrationsByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetIntegrationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PatchIntegrationsByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Integration
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchIntegrationsByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchIntegrationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateIntegrationsByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Integration
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateIntegrationsByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateIntegrationsByIdResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6408,6 +7233,32 @@ func (r UpdateNotifiersByIdResponse) StatusCode() int {
 	return 0
 }
 
+type ListRolesOpResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListRolesResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRolesOpResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRolesOpResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListSyntheticMonitorsOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6694,6 +7545,32 @@ func (r GetTracesByIdResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteUsersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListUsersOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6714,6 +7591,32 @@ func (r ListUsersOpResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListUsersOpResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PatchUsersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r PatchUsersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PatchUsersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -6826,6 +7729,33 @@ func (r DeleteInvitationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+type GetInvitationsByIdResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *UserInvitation
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetInvitationsByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetInvitationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListIntegrationSetupSpecsResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -6871,15 +7801,6 @@ func (r GetIntegrationSetupSpecResponse) StatusCode() int {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
-}
-
-// ListOauthProtectedResourceWithResponse request returning *ListOauthProtectedResourceResponse
-func (c *ClientWithResponses) ListOauthProtectedResourceWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListOauthProtectedResourceResponse, error) {
-	rsp, err := c.ListOauthProtectedResource(ctx, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListOauthProtectedResourceResponse(rsp)
 }
 
 // ListLogIndexPatternsWithResponse request returning *ListLogIndexPatternsResponse
@@ -6969,6 +7890,23 @@ func (c *ClientWithResponses) GetApiKeysByIdWithResponse(ctx context.Context, in
 		return nil, err
 	}
 	return ParseGetApiKeysByIdResponse(rsp)
+}
+
+// PatchApiKeysByIdWithBodyWithResponse request with arbitrary body returning *PatchApiKeysByIdResponse
+func (c *ClientWithResponses) PatchApiKeysByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchApiKeysByIdResponse, error) {
+	rsp, err := c.PatchApiKeysByIdWithBody(ctx, instance, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiKeysByIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchApiKeysByIdWithResponse(ctx context.Context, instance string, id string, body PatchApiKeysByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchApiKeysByIdResponse, error) {
+	rsp, err := c.PatchApiKeysById(ctx, instance, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchApiKeysByIdResponse(rsp)
 }
 
 // ListDropRulesWithResponse request returning *ListDropRulesResponse
@@ -7109,6 +8047,75 @@ func (c *ClientWithResponses) ListIntegrationsWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseListIntegrationsResponse(rsp)
+}
+
+// CreateIntegrationsWithBodyWithResponse request with arbitrary body returning *CreateIntegrationsResponse
+func (c *ClientWithResponses) CreateIntegrationsWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateIntegrationsResponse, error) {
+	rsp, err := c.CreateIntegrationsWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIntegrationsResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateIntegrationsWithResponse(ctx context.Context, instance string, body CreateIntegrationsJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateIntegrationsResponse, error) {
+	rsp, err := c.CreateIntegrations(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateIntegrationsResponse(rsp)
+}
+
+// DeleteIntegrationsByIdWithResponse request returning *DeleteIntegrationsByIdResponse
+func (c *ClientWithResponses) DeleteIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*DeleteIntegrationsByIdResponse, error) {
+	rsp, err := c.DeleteIntegrationsById(ctx, instance, integrationId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteIntegrationsByIdResponse(rsp)
+}
+
+// GetIntegrationsByIdWithResponse request returning *GetIntegrationsByIdResponse
+func (c *ClientWithResponses) GetIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, reqEditors ...RequestEditorFn) (*GetIntegrationsByIdResponse, error) {
+	rsp, err := c.GetIntegrationsById(ctx, instance, integrationId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetIntegrationsByIdResponse(rsp)
+}
+
+// PatchIntegrationsByIdWithBodyWithResponse request with arbitrary body returning *PatchIntegrationsByIdResponse
+func (c *ClientWithResponses) PatchIntegrationsByIdWithBodyWithResponse(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchIntegrationsByIdResponse, error) {
+	rsp, err := c.PatchIntegrationsByIdWithBody(ctx, instance, integrationId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchIntegrationsByIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body PatchIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchIntegrationsByIdResponse, error) {
+	rsp, err := c.PatchIntegrationsById(ctx, instance, integrationId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchIntegrationsByIdResponse(rsp)
+}
+
+// UpdateIntegrationsByIdWithBodyWithResponse request with arbitrary body returning *UpdateIntegrationsByIdResponse
+func (c *ClientWithResponses) UpdateIntegrationsByIdWithBodyWithResponse(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error) {
+	rsp, err := c.UpdateIntegrationsByIdWithBody(ctx, instance, integrationId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIntegrationsByIdResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error) {
+	rsp, err := c.UpdateIntegrationsById(ctx, instance, integrationId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateIntegrationsByIdResponse(rsp)
 }
 
 // ListLogmetricsWithResponse request returning *ListLogmetricsResponse
@@ -7461,6 +8468,15 @@ func (c *ClientWithResponses) UpdateNotifiersByIdWithResponse(ctx context.Contex
 	return ParseUpdateNotifiersByIdResponse(rsp)
 }
 
+// ListRolesOpWithResponse request returning *ListRolesOpResponse
+func (c *ClientWithResponses) ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error) {
+	rsp, err := c.ListRolesOp(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRolesOpResponse(rsp)
+}
+
 // ListSyntheticMonitorsOpWithResponse request returning *ListSyntheticMonitorsOpResponse
 func (c *ClientWithResponses) ListSyntheticMonitorsOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListSyntheticMonitorsOpResponse, error) {
 	rsp, err := c.ListSyntheticMonitorsOp(ctx, instance, reqEditors...)
@@ -7576,6 +8592,23 @@ func (c *ClientWithResponses) GetTracesByIdWithResponse(ctx context.Context, ins
 	return ParseGetTracesByIdResponse(rsp)
 }
 
+// DeleteUsersWithBodyWithResponse request with arbitrary body returning *DeleteUsersResponse
+func (c *ClientWithResponses) DeleteUsersWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteUsersResponse, error) {
+	rsp, err := c.DeleteUsersWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUsersResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteUsersWithResponse(ctx context.Context, instance string, body DeleteUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteUsersResponse, error) {
+	rsp, err := c.DeleteUsers(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteUsersResponse(rsp)
+}
+
 // ListUsersOpWithResponse request returning *ListUsersOpResponse
 func (c *ClientWithResponses) ListUsersOpWithResponse(ctx context.Context, instance string, params *ListUsersOpParams, reqEditors ...RequestEditorFn) (*ListUsersOpResponse, error) {
 	rsp, err := c.ListUsersOp(ctx, instance, params, reqEditors...)
@@ -7583,6 +8616,23 @@ func (c *ClientWithResponses) ListUsersOpWithResponse(ctx context.Context, insta
 		return nil, err
 	}
 	return ParseListUsersOpResponse(rsp)
+}
+
+// PatchUsersWithBodyWithResponse request with arbitrary body returning *PatchUsersResponse
+func (c *ClientWithResponses) PatchUsersWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PatchUsersResponse, error) {
+	rsp, err := c.PatchUsersWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchUsersResponse(rsp)
+}
+
+func (c *ClientWithResponses) PatchUsersWithResponse(ctx context.Context, instance string, body PatchUsersJSONRequestBody, reqEditors ...RequestEditorFn) (*PatchUsersResponse, error) {
+	rsp, err := c.PatchUsers(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePatchUsersResponse(rsp)
 }
 
 // ListInvitationsOpWithResponse request returning *ListInvitationsOpResponse
@@ -7629,12 +8679,21 @@ func (c *ClientWithResponses) CreateBulkWithResponse(ctx context.Context, instan
 }
 
 // DeleteInvitationsByIdWithResponse request returning *DeleteInvitationsByIdResponse
-func (c *ClientWithResponses) DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error) {
-	rsp, err := c.DeleteInvitationsById(ctx, instance, id, reqEditors...)
+func (c *ClientWithResponses) DeleteInvitationsByIdWithResponse(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*DeleteInvitationsByIdResponse, error) {
+	rsp, err := c.DeleteInvitationsById(ctx, instance, invitationId, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseDeleteInvitationsByIdResponse(rsp)
+}
+
+// GetInvitationsByIdWithResponse request returning *GetInvitationsByIdResponse
+func (c *ClientWithResponses) GetInvitationsByIdWithResponse(ctx context.Context, instance string, invitationId string, reqEditors ...RequestEditorFn) (*GetInvitationsByIdResponse, error) {
+	rsp, err := c.GetInvitationsById(ctx, instance, invitationId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetInvitationsByIdResponse(rsp)
 }
 
 // ListIntegrationSetupSpecsWithResponse request returning *ListIntegrationSetupSpecsResponse
@@ -7653,46 +8712,6 @@ func (c *ClientWithResponses) GetIntegrationSetupSpecWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseGetIntegrationSetupSpecResponse(rsp)
-}
-
-// ParseListOauthProtectedResourceResponse parses an HTTP response from a ListOauthProtectedResourceWithResponse call
-func ParseListOauthProtectedResourceResponse(rsp *http.Response) (*ListOauthProtectedResourceResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListOauthProtectedResourceResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OodleApiServerAppsOauthModelsProtectedResourceMetadataResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
 }
 
 // ParseListLogIndexPatternsResponse parses an HTTP response from a ListLogIndexPatternsWithResponse call
@@ -8042,6 +9061,67 @@ func ParseGetApiKeysByIdResponse(rsp *http.Response) (*GetApiKeysByIdResponse, e
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchApiKeysByIdResponse parses an HTTP response from a PatchApiKeysByIdWithResponse call
+func ParsePatchApiKeysByIdResponse(rsp *http.Response) (*PatchApiKeysByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchApiKeysByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKey
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
@@ -8664,7 +9744,7 @@ func ParseListIntegrationsResponse(rsp *http.Response) (*ListIntegrationsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest []IntegrationResponse
+		var dest []Integration
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -8676,6 +9756,283 @@ func ParseListIntegrationsResponse(rsp *http.Response) (*ListIntegrationsRespons
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateIntegrationsResponse parses an HTTP response from a CreateIntegrationsWithResponse call
+func ParseCreateIntegrationsResponse(rsp *http.Response) (*CreateIntegrationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateIntegrationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Integration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteIntegrationsByIdResponse parses an HTTP response from a DeleteIntegrationsByIdWithResponse call
+func ParseDeleteIntegrationsByIdResponse(rsp *http.Response) (*DeleteIntegrationsByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteIntegrationsByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetIntegrationsByIdResponse parses an HTTP response from a GetIntegrationsByIdWithResponse call
+func ParseGetIntegrationsByIdResponse(rsp *http.Response) (*GetIntegrationsByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetIntegrationsByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Integration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchIntegrationsByIdResponse parses an HTTP response from a PatchIntegrationsByIdWithResponse call
+func ParsePatchIntegrationsByIdResponse(rsp *http.Response) (*PatchIntegrationsByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchIntegrationsByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Integration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateIntegrationsByIdResponse parses an HTTP response from a UpdateIntegrationsByIdWithResponse call
+func ParseUpdateIntegrationsByIdResponse(rsp *http.Response) (*UpdateIntegrationsByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateIntegrationsByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Integration
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
@@ -10330,6 +11687,60 @@ func ParseUpdateNotifiersByIdResponse(rsp *http.Response) (*UpdateNotifiersByIdR
 	return response, nil
 }
 
+// ParseListRolesOpResponse parses an HTTP response from a ListRolesOpWithResponse call
+func ParseListRolesOpResponse(rsp *http.Response) (*ListRolesOpResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRolesOpResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListRolesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListSyntheticMonitorsOpResponse parses an HTTP response from a ListSyntheticMonitorsOpWithResponse call
 func ParseListSyntheticMonitorsOpResponse(rsp *http.Response) (*ListSyntheticMonitorsOpResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10924,6 +12335,60 @@ func ParseGetTracesByIdResponse(rsp *http.Response) (*GetTracesByIdResponse, err
 	return response, nil
 }
 
+// ParseDeleteUsersResponse parses an HTTP response from a DeleteUsersWithResponse call
+func ParseDeleteUsersResponse(rsp *http.Response) (*DeleteUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListUsersOpResponse parses an HTTP response from a ListUsersOpWithResponse call
 func ParseListUsersOpResponse(rsp *http.Response) (*ListUsersOpResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -10944,6 +12409,60 @@ func ParseListUsersOpResponse(rsp *http.Response) (*ListUsersOpResponse, error) 
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePatchUsersResponse parses an HTTP response from a PatchUsersWithResponse call
+func ParsePatchUsersResponse(rsp *http.Response) (*PatchUsersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PatchUsersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
@@ -11168,6 +12687,67 @@ func ParseDeleteInvitationsByIdResponse(rsp *http.Response) (*DeleteInvitationsB
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetInvitationsByIdResponse parses an HTTP response from a GetInvitationsByIdWithResponse call
+func ParseGetInvitationsByIdResponse(rsp *http.Response) (*GetInvitationsByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetInvitationsByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest UserInvitation
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

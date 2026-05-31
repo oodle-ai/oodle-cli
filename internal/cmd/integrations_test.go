@@ -32,7 +32,7 @@ func TestNewIntegrationsCmd_Structure(t *testing.T) {
 		t.Errorf("Aliases = %v, want %v", cmd.Aliases, wantAliases)
 	}
 
-	wantSubs := []string{"get-setup-spec", "list", "list-setup-specs"}
+	wantSubs := []string{"aws", "get-setup-spec", "list", "list-setup-specs"}
 	got := subcommandNames(cmd)
 	if strings.Join(got, ",") != strings.Join(wantSubs, ",") {
 		t.Errorf("subcommands = %v, want %v", got, wantSubs)
