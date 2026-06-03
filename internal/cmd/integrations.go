@@ -23,6 +23,7 @@ func newIntegrationsCmd() *cobra.Command {
 	cmd.AddCommand(newIntegrationsListCmd())
 	cmd.AddCommand(newIntegrationsGetSetupSpecCmd())
 	cmd.AddCommand(newIntegrationsListSetupSpecsCmd())
+	cmd.AddCommand(newAwsCmd())
 	return cmd
 }
 

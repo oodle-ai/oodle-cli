@@ -1,8 +1,24 @@
-# AUTO-GENERATED — do not edit manually.
+# AUTO-GENERATED - do not edit manually.
 
 openapi: 3.0.0
 components:
   schemas:
+    APIToken:
+      type: object
+      required:
+        - token
+        - expires_at_epoch_millis
+        - created_at_epoch_millis
+        - is_primary
+      properties:
+        created_at_epoch_millis:
+          type: integer
+        expires_at_epoch_millis:
+          type: integer
+        is_primary:
+          type: boolean
+        token:
+          type: string
     ApiKey:
       type: object
       required:
@@ -152,6 +168,60 @@ components:
           type: string
         invitation:
           $ref: '#/components/schemas/UserInvitation'
+    CloudWatchMetricPullIntegration:
+      type: object
+      properties:
+        accountId:
+          type: string
+        externalId:
+          type: string
+        launchCFStackRegion:
+          type: string
+        launchCFStackURL:
+          type: string
+        regions:
+          type: array
+          nullable: true
+          items:
+            type: string
+        resourceTypesSearchTagsList:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CloudWatchResourceTypeSearchTags'
+        roleArn:
+          type: string
+    CloudWatchMetricPullIntegrationWrapper:
+      type: object
+      properties:
+        cloudWatchMetricPullIntegration:
+          $ref: '#/components/schemas/CloudWatchMetricPullIntegration'
+    CloudWatchResourceTypeSearchTags:
+      type: object
+      description: CloudWatchResourceTypeSearchTags is a struct that represents a resource type and associated search tags that Oodle will collect metrics from.
+      properties:
+        resourceTypes:
+          type: array
+          description: ResourceTypes is the type of resources to collect metrics from.
+          nullable: true
+          items:
+            type: string
+        searchTags:
+          type: array
+          description: |-
+            SearchTags is a list of search tags that Oodle will use to filter metrics.
+            It is considered a match if all of the search tags match.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CloudWatchSearchTag'
+    CloudWatchSearchTag:
+      type: object
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+          description: Value can be regex.
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -241,6 +311,24 @@ components:
           type: string
         uid:
           type: string
+    CreateIntegrationRequest:
+      type: object
+      description: |-
+        CreateIntegrationRequest represents the payload to create a new integration
+        It accepts the same fields as PatchIntegration to allow creating fully configured integrations
+      required:
+        - type
+      properties:
+        status:
+          type: string
+        type:
+          type: string
+        typeSpecificData:
+          oneOf:
+            - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - type: object
+              description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+              additionalProperties: true
     DashboardSearchEntry:
       type: object
       description: DashboardSearchEntry represents a dashboard search result
@@ -288,6 +376,16 @@ components:
         - status
       properties:
         status:
+          type: string
+    DeleteUserRequest:
+      type: object
+      description: |-
+        DeleteUserRequest is the request body for removing a
+        user from the organization.
+      required:
+        - user_id
+      properties:
+        user_id:
           type: string
     DropRule:
       type: object
@@ -551,6 +649,69 @@ components:
           type: string
         type:
           type: string
+    Integration:
+      type: object
+      required:
+        - apiKeys
+      properties:
+        apiDomain:
+          type: string
+        apiKey:
+          type: string
+          description: |-
+            APIKey and APIKeys is redacted for playground account in
+            src/ui/oodle-frontend/app/api/integrations/route.ts
+        apiKeys:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/APIToken'
+        areMonitorsInstalled:
+          type: boolean
+        categories:
+          type: array
+          nullable: true
+          items:
+            type: string
+        collectorDomain:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        deploymentDomain:
+          type: string
+        description:
+          type: string
+        docLink:
+          type: string
+        expectedConnectionTimeInMins:
+          type: integer
+        id:
+          type: string
+        logsCollectorDomain:
+          type: string
+        name:
+          type: string
+        otlpCollectorDomain:
+          type: string
+        status:
+          type: string
+        statusPerSignal:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        type:
+          type: string
+        typeSpecificData:
+          oneOf:
+            - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - type: object
+              description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+              additionalProperties: true
+        updatedAt:
+          type: string
+          format: date-time
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -612,6 +773,19 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/UserInvitation'
+    ListRolesResponse:
+      type: object
+      description: |-
+        ListRolesResponse is the response for listing available
+        user roles.
+      required:
+        - roles
+      properties:
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
     ListSyntheticMonitorsResponse:
       type: object
       description: |-
@@ -972,7 +1146,7 @@ components:
         MonitorTrigger represents a monitor that triggers an alert.
 
         JSON field names use camelCase (monitorID, startsAt, endsAt, updatedAt) for
-        historical reasons — most other Oodle API schemas use snake_case. The
+        historical reasons - most other Oodle API schemas use snake_case. The
         camelCase casing is preserved here to avoid breaking existing HTTP clients
         that depend on the current field names. New schemas should use snake_case.
       required:
@@ -1346,6 +1520,19 @@ components:
           type: string
         text:
           type: string
+    PatchIntegration:
+      type: object
+      properties:
+        status:
+          type: string
+        type:
+          type: string
+        typeSpecificData:
+          oneOf:
+            - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - type: object
+              description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+              additionalProperties: true
     PrometheusQueryResponse:
       type: object
       required:
@@ -2234,6 +2421,24 @@ components:
           type: string
         User:
           $ref: '#/components/schemas/net_url_Userinfo'
+    UpdateApiKeyRequest:
+      type: object
+      required:
+        - name
+        - scopes
+      properties:
+        name:
+          type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+        scopes:
+          type: array
+          nullable: true
+          items:
+            type: string
     UpdateDropRuleRequest:
       type: object
       description: UpdateDropRuleRequest is the request body for updating a drop rule.
@@ -2253,6 +2458,22 @@ components:
         rule_name:
           type: string
         type:
+          type: string
+    UpdateUserRequest:
+      type: object
+      description: |-
+        UpdateUserRequest is the request body for updating a
+        user within the organization.
+      required:
+        - user_id
+        - roles
+      properties:
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
+        user_id:
           type: string
     User:
       type: object
@@ -2339,9 +2560,6 @@ components:
         url:
           type: string
           description: URL to send POST request to.
-    integrationResponse:
-      type: object
-      additionalProperties: true
     integrationSetupSpecResponse:
       type: object
       additionalProperties: true
@@ -2408,52 +2626,79 @@ components:
       description: API key for authentication. Create one in Oodle UI under Settings > API Keys.
       name: X-API-Key
       in: header
+    OAuth2Auth:
+      type: oauth2
+      description: OAuth2 authentication using Authorization Code with PKCE. Discover the authorization server via GET /.well-known/oauth-protected-resource, then run the PKCE flow to obtain an access token. The easiest option is `oodle auth login` from the Oodle CLI.
+      flows:
+        authorizationCode:
+          authorizationUrl: https://AUTH_SERVER/authorize
+          tokenUrl: https://AUTH_SERVER/oauth/token
+          scopes:
+            email: User email address
+            offline_access: Refresh token for long-lived sessions
+            openid: OpenID Connect identity
+            profile: User profile information
 info:
   title: Oodle API
   description: |-
     The Oodle API provides programmatic access to your Oodle observability platform.
 
-    All endpoints require authentication via an API key passed in the `X-API-Key` header.
-    You can create API keys in the Oodle UI under Settings > API Keys.
+    All endpoints support authentication via an **API key** or an **OAuth2 Bearer token**.
+
+    ## API Key Authentication
+
+    Create an API key in the Oodle UI under **Settings > API Keys**, then pass it in every request:
+
+    ```bash
+    curl https://us1.api.oodle.ai/v1/api/monitors \
+      -H 'X-API-Key: YOUR_API_KEY'
+    ```
+
+    ## OAuth2 Authentication
+
+    Authenticate with OAuth2 using the [Oodle CLI](https://github.com/oodle-ai/oodle-cli):
+
+    ```bash
+    # Log in (opens browser)
+    oodle auth login
+
+    # Print the current OAuth2 access token
+    oodle auth token
+    ```
+
+    Use the token in API requests:
+
+    ```bash
+    curl https://us1.api.oodle.ai/v1/api/monitors \
+      -H "Authorization: Bearer $(oodle auth token)"
+    ```
+
+    The CLI handles token storage, refresh, and renewal automatically. Running `oodle auth token` returns a valid access token, refreshing it if needed.
+
+    ### When to use which
+
+    | Method | Best for |
+    |--------|----------|
+    | **API Key** | Scripts, CI pipelines, quick integrations |
+    | **OAuth2** | CLI usage, integrations with token rotation, SSO-based access |
+
+    ## Base URL
 
     Base URL varies by region:
 
-    - `https://us1.api.oodle.ai` — US (default)
-    - `https://ap1.api.oodle.ai` — AP1
+    - `https://us1.api.oodle.ai` - US (default)
+    - `https://ap1.api.oodle.ai` - AP1
   version: 1.0.0
 paths:
-  /.well-known/oauth-protected-resource:
-    get:
-      tags:
-        - OAuth
-      summary: List Oauth Protected Resource
-      operationId: listOauthProtectedResource
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_api-server_apps_oauth_models_ProtectedResourceMetadataResponse'
-        "500":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-      security: []
   /api/v1/log_index_patterns:
     get:
       tags:
         - Logs
       summary: List index patterns
-      description: Returns the available log index patterns for the authenticated instance. Use the returned title as the index value in query_logs requests.
+      description: |-
+        Returns the available log index patterns for the authenticated instance. Use the returned title as the index value in query_logs requests.
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listLog_index_patterns
       responses:
         "200":
@@ -2487,7 +2732,10 @@ paths:
       tags:
         - Metrics
       summary: Instant query
-      description: Evaluate a PromQL expression at a single point in time. Returns the current value of the expression. Compatible with the Prometheus /api/v1/query endpoint.
+      description: |-
+        Evaluate a PromQL expression at a single point in time. Returns the current value of the expression. Compatible with the Prometheus /api/v1/query endpoint.
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: queryMetricsInstant
       parameters:
         - name: OODLE-INSTANCE
@@ -2532,7 +2780,10 @@ paths:
       tags:
         - Logs
       summary: Query logs
-      description: 'Search log data using the OpenSearch-compatible multi-search API. The request body uses NDJSON format with two JSON objects separated by a newline: the first selects the index, the second contains the search query using OpenSearch Query DSL.'
+      description: |-
+        Search log data using the OpenSearch-compatible multi-search API. The request body uses NDJSON format with two JSON objects separated by a newline: the first selects the index, the second contains the search query using OpenSearch Query DSL.
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: queryLogs
       parameters:
         - name: X-OODLE-INSTANCE
@@ -2569,7 +2820,10 @@ paths:
       tags:
         - Metrics
       summary: Range query
-      description: Evaluate a PromQL expression over a time range. Returns a time series of values. Compatible with the Prometheus /api/v1/query_range endpoint.
+      description: |-
+        Evaluate a PromQL expression over a time range. Returns a time series of values. Compatible with the Prometheus /api/v1/query_range endpoint.
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: queryMetricsRange
       parameters:
         - name: OODLE-INSTANCE
@@ -2632,7 +2886,10 @@ paths:
     get:
       tags:
         - OAuth
-      summary: List Oauth Protected Resource
+      summary: Get OAuth protected resource metadata
+      description: |2-
+
+        **Required role:** None (public endpoint)
       operationId: listOauthProtectedResourceV1
       responses:
         "200":
@@ -2659,6 +2916,9 @@ paths:
       tags:
         - API Keys
       summary: List Api Keys
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listApiKeys
       parameters:
         - name: instance
@@ -2698,6 +2958,9 @@ paths:
       tags:
         - API Keys
       summary: Create Api Keys
+      description: |2-
+
+        **Required role:** Admin
       operationId: createApiKeys
       parameters:
         - name: instance
@@ -2746,7 +3009,10 @@ paths:
     delete:
       tags:
         - API Keys
-      summary: Delete Api Keys
+      summary: Delete Api Key
+      description: |2-
+
+        **Required role:** Admin
       operationId: deleteApiKeysById
       parameters:
         - name: id
@@ -2791,7 +3057,10 @@ paths:
     get:
       tags:
         - API Keys
-      summary: Get Api Keys
+      summary: Get Api Key
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getApiKeysById
       parameters:
         - name: id
@@ -2837,11 +3106,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - API Keys
+      summary: Patch Api Key
+      description: |2-
+
+        **Required role:** Admin
+      operationId: patchApiKeysById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApiKeyRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKey'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/drop-rules:
     get:
       tags:
         - Metric Drop Rules
       summary: List Drop Rules
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listDropRules
       parameters:
         - name: instance
@@ -2881,6 +3216,9 @@ paths:
       tags:
         - Metric Drop Rules
       summary: Create Drop Rules
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createDropRules
       parameters:
         - name: instance
@@ -2929,7 +3267,10 @@ paths:
     delete:
       tags:
         - Metric Drop Rules
-      summary: Delete Drop Rules
+      summary: Delete Drop Rule
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteDropRulesById
       parameters:
         - name: id
@@ -2974,7 +3315,10 @@ paths:
     get:
       tags:
         - Metric Drop Rules
-      summary: Get Drop Rules
+      summary: Get Drop Rule
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getDropRulesById
       parameters:
         - name: id
@@ -3023,7 +3367,10 @@ paths:
     put:
       tags:
         - Metric Drop Rules
-      summary: Update Drop Rules
+      summary: Update Drop Rule
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateDropRulesById
       parameters:
         - name: id
@@ -3085,6 +3432,9 @@ paths:
       tags:
         - Dashboards
       summary: List Dashboards
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listDashboards
       parameters:
         - name: instance
@@ -3124,6 +3474,9 @@ paths:
       tags:
         - Dashboards
       summary: Create Dashboards
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createDashboards
       parameters:
         - name: instance
@@ -3172,7 +3525,10 @@ paths:
     delete:
       tags:
         - Dashboards
-      summary: Delete Dashboards
+      summary: Delete Dashboard
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteDashboardsById
       parameters:
         - name: id
@@ -3221,7 +3577,10 @@ paths:
     get:
       tags:
         - Dashboards
-      summary: Get Dashboards
+      summary: Get Dashboard
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getDashboardsById
       parameters:
         - name: id
@@ -3272,6 +3631,9 @@ paths:
       tags:
         - Dashboard Folders
       summary: List Folders
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listFolders
       parameters:
         - name: instance
@@ -3311,6 +3673,9 @@ paths:
       tags:
         - Dashboard Folders
       summary: Create Folders
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createFolders
       parameters:
         - name: instance
@@ -3360,7 +3725,10 @@ paths:
       tags:
         - Integrations
       summary: List Integrations
-      description: Returns all integrations for the given instance, including type, name, status, API key, collector domains, and categories.
+      description: |-
+        Returns all integrations for the given instance, including type, name, status, API key, collector domains, and categories.
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listIntegrations
       parameters:
         - name: instance
@@ -3377,8 +3745,291 @@ paths:
               schema:
                 type: array
                 items:
-                  $ref: '#/components/schemas/integrationResponse'
+                  $ref: '#/components/schemas/Integration'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - Integrations
+      summary: Create Integrations
+      description: |-
+        Create a new integration. The `typeSpecificData` payload shape depends on the parent `type` field; for `CLOUDWATCH_METRIC_PULL`, populate `cloudWatchMetricPullIntegration` with the AWS account ID, IAM role ARN, external ID, regions, and resource-type filters. The backend validates IAM role assumption synchronously before persisting.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: createIntegrations
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateIntegrationRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/integrations/{integrationId}:
+    delete:
+      tags:
+        - Integrations
+      summary: Delete Integration
+      description: |-
+        Delete an integration.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: deleteIntegrationsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: integrationId
+          in: path
+          description: Integration ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - Integrations
+      summary: Get Integration
+      description: |-
+        Get an integration by ID.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: getIntegrationsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: integrationId
+          in: path
+          description: Integration ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - Integrations
+      summary: Patch Integration
+      description: |-
+        Update an integration. Only fields present in the request body are modified. For `CLOUDWATCH_METRIC_PULL`, the backend re-validates IAM role assumption if the role ARN or external ID changes.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: patchIntegrationsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: integrationId
+          in: path
+          description: Integration ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchIntegration'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - Integrations
+      summary: Update Integration
+      description: |-
+        Verb alias of PATCH. Same body shape and semantics.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: updateIntegrationsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: integrationId
+          in: path
+          description: Integration ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchIntegration'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Integration'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
           description: ""
           content:
             application/json:
@@ -3401,6 +4052,9 @@ paths:
       tags:
         - Log Metrics
       summary: List Logmetrics
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listLogmetrics
       parameters:
         - name: instance
@@ -3440,6 +4094,9 @@ paths:
       tags:
         - Log Metrics
       summary: Create Logmetrics
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createLogmetrics
       parameters:
         - name: instance
@@ -3488,7 +4145,10 @@ paths:
     delete:
       tags:
         - Log Metrics
-      summary: Delete Logmetrics
+      summary: Delete Logmetric
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteLogmetricsById
       parameters:
         - name: id
@@ -3539,7 +4199,10 @@ paths:
     get:
       tags:
         - Log Metrics
-      summary: Get Logmetrics
+      summary: Get Logmetric
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getLogmetricsById
       parameters:
         - name: id
@@ -3594,7 +4257,10 @@ paths:
     put:
       tags:
         - Log Metrics
-      summary: Update Logmetrics
+      summary: Update Logmetric
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateLogmetricsById
       parameters:
         - name: id
@@ -3655,7 +4321,10 @@ paths:
     get:
       tags:
         - Metrics
-      summary: Get Labels
+      summary: Get Label
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getLabelsById
       parameters:
         - name: endTimeEpochMs
@@ -3726,7 +4395,10 @@ paths:
     get:
       tags:
         - Metrics
-      summary: Get Values
+      summary: Get Value
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getValuesById
       parameters:
         - name: endTimeEpochMs
@@ -3804,6 +4476,9 @@ paths:
       tags:
         - Metrics
       summary: List Names
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listNames
       parameters:
         - name: endTimeEpochMs
@@ -3869,6 +4544,9 @@ paths:
       tags:
         - Monitors
       summary: Get Monitor State
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getMonitorStateById
       parameters:
         - name: history_range
@@ -3930,6 +4608,9 @@ paths:
       tags:
         - Monitors
       summary: List Monitor Triggers
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listMonitorTriggers
       parameters:
         - name: instance
@@ -3970,6 +4651,9 @@ paths:
       tags:
         - Monitors
       summary: Delete Monitors
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteMonitors
       parameters:
         - name: instance
@@ -4014,6 +4698,9 @@ paths:
       tags:
         - Monitors
       summary: List Monitors
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listMonitors
       parameters:
         - name: instance
@@ -4053,6 +4740,9 @@ paths:
       tags:
         - Monitors
       summary: Create Monitors
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createMonitors
       parameters:
         - name: instance
@@ -4101,7 +4791,10 @@ paths:
     delete:
       tags:
         - Monitors
-      summary: Delete Monitors
+      summary: Delete Monitor
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteMonitorsById
       parameters:
         - name: id
@@ -4152,7 +4845,10 @@ paths:
     get:
       tags:
         - Monitors
-      summary: Get Monitors
+      summary: Get Monitor
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getMonitorsById
       parameters:
         - name: id
@@ -4207,7 +4903,10 @@ paths:
     put:
       tags:
         - Monitors
-      summary: Update Monitors
+      summary: Update Monitor
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateMonitorsById
       parameters:
         - name: id
@@ -4269,6 +4968,9 @@ paths:
       tags:
         - Muting Rules
       summary: List Muting Rules
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listMutingRules
       parameters:
         - name: instance
@@ -4308,6 +5010,9 @@ paths:
       tags:
         - Muting Rules
       summary: Create Muting Rules
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createMutingRules
       parameters:
         - name: instance
@@ -4356,7 +5061,10 @@ paths:
     delete:
       tags:
         - Muting Rules
-      summary: Delete Muting Rules
+      summary: Delete Muting Rule
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteMutingRulesById
       parameters:
         - name: id
@@ -4401,7 +5109,10 @@ paths:
     get:
       tags:
         - Muting Rules
-      summary: Get Muting Rules
+      summary: Get Muting Rule
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getMutingRulesById
       parameters:
         - name: id
@@ -4452,6 +5163,9 @@ paths:
       tags:
         - Notification Policies
       summary: List Notification Policies
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listNotificationPolicies
       parameters:
         - name: instance
@@ -4491,6 +5205,9 @@ paths:
       tags:
         - Notification Policies
       summary: Create Notification Policies
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createNotificationPolicies
       parameters:
         - name: instance
@@ -4539,7 +5256,10 @@ paths:
     delete:
       tags:
         - Notification Policies
-      summary: Delete Notification Policies
+      summary: Delete Notification Policy
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteNotificationPoliciesById
       parameters:
         - name: id
@@ -4590,7 +5310,10 @@ paths:
     get:
       tags:
         - Notification Policies
-      summary: Get Notification Policies
+      summary: Get Notification Policy
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getNotificationPoliciesById
       parameters:
         - name: id
@@ -4645,7 +5368,10 @@ paths:
     put:
       tags:
         - Notification Policies
-      summary: Update Notification Policies
+      summary: Update Notification Policy
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateNotificationPoliciesById
       parameters:
         - name: id
@@ -4707,6 +5433,9 @@ paths:
       tags:
         - Notifiers
       summary: List Notifiers
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listNotifiers
       parameters:
         - name: instance
@@ -4746,6 +5475,9 @@ paths:
       tags:
         - Notifiers
       summary: Create Notifiers
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createNotifiers
       parameters:
         - name: instance
@@ -4794,7 +5526,10 @@ paths:
     delete:
       tags:
         - Notifiers
-      summary: Delete Notifiers
+      summary: Delete Notifier
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteNotifiersById
       parameters:
         - name: id
@@ -4851,7 +5586,10 @@ paths:
     get:
       tags:
         - Notifiers
-      summary: Get Notifiers
+      summary: Get Notifier
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getNotifiersById
       parameters:
         - name: id
@@ -4906,7 +5644,10 @@ paths:
     put:
       tags:
         - Notifiers
-      summary: Update Notifiers
+      summary: Update Notifier
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateNotifiersById
       parameters:
         - name: id
@@ -4963,11 +5704,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/roles:
+    get:
+      tags:
+        - Users
+      summary: List Roles
+      description: |2-
+
+        **Required role:** Admin
+      operationId: listRolesOp
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListRolesResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/synthetic-monitors:
     get:
       tags:
         - Synthetic Monitors
       summary: List Synthetic Monitors
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listSyntheticMonitorsOp
       parameters:
         - name: instance
@@ -5005,6 +5796,9 @@ paths:
       tags:
         - Synthetic Monitors
       summary: Create Synthetic Monitors
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createSyntheticMonitors
       parameters:
         - name: instance
@@ -5053,7 +5847,10 @@ paths:
     delete:
       tags:
         - Synthetic Monitors
-      summary: Delete Synthetic Monitors
+      summary: Delete Synthetic Monitor
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: deleteSyntheticMonitorsById
       parameters:
         - name: id
@@ -5098,7 +5895,10 @@ paths:
     get:
       tags:
         - Synthetic Monitors
-      summary: Get Synthetic Monitors
+      summary: Get Synthetic Monitor
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getSyntheticMonitorsById
       parameters:
         - name: id
@@ -5147,7 +5947,10 @@ paths:
     put:
       tags:
         - Synthetic Monitors
-      summary: Update Synthetic Monitors
+      summary: Update Synthetic Monitor
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: updateSyntheticMonitorsById
       parameters:
         - name: id
@@ -5209,6 +6012,9 @@ paths:
       tags:
         - Synthetic Monitors
       summary: Create Run
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createRunById
       parameters:
         - name: id
@@ -5259,6 +6065,9 @@ paths:
       tags:
         - Monitors
       summary: Create Template Files
+      description: |2-
+
+        **Required role:** Editor or Admin
       operationId: createTemplateFiles
       parameters:
         - name: instance
@@ -5306,6 +6115,9 @@ paths:
       tags:
         - Traces
       summary: List Labels
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listLabels
       parameters:
         - name: end
@@ -5361,7 +6173,10 @@ paths:
     get:
       tags:
         - Traces
-      summary: Get Values
+      summary: Get Value
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getTraceLabelValuesById
       parameters:
         - name: end
@@ -5424,6 +6239,9 @@ paths:
       tags:
         - Traces
       summary: List Traces
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: listTraces
       parameters:
         - name: end
@@ -5516,7 +6334,10 @@ paths:
     get:
       tags:
         - Traces
-      summary: Get Traces
+      summary: Get Trace
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
       operationId: getTracesById
       parameters:
         - name: end
@@ -5583,10 +6404,66 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users:
+    delete:
+      tags:
+        - Users
+      summary: Delete Users
+      description: |2-
+
+        **Required role:** Admin
+      operationId: deleteUsers
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteUserRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
     get:
       tags:
         - Users
       summary: List Users
+      description: |2-
+
+        **Required role:** Admin
       operationId: listUsersOp
       parameters:
         - name: query
@@ -5631,11 +6508,67 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - Users
+      summary: Patch Users
+      description: |2-
+
+        **Required role:** Admin
+      operationId: patchUsers
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users/invitations:
     get:
       tags:
         - Users
       summary: List Invitations
+      description: |2-
+
+        **Required role:** Admin
       operationId: listInvitationsOp
       parameters:
         - name: instance
@@ -5678,7 +6611,10 @@ paths:
     post:
       tags:
         - Users
-      summary: Create Invitations
+      summary: Create Invitation
+      description: |2-
+
+        **Required role:** Admin
       operationId: createInvitations
       parameters:
         - name: instance
@@ -5729,22 +6665,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/users/invitations/{id}:
+  /v1/api/instance/{instance}/users/invitations/{invitationId}:
     delete:
       tags:
         - Users
-      summary: Delete Invitations
+      summary: Delete Invitation
+      description: |2-
+
+        **Required role:** Admin
       operationId: deleteInvitationsById
       parameters:
-        - name: id
-          in: path
-          description: Resource ID
-          required: true
-          schema:
-            type: string
         - name: instance
           in: path
           description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: invitationId
+          in: path
+          description: Resource ID
           required: true
           schema:
             type: string
@@ -5781,11 +6720,72 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - Users
+      summary: Get Invitation
+      description: |2-
+
+        **Required role:** Admin
+      operationId: getInvitationsById
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID
+          required: true
+          schema:
+            type: string
+        - name: invitationId
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserInvitation'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/users/invitations/bulk:
     post:
       tags:
         - Users
       summary: Create Bulk
+      description: |2-
+
+        **Required role:** Admin
       operationId: createBulk
       parameters:
         - name: instance
@@ -5841,7 +6841,10 @@ paths:
       tags:
         - Integrations
       summary: Get integration setup spec
-      description: Returns the structured setup specification for the given integration type. Contains requirements, parameters, setup methods with step-by-step instructions, config templates, and validation hints. No authentication required.
+      description: |-
+        Returns the structured setup specification for the given integration type. Contains requirements, parameters, setup methods with step-by-step instructions, config templates, and validation hints. No authentication required.
+
+        **Required role:** None (public endpoint)
       operationId: getIntegrationSetupSpec
       parameters:
         - name: integrationType
@@ -5875,7 +6878,10 @@ paths:
       tags:
         - Integrations
       summary: List integration setup specs
-      description: Returns a list of all available integration types that have a setup spec. Each entry contains the type slug and description. Includes aliases. No authentication required.
+      description: |-
+        Returns a list of all available integration types that have a setup spec. Each entry contains the type slug and description. Includes aliases. No authentication required.
+
+        **Required role:** None (public endpoint)
       operationId: listIntegrationSetupSpecs
       responses:
         "200":
@@ -5892,6 +6898,7 @@ paths:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
       security: []
 security:
+  - OAuth2Auth: []
   - ApiKeyAuth: []
 servers:
   - url: https://us1.api.oodle.ai
