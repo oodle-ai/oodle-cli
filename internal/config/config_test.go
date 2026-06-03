@@ -115,6 +115,41 @@ func TestLoadConfig_FromFileWithOAuthToken(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_FlagAPIKeyClearsFileOAuth(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "oauth_access_token: oauth-token\noauth_refresh_token: refresh-token\noauth_token_expiry: 2099-01-01T00:00:00Z\ninstance: file-instance\napi_url: https://file.example.com\n")
+	os.Setenv("OODLE_CONFIG", path)
+
+	cfg, err := LoadConfig("flag-key", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.APIKey != "flag-key" {
+		t.Errorf("APIKey = %q, want flag-key", cfg.APIKey)
+	}
+	if cfg.OAuthAccessToken != "" || cfg.OAuthRefreshToken != "" || cfg.OAuthTokenExpiry != "" {
+		t.Errorf("OAuth fields should be cleared when --api-key is explicit, got %+v", cfg)
+	}
+}
+
+func TestLoadConfig_EnvAPIKeyClearsFileOAuth(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "oauth_access_token: oauth-token\noauth_refresh_token: refresh-token\ninstance: file-instance\napi_url: https://file.example.com\n")
+	os.Setenv("OODLE_CONFIG", path)
+	os.Setenv("OODLE_API_KEY", "env-key")
+
+	cfg, err := LoadConfig("", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.APIKey != "env-key" {
+		t.Errorf("APIKey = %q, want env-key", cfg.APIKey)
+	}
+	if cfg.OAuthAccessToken != "" || cfg.OAuthRefreshToken != "" {
+		t.Errorf("OAuth fields should be cleared when OODLE_API_KEY is set, got %+v", cfg)
+	}
+}
+
 func TestLoadConfig_MissingAuthentication(t *testing.T) {
 	withCleanEnv(t)
 	os.Setenv("OODLE_INSTANCE", "x")

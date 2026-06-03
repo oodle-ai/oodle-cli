@@ -6,6 +6,8 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -16,6 +18,20 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/config"
 	"golang.org/x/oauth2"
 )
+
+// TestMain isolates this package's tests from the developer's real config
+// file. Several tests exercise the auth path end-to-end, which triggers
+// MaybePersistRefreshedOAuthToken → cfg.Save() — without this hook, Save()
+// would write to ~/.oodle/config.yaml and overwrite real credentials.
+func TestMain(m *testing.M) {
+	tmp, err := os.MkdirTemp("", "oodle-cli-api-test-")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tmp)
+	_ = os.Setenv("OODLE_CONFIG", filepath.Join(tmp, "config.yaml"))
+	os.Exit(m.Run())
+}
 
 // fastRetryTransport returns a retryTransport with timing knobs zeroed for
 // fast tests.

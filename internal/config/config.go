@@ -52,8 +52,9 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	}
 
 	// Env vars override file.
-	if v := os.Getenv("OODLE_API_KEY"); v != "" {
-		cfg.APIKey = v
+	envAPIKey := os.Getenv("OODLE_API_KEY")
+	if envAPIKey != "" {
+		cfg.APIKey = envAPIKey
 	}
 	if v := os.Getenv("OODLE_OAUTH_ACCESS_TOKEN"); v != "" {
 		cfg.OAuthAccessToken = v
@@ -77,6 +78,16 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	}
 	if flagAPIURL != "" {
 		cfg.APIURL = flagAPIURL
+	}
+
+	// An explicit API key (via --api-key flag or OODLE_API_KEY env var) is a
+	// signal that the caller wants API-key auth for this invocation. Drop any
+	// OAuth credentials inherited from the config file so the request editor
+	// in internal/api doesn't silently send a stale Bearer token instead.
+	if flagAPIKey != "" || envAPIKey != "" {
+		cfg.OAuthAccessToken = ""
+		cfg.OAuthRefreshToken = ""
+		cfg.OAuthTokenExpiry = ""
 	}
 
 	// Defaults.
