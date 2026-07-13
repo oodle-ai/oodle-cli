@@ -418,6 +418,40 @@ oodle users list -o json
 oodle users invitations --help
 ```
 
+### Grafana Migration — `oodle grafana`
+
+Migrate a Grafana instance's dashboards, folders, data sources and alert
+rules into Oodle. The command runs entirely from your machine, so it works
+even when Grafana is only reachable locally (for example behind a VPN):
+it exports the assets from Grafana, uploads them to Oodle, and imports them.
+
+```sh
+# Full migration (export -> upload -> import)
+oodle grafana migrate \
+  --grafana-url https://grafana.internal.acme.com \
+  --grafana-token <grafana-service-account-token>
+
+# Only migrate dashboards carrying specific tags
+oodle grafana migrate --grafana-url ... --grafana-token ... \
+  --include-tags team-a,prod
+
+# Export and upload only, then review and import from the Oodle UI
+oodle grafana migrate --grafana-url ... --grafana-token ... --skip-import
+```
+
+| Flag              | Description                                                     |
+|-------------------|-----------------------------------------------------------------|
+| `--grafana-url`   | Grafana base URL (required)                                     |
+| `--grafana-token` | Grafana service account token (required)                       |
+| `--include-tags`  | Only migrate dashboards with these tags; empty migrates all    |
+| `--overwrite`     | Overwrite existing dashboards and data sources (default `true`)|
+| `--skip-import`   | Export and upload only; review and import from the Oodle UI    |
+
+Non-Prometheus data sources (CloudWatch, Cloud Monitoring, Athena, BigQuery,
+Azure Monitor, ...) are recreated in Oodle with their original IDs so your
+dashboards keep working; configure their credentials from the Oodle UI after
+migration. Prometheus panels are repointed at Oodle's built-in data source.
+
 ### Other commands
 
 | Command       | Description                                    |
