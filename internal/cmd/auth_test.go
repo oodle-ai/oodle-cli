@@ -27,6 +27,8 @@ func TestOAuthClientIDForDomain(t *testing.T) {
 		{name: "us1 oauth deployment domain", domain: us1OAuthDeploymentDomain, wantID: us1ClientID},
 		{name: "ap1 deployment domain", domain: ap1DeploymentDomain, wantID: ap1ClientID},
 		{name: "ap1 oauth deployment domain", domain: ap1OAuthDeploymentDomain, wantID: ap1ClientID},
+		{name: "eu1 deployment domain", domain: eu1DeploymentDomain, wantID: eu1ClientID},
+		{name: "eu1 oauth deployment domain", domain: eu1OAuthDeploymentDomain, wantID: eu1ClientID},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -61,6 +63,10 @@ func TestNormalizeDomain(t *testing.T) {
 		{in: "AP1", want: ap1DeploymentDomain},
 		{in: "ap1.oodle.ai", want: ap1DeploymentDomain},
 		{in: "https://ap1.oodle.ai/", want: ap1DeploymentDomain},
+		{in: "eu1", want: eu1DeploymentDomain},
+		{in: "EU1", want: eu1DeploymentDomain},
+		{in: "eu1.oodle.ai", want: eu1DeploymentDomain},
+		{in: "https://eu1.oodle.ai/", want: eu1DeploymentDomain},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {
@@ -82,8 +88,10 @@ func TestOAuthDeploymentDomainForDomain(t *testing.T) {
 	}{
 		{in: us1DeploymentDomain, want: us1OAuthDeploymentDomain},
 		{in: ap1DeploymentDomain, want: ap1OAuthDeploymentDomain},
+		{in: eu1DeploymentDomain, want: eu1OAuthDeploymentDomain},
 		{in: us1OAuthDeploymentDomain, want: us1OAuthDeploymentDomain},
 		{in: ap1OAuthDeploymentDomain, want: ap1OAuthDeploymentDomain},
+		{in: eu1OAuthDeploymentDomain, want: eu1OAuthDeploymentDomain},
 	}
 	for _, tt := range tests {
 		if got := oauthDeploymentDomainForDomain(tt.in); got != tt.want {

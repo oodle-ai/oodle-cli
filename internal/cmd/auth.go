@@ -28,10 +28,13 @@ import (
 const (
 	us1ClientID              = "9aSE9FiizGd2cvES9fkRXVeoH2NbMlkI"
 	ap1ClientID              = "BtkEridc4BuBIhm8E3IKK0XEDYh82s43"
+	eu1ClientID              = "60pHxRt5mb4M5J7pcFBN5TEWX25jthu7"
 	us1DeploymentDomain      = "us1.oodle.ai"
 	ap1DeploymentDomain      = "ap1.oodle.ai"
+	eu1DeploymentDomain      = "eu1.oodle.ai"
 	us1OAuthDeploymentDomain = "prod-02-us-west-2.api.oodle.ai"
 	ap1OAuthDeploymentDomain = "prod-01-ap-south1.api.oodle.ai"
+	eu1OAuthDeploymentDomain = "eu1.api.oodle.ai"
 )
 
 type oauthProtectedResourceMetadata struct {
@@ -77,7 +80,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 			return runAuthLogin(cmd, flags, loginDeployment)
 		},
 	}
-	loginCmd.Flags().StringVarP(&loginDeployment, "deployment", "d", "", "Deployment (us1, ap1, or full deployment URL/host)")
+	loginCmd.Flags().StringVarP(&loginDeployment, "deployment", "d", "", "Deployment (us1, ap1, eu1, or full deployment URL/host)")
 
 	getInstanceCmd := &cobra.Command{
 		Use:   "get-instance",
@@ -87,7 +90,7 @@ func newAuthCmd(flags *rootFlags) *cobra.Command {
 			return runAuthGetInstance(cmd, flags, getInstanceDeployment)
 		},
 	}
-	getInstanceCmd.Flags().StringVarP(&getInstanceDeployment, "deployment", "d", "", "Deployment (us1, ap1, or full deployment URL/host)")
+	getInstanceCmd.Flags().StringVarP(&getInstanceDeployment, "deployment", "d", "", "Deployment (us1, ap1, eu1, or full deployment URL/host)")
 
 	logoutCmd := &cobra.Command{
 		Use:   "logout",
@@ -531,6 +534,8 @@ func oauthClientIDForDomain(domain string) (string, error) {
 		return us1ClientID, nil
 	case ap1DeploymentDomain, ap1OAuthDeploymentDomain:
 		return ap1ClientID, nil
+	case eu1DeploymentDomain, eu1OAuthDeploymentDomain:
+		return eu1ClientID, nil
 	default:
 		return "", fmt.Errorf("oauth not supported for deployment %q", domain)
 	}
@@ -542,6 +547,8 @@ func oauthDeploymentDomainForDomain(domain string) string {
 		return us1OAuthDeploymentDomain
 	case ap1DeploymentDomain:
 		return ap1OAuthDeploymentDomain
+	case eu1DeploymentDomain:
+		return eu1OAuthDeploymentDomain
 	default:
 		return strings.ToLower(strings.TrimSpace(domain))
 	}
@@ -553,6 +560,8 @@ func deploymentDomainForDomain(domain string) string {
 		return us1DeploymentDomain
 	case ap1OAuthDeploymentDomain:
 		return ap1DeploymentDomain
+	case eu1OAuthDeploymentDomain:
+		return eu1DeploymentDomain
 	default:
 		return strings.ToLower(strings.TrimSpace(domain))
 	}
@@ -581,6 +590,8 @@ func deploymentSlugFromDomain(domain string) string {
 		return "us1"
 	case ap1DeploymentDomain:
 		return "ap1"
+	case eu1DeploymentDomain:
+		return "eu1"
 	default:
 		return strings.TrimSpace(domain)
 	}
@@ -588,9 +599,9 @@ func deploymentSlugFromDomain(domain string) string {
 
 func deploymentSlugLabel(defaultValue string) string {
 	if strings.TrimSpace(defaultValue) == "" {
-		return "Deployment (us1, ap1)"
+		return "Deployment (us1, ap1, eu1)"
 	}
-	return "Deployment (us1, ap1; press Enter to use default)"
+	return "Deployment (us1, ap1, eu1; press Enter to use default)"
 }
 
 func normalizeDomain(input string) (string, error) {
@@ -617,6 +628,8 @@ func normalizeDomain(input string) (string, error) {
 		return us1DeploymentDomain, nil
 	case "ap1":
 		return ap1DeploymentDomain, nil
+	case "eu1":
+		return eu1DeploymentDomain, nil
 	default:
 		return normalized, nil
 	}
