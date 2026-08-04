@@ -74,7 +74,7 @@ Examples:
 			return runMcpSetup(cmd, args[0], deployment, name, toolsets)
 		},
 	}
-	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
+	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, eu1, or full URL)")
 	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name in agent config")
 	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
 	_ = cmd.MarkFlagRequired("deployment")
@@ -336,7 +336,7 @@ the agent automatically.`,
 			return runMcpServe(cmd, deployment, toolsets)
 		},
 	}
-	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, or full URL)")
+	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, eu1, or full URL)")
 	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
 	_ = cmd.MarkFlagRequired("deployment")
 	return cmd

@@ -136,6 +136,9 @@ Optional flags:
 oodle auth login -d us1
 ```
 
+The `-d`/`--deployment` flag accepts a deployment slug (`us1`, `ap1`, `eu1`)
+or a full deployment URL/host.
+
 ### `oodle auth logout`
 
 Clear saved OAuth credentials from `~/.oodle/config.yaml`.
