@@ -3,6 +3,7 @@ package grafana
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,7 +11,25 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/config"
 )
+
+// testClient builds an api.Client pointed at a stub server, mirroring how the
+// CLI constructs one from resolved config.
+func testClient(t *testing.T, url, instance, apiKey string) *api.Client {
+	t.Helper()
+	c, err := api.NewClient(&config.Config{
+		APIURL:   url,
+		Instance: instance,
+		APIKey:   apiKey,
+	}, 0)
+	if err != nil {
+		t.Fatalf("api.NewClient: %v", err)
+	}
+	return c
+}
 
 func TestOodleClient_UploadRegisterImport(t *testing.T) {
 	const instance = "acme"
@@ -60,6 +79,9 @@ func TestOodleClient_UploadRegisterImport(t *testing.T) {
 			if body["exportedDataFilePath"] != "s3://bucket/oodle_data.tar.gz" {
 				t.Errorf("register exportedDataFilePath = %q", body["exportedDataFilePath"])
 			}
+			if body["grafanaUrl"] != "https://grafana.example.com" {
+				t.Errorf("register grafanaUrl = %q", body["grafanaUrl"])
+			}
 			writeJSON(t, w, map[string]string{"migrationID": "mig-123"})
 
 		case strings.HasSuffix(r.URL.Path, "/grafana/migration/mig-123/import"):
@@ -68,6 +90,11 @@ func TestOodleClient_UploadRegisterImport(t *testing.T) {
 			decode(t, r, &body)
 			if body["overwrite"] != true {
 				t.Errorf("import overwrite = %v, want true", body["overwrite"])
+			}
+			// The tarball is resolved from the migration itself, so the CLI
+			// must not send a path here.
+			if _, ok := body["exportedDataFilePath"]; ok {
+				t.Errorf("import must not send exportedDataFilePath")
 			}
 			writeJSON(t, w, ImportStatus{
 				MigratedDashboards: []MigratedItem{
@@ -85,7 +112,7 @@ func TestOodleClient_UploadRegisterImport(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewOodleClient(srv.URL, instance, apiKey)
+	c := NewOodleClient(testClient(t, srv.URL, instance, apiKey))
 	ctx := context.Background()
 
 	tarPath := filepath.Join(t.TempDir(), "oodle_data.tar.gz")
@@ -101,7 +128,7 @@ func TestOodleClient_UploadRegisterImport(t *testing.T) {
 		t.Fatalf("uploadedPath = %q", uploadedPath)
 	}
 
-	migrationID, err := c.Register(ctx, uploadedPath)
+	migrationID, err := c.Register(ctx, uploadedPath, "https://grafana.example.com")
 	if err != nil {
 		t.Fatalf("Register: %v", err)
 	}
@@ -109,7 +136,7 @@ func TestOodleClient_UploadRegisterImport(t *testing.T) {
 		t.Fatalf("migrationID = %q", migrationID)
 	}
 
-	status, err := c.Import(ctx, migrationID, uploadedPath, true)
+	status, err := c.Import(ctx, migrationID, true)
 	if err != nil {
 		t.Fatalf("Import: %v", err)
 	}
@@ -131,13 +158,22 @@ func TestOodleClient_ErrorResponse(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	c := NewOodleClient(srv.URL, "acme", "key")
-	_, err := c.Register(context.Background(), "s3://x")
+	c := NewOodleClient(testClient(t, srv.URL, "acme", "key"))
+	_, err := c.Register(context.Background(), "s3://x", "")
 	if err == nil {
 		t.Fatal("expected error on 500 response")
 	}
-	if !strings.Contains(err.Error(), "500") {
-		t.Errorf("error should mention status code: %v", err)
+	// Errors come from the shared api layer, so they are typed and carry the
+	// status code rather than embedding it in the message.
+	var apiErr *api.APIError
+	if !errors.As(err, &apiErr) {
+		t.Fatalf("expected *api.APIError, got %T: %v", err, err)
+	}
+	if apiErr.StatusCode != http.StatusInternalServerError {
+		t.Errorf("StatusCode = %d, want 500", apiErr.StatusCode)
+	}
+	if !strings.Contains(apiErr.Message, "boom") {
+		t.Errorf("message should include the server body: %v", apiErr.Message)
 	}
 }
 
@@ -153,5 +189,40 @@ func decode(t *testing.T, r *http.Request, v any) {
 	t.Helper()
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		t.Fatalf("decode request body: %v", err)
+	}
+}
+
+// The Grafana endpoints previously hardcoded X-API-Key, so a user who had only
+// run `oodle auth login` sent an empty key and got a 401. Auth now comes from
+// the shared api layer, which prefers an OAuth Bearer token.
+func TestOodleClient_UsesOAuthBearerWhenConfigured(t *testing.T) {
+	var gotAuth, gotAPIKey string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		gotAPIKey = r.Header.Get("X-API-Key")
+		_ = json.NewEncoder(w).Encode(map[string]string{"migrationID": "mig-1"})
+	}))
+	defer srv.Close()
+
+	c, err := api.NewClient(&config.Config{
+		APIURL:           srv.URL,
+		Instance:         "acme",
+		OAuthAccessToken: "tok-abc",
+	}, 0)
+	if err != nil {
+		t.Fatalf("api.NewClient: %v", err)
+	}
+
+	if _, err := NewOodleClient(c).Register(
+		context.Background(), "s3://x", "https://grafana.example.com",
+	); err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	if gotAuth != "Bearer tok-abc" {
+		t.Errorf("Authorization = %q, want %q", gotAuth, "Bearer tok-abc")
+	}
+	if gotAPIKey != "" {
+		t.Errorf("X-API-Key should not be sent when OAuth is configured, got %q", gotAPIKey)
 	}
 }

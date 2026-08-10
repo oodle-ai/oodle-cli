@@ -27,18 +27,20 @@ func newGrafanaMigrateCmd() *cobra.Command {
 		grafanaToken string
 		includeTags  []string
 		overwrite    bool
-		skipImport   bool
+		runImport    bool
 	)
 
 	cmd := &cobra.Command{
 		Use:   "migrate",
-		Short: "Export assets from a Grafana instance and migrate them into Oodle",
-		Long: `Migrate a Grafana instance into Oodle.
+		Short: "Export assets from a Grafana instance into Oodle for review and import",
+		Long: `Export a Grafana instance into Oodle.
 
-The command runs entirely from your machine, so it works even when Grafana is
+The export runs entirely from your machine, so it works even when Grafana is
 only reachable locally (e.g. behind a VPN). It exports dashboards, folders,
-data sources and alert rules from Grafana, uploads them to Oodle, and imports
-them. Use --skip-import to upload only and finish the review in the Oodle UI.
+data sources and alert rules, uploads them to Oodle, and prints a link where
+you choose what to import.
+
+Pass --import to skip the review and import everything straight away.
 
 Oodle credentials are taken from your CLI configuration ('oodle configure' or
 the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
@@ -78,29 +80,32 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 			defer exporter.Cleanup(result)
 
 			// 2. Upload the tarball to Oodle object storage.
-			oc := grafana.NewOodleClient(cfg.APIURL, cfg.Instance, cfg.APIKey)
+			oc := grafana.NewOodleClient(c)
 			fmt.Fprintln(out, "Uploading export to Oodle ...")
 			uploadedPath, err := oc.UploadTar(ctx, result.TarFilePath)
 			if err != nil {
 				return fmt.Errorf("uploading export: %w", err)
 			}
 
-			// 3. Register the migration (assets now visible in the Oodle UI).
-			migrationID, err := oc.Register(ctx, uploadedPath)
+			// 3. Record the migration so it is reviewable in the Oodle UI.
+			migrationID, err := oc.Register(ctx, uploadedPath, grafanaURL)
 			if err != nil {
 				return fmt.Errorf("registering migration: %w", err)
 			}
 			fmt.Fprintf(out, "Registered migration %s\n", migrationID)
 
+			// Deep-links the Grafana integration tile straight to this
+			// migration, where the user picks what to import.
 			reviewURL := fmt.Sprintf(
-				"%s/settings?integration=GRAFANA",
+				"%s/integrations?search=grafa&integration=GRAFANA&migration=%s",
 				strings.TrimRight(cfg.APIURL, "/"),
+				migrationID,
 			)
 
-			if skipImport {
+			if !runImport {
 				fmt.Fprintf(
 					out,
-					"\nUpload complete. Review the exported assets in Oodle:\n  %s\n",
+					"\nUpload complete. Choose what to import in Oodle:\n  %s\n",
 					reviewURL,
 				)
 				return nil
@@ -108,7 +113,7 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 
 			// 4. Import into Oodle.
 			fmt.Fprintln(out, "Importing into Oodle ...")
-			status, err := oc.Import(ctx, migrationID, uploadedPath, overwrite)
+			status, err := oc.Import(ctx, migrationID, overwrite)
 			if err != nil {
 				return fmt.Errorf("importing migration: %w", err)
 			}
@@ -123,7 +128,7 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 	cmd.Flags().StringVar(&grafanaToken, "grafana-token", "", "Grafana service account token (required)")
 	cmd.Flags().StringSliceVar(&includeTags, "include-tags", nil, "Only migrate dashboards with these tags (comma-separated); empty migrates all")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", true, "Overwrite existing dashboards and data sources")
-	cmd.Flags().BoolVar(&skipImport, "skip-import", false, "Export and upload only; review and import from the Oodle UI")
+	cmd.Flags().BoolVar(&runImport, "import", false, "Import everything immediately instead of choosing what to import in the Oodle UI")
 	_ = cmd.MarkFlagRequired("grafana-url")
 	_ = cmd.MarkFlagRequired("grafana-token")
 
