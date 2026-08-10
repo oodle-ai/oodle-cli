@@ -26,6 +26,14 @@ type Client struct {
 	// Inner is exported so command files can call generated methods directly.
 	Inner  *client.ClientWithResponses
 	Config *config.Config
+
+	maxRetries int
+}
+
+// NewAuthedHTTPClient returns an http.Client that shares this client's auth and
+// retry behaviour, for endpoints the generated OpenAPI client does not cover.
+func (c *Client) NewAuthedHTTPClient(timeout time.Duration) *http.Client {
+	return NewAuthedHTTPClient(c.Config, c.maxRetries, timeout)
 }
 
 // APIError is the structured representation of a non-2xx Oodle API response.
@@ -224,6 +232,78 @@ func (t *jsonFixTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	return resp, nil
 }
 
+// NewAuthRequestEditor returns a request editor that applies Oodle
+// authentication: an OAuth Bearer token when one is configured (refreshing and
+// persisting it as needed), falling back to the API key.
+//
+// Exported so hand-rolled clients for endpoints the generated OpenAPI client
+// does not cover (e.g. the Grafana migration endpoints) authenticate exactly
+// like every other command, rather than hardcoding X-API-Key and silently
+// failing for OAuth-only users.
+func NewAuthRequestEditor(cfg *config.Config) func(context.Context, *http.Request) error {
+	var (
+		mu          sync.Mutex
+		tokenSource oauth2.TokenSource
+	)
+	if cfg != nil && cfg.OAuthAccessToken != "" {
+		tokenSource = BuildOAuthTokenSource(cfg)
+	}
+
+	return func(_ context.Context, req *http.Request) error {
+		if cfg == nil {
+			return nil
+		}
+		if tokenSource != nil {
+			tok, err := tokenSource.Token()
+			if err == nil && tok != nil && tok.AccessToken != "" {
+				req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+				MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
+				return nil
+			}
+		}
+		req.Header.Set("X-API-Key", cfg.APIKey)
+		return nil
+	}
+}
+
+// NewAuthedHTTPClient returns an http.Client that authenticates and retries the
+// same way the generated API client does. `timeout` overrides the default
+// request timeout, which matters for uploads far larger than a normal API call.
+func NewAuthedHTTPClient(
+	cfg *config.Config,
+	maxRetries int,
+	timeout time.Duration,
+) *http.Client {
+	if maxRetries < 0 {
+		maxRetries = 0
+	}
+	if timeout <= 0 {
+		timeout = 60 * time.Second
+	}
+	return &http.Client{
+		Transport: &authTransport{
+			base:   newRetryTransport(http.DefaultTransport, maxRetries),
+			editor: NewAuthRequestEditor(cfg),
+		},
+		Timeout: timeout,
+	}
+}
+
+// authTransport applies the auth editor to every outbound request.
+type authTransport struct {
+	base   http.RoundTripper
+	editor func(context.Context, *http.Request) error
+}
+
+func (t *authTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if t.editor != nil {
+		if err := t.editor(req.Context(), req); err != nil {
+			return nil, err
+		}
+	}
+	return t.base.RoundTrip(req)
+}
+
 // NewClient constructs a Client for the given config.
 func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 	if cfg == nil {
@@ -237,37 +317,16 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 		Timeout:   60 * time.Second,
 	}
 
-	var (
-		mu          sync.Mutex
-		tokenSource oauth2.TokenSource
-	)
-	if cfg.OAuthAccessToken != "" {
-		tokenSource = BuildOAuthTokenSource(cfg)
-	}
-
-	authEditor := func(_ context.Context, req *http.Request) error {
-		if tokenSource != nil {
-			tok, err := tokenSource.Token()
-			if err == nil && tok != nil && tok.AccessToken != "" {
-				req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-				MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
-				return nil
-			}
-		}
-		req.Header.Set("X-API-Key", cfg.APIKey)
-		return nil
-	}
-
 	gen, err := client.NewClientWithResponses(
 		cfg.APIURL,
 		client.WithHTTPClient(httpClient),
-		client.WithRequestEditorFn(authEditor),
+		client.WithRequestEditorFn(NewAuthRequestEditor(cfg)),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("creating API client: %w", err)
 	}
 
-	return &Client{Inner: gen, Config: cfg}, nil
+	return &Client{Inner: gen, Config: cfg, maxRetries: maxRetries}, nil
 }
 
 // BuildOAuthTokenSource creates an oauth2.TokenSource from the given config.
