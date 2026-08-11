@@ -23,11 +23,14 @@ func newConfigureCmd(flags *rootFlags) *cobra.Command {
 		Short: "Configure the Oodle CLI",
 		Long: `Save Oodle CLI credentials to ~/.oodle/config.yaml.
 
-In non-interactive mode (when --api-key, --instance, and --api-url are all
-provided as flags), the configuration is written without prompting.
+Values supplied as flags (or via the OODLE_API_KEY, OODLE_INSTANCE and
+OODLE_DEPLOYMENT/OODLE_API_URL environment variables) are never prompted for.
+When all three are supplied that way, the configuration is written without
+prompting at all.
 
-When run in a TTY without all flags provided, you will be prompted for any
-missing values.`,
+When run in a TTY, you are prompted only for the values that were not supplied
+- so 'oodle configure --api-key <key> --instance <id>' just asks for the API
+URL, offering the current (or default) host as the answer.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runConfigure(cmd, flags)
@@ -46,7 +49,15 @@ func runConfigure(cmd *cobra.Command, flags *rootFlags) error {
 	instance := firstNonEmpty(flags.instance, os.Getenv("OODLE_INSTANCE"))
 	apiURL := firstNonEmpty(flags.apiURL, os.Getenv("OODLE_DEPLOYMENT"), os.Getenv("OODLE_API_URL"))
 
-	// Check for existing config to use as a fallback.
+	// A value given as a flag or env var is authoritative: never prompt for it.
+	supplied := suppliedValues{
+		apiKey:   apiKey != "",
+		instance: instance != "",
+		apiURL:   apiURL != "",
+	}
+
+	// Check for existing config to use as a fallback. These only seed the
+	// prompt defaults – they do not count as supplied.
 	if existing, err := loadExistingConfig(); err == nil && existing != nil {
 		if apiKey == "" {
 			apiKey = existing.APIKey
@@ -59,12 +70,15 @@ func runConfigure(cmd *cobra.Command, flags *rootFlags) error {
 		}
 	}
 
-	allFlagsProvided := flags.apiKey != "" && flags.instance != "" && flags.apiURL != ""
+	// Prompt whenever any value is still missing from flags/env – including the
+	// API URL, so users configuring with --api-key/--instance still get to pick
+	// their host (the current value, or the default, is offered as the answer).
+	needsPrompt := !supplied.apiKey || !supplied.instance || !supplied.apiURL
 	isTTY := term.IsTerminal(int(os.Stdin.Fd()))
 
-	if !allFlagsProvided && isTTY {
+	if needsPrompt && isTTY {
 		var err error
-		apiKey, instance, apiURL, err = promptForConfig(cmd.InOrStdin(), out, apiKey, instance, apiURL)
+		apiKey, instance, apiURL, err = promptForConfig(cmd.InOrStdin(), out, apiKey, instance, apiURL, supplied)
 		if err != nil {
 			return err
 		}
@@ -129,42 +143,59 @@ func loadExistingConfig() (*config.Config, error) {
 	return &c, nil
 }
 
-func promptForConfig(in io.Reader, out io.Writer, currentKey, currentInstance, currentURL string) (string, string, string, error) {
+// suppliedValues records which settings came from flags or environment
+// variables, and therefore must not be prompted for.
+type suppliedValues struct {
+	apiKey   bool
+	instance bool
+	apiURL   bool
+}
+
+func promptForConfig(in io.Reader, out io.Writer, currentKey, currentInstance, currentURL string, supplied suppliedValues) (string, string, string, error) {
 	r := bufio.NewReader(in)
 
 	// API URL.
-	defaultURL := currentURL
-	if defaultURL == "" {
-		defaultURL = config.DefaultAPIURL
-	}
-	fmt.Fprintf(out, "Oodle API URL [%s]: ", defaultURL)
-	urlIn, err := r.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", "", "", err
-	}
-	urlIn = strings.TrimSpace(urlIn)
-	if urlIn == "" {
-		urlIn = defaultURL
+	urlIn := currentURL
+	if !supplied.apiURL {
+		defaultURL := currentURL
+		if defaultURL == "" {
+			defaultURL = config.DefaultAPIURL
+		}
+		fmt.Fprintf(out, "Oodle API URL [%s]: ", defaultURL)
+		line, err := r.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", "", "", err
+		}
+		urlIn = strings.TrimSpace(line)
+		if urlIn == "" {
+			urlIn = defaultURL
+		}
 	}
 
 	// Instance.
-	if currentInstance != "" {
-		fmt.Fprintf(out, "Instance ID [%s]: ", currentInstance)
-	} else {
-		fmt.Fprint(out, "Instance ID: ")
-	}
-	instIn, err := r.ReadString('\n')
-	if err != nil && err != io.EOF {
-		return "", "", "", err
-	}
-	instIn = strings.TrimSpace(instIn)
-	if instIn == "" {
-		instIn = currentInstance
+	instIn := currentInstance
+	if !supplied.instance {
+		if currentInstance != "" {
+			fmt.Fprintf(out, "Instance ID [%s]: ", currentInstance)
+		} else {
+			fmt.Fprint(out, "Instance ID: ")
+		}
+		line, err := r.ReadString('\n')
+		if err != nil && err != io.EOF {
+			return "", "", "", err
+		}
+		instIn = strings.TrimSpace(line)
+		if instIn == "" {
+			instIn = currentInstance
+		}
 	}
 
 	// API key – read without echo if stdin is a TTY.
 	keyIn := currentKey
-	if term.IsTerminal(int(os.Stdin.Fd())) {
+	switch {
+	case supplied.apiKey:
+		// Already provided via flag or env; nothing to ask.
+	case term.IsTerminal(int(os.Stdin.Fd())):
 		prompt := "API key"
 		if currentKey != "" {
 			prompt += " (press Enter to keep existing)"
@@ -179,7 +210,7 @@ func promptForConfig(in io.Reader, out io.Writer, currentKey, currentInstance, c
 		if entered != "" {
 			keyIn = entered
 		}
-	} else {
+	default:
 		fmt.Fprint(out, "API key: ")
 		line, err := r.ReadString('\n')
 		if err != nil && err != io.EOF {
