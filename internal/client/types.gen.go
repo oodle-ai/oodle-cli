@@ -468,20 +468,6 @@ type CreatePromptRequest struct {
 	Type   *string     `json:"type,omitempty"`
 }
 
-// CreateScoreConfigRequest CreateScoreConfigRequest declares the shape a named score
-// must take, so the UI and evaluators agree on its range.
-type CreateScoreConfigRequest struct {
-	// Categories Categories is the allowed label set for CATEGORICAL.
-	Categories interface{} `json:"categories,omitempty"`
-
-	// DataType DataType is NUMERIC, BOOLEAN, or CATEGORICAL.
-	DataType    string   `json:"dataType"`
-	Description *string  `json:"description,omitempty"`
-	MaxValue    *float32 `json:"maxValue,omitempty"`
-	MinValue    *float32 `json:"minValue,omitempty"`
-	Name        string   `json:"name"`
-}
-
 // CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
 // observation within it.
 type CreateScoreRequest struct {
@@ -1023,15 +1009,6 @@ type ListPromptsResponse struct {
 // user roles.
 type ListRolesResponse struct {
 	Roles *[]string `json:"roles"`
-}
-
-// ListScoreConfigsResponse ListScoreConfigsResponse is the score config list envelope.
-type ListScoreConfigsResponse struct {
-	Data *[]ScoreConfig `json:"data"`
-
-	// Meta ListMeta is the pagination envelope every llmops list
-	// endpoint returns alongside `data`.
-	Meta ListMeta `json:"meta"`
 }
 
 // ListScoresResponse ListScoresResponse is the score list envelope.
@@ -1623,19 +1600,6 @@ type Score struct {
 	TraceId       string   `json:"traceId"`
 	UpdatedAt     string   `json:"updatedAt"`
 	Value         *float32 `json:"value,omitempty"`
-}
-
-// ScoreConfig defines model for ScoreConfig.
-type ScoreConfig struct {
-	Categories  interface{} `json:"categories"`
-	CreatedAt   string      `json:"createdAt"`
-	DataType    string      `json:"dataType"`
-	Description string      `json:"description"`
-	Id          string      `json:"id"`
-	MaxValue    *float32    `json:"maxValue,omitempty"`
-	MinValue    *float32    `json:"minValue,omitempty"`
-	Name        string      `json:"name"`
-	UpdatedAt   string      `json:"updatedAt"`
 }
 
 // ScoreResponse ScoreResponse is one recorded score.
@@ -2432,15 +2396,6 @@ type ListGenaiJobsParams struct {
 	DatasetRunId *string `form:"datasetRunId,omitempty" json:"datasetRunId,omitempty"`
 }
 
-// ListGenaiScoreConfigsParams defines parameters for ListGenaiScoreConfigs.
-type ListGenaiScoreConfigsParams struct {
-	// Limit Results per page. Defaults to 50, capped at 200.
-	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
-
-	// Page 1-based page number. Defaults to 1.
-	Page *int `form:"page,omitempty" json:"page,omitempty"`
-}
-
 // ListGenaiPromptsParams defines parameters for ListGenaiPrompts.
 type ListGenaiPromptsParams struct {
 	// Limit Results per page. Defaults to 50, capped at 200.
@@ -2662,9 +2617,6 @@ type CreateGenaiLlmConnectionJSONRequestBody = CreateLLMConnectionRequest
 
 // UpdateGenaiLlmConnectionJSONRequestBody defines body for UpdateGenaiLlmConnection for application/json ContentType.
 type UpdateGenaiLlmConnectionJSONRequestBody = UpdateLLMConnectionRequest
-
-// CreateGenaiScoreConfigJSONRequestBody defines body for CreateGenaiScoreConfig for application/json ContentType.
-type CreateGenaiScoreConfigJSONRequestBody = CreateScoreConfigRequest
 
 // CreateGenaiScoreJSONRequestBody defines body for CreateGenaiScore for application/json ContentType.
 type CreateGenaiScoreJSONRequestBody = CreateScoreRequest

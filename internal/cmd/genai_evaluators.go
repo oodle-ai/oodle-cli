@@ -9,7 +9,7 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
-var evaluatorColumns = []output.Column{
+var templateColumns = []output.Column{
 	{Header: "NAME", Field: "Name"},
 	{Header: "ID", Field: "Id"},
 	{Header: "TYPE", Field: "Type"},
@@ -18,22 +18,27 @@ var evaluatorColumns = []output.Column{
 	{Header: "CREATED", Field: "CreatedAt"},
 }
 
-var evalRuleColumns = []output.Column{
+var evaluatorColumns = []output.Column{
 	{Header: "NAME", Field: "Name"},
 	{Header: "ID", Field: "Id"},
-	{Header: "EVALUATOR", Field: "EvaluatorId"},
+	{Header: "TEMPLATE", Field: "EvaluatorId"},
 	{Header: "TARGET", Field: "TargetType"},
 	{Header: "SAMPLING", Field: "SamplingRate"},
 	{Header: "MAX/HR", Field: "MaxInvocationsPerHour"},
 	{Header: "ENABLED", Field: "Enabled"},
 }
 
-func newGenAIEvaluatorsCmd() *cobra.Command {
+func newGenAITemplatesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "evaluators",
-		Aliases: []string{"evaluator", "eval"},
-		Short:   "Manage LLM-as-judge and code evaluators",
-		Long: `Manage evaluators — the things that produce scores.
+		Use:     "templates",
+		Aliases: []string{"template", "library"},
+		Short:   "Manage evaluator templates (the Library)",
+		Long: `Manage evaluator templates — the judges that produce scores.
+
+These are what the Oodle UI lists under Evaluations > Library,
+where "New Template" creates one. The HTTP API calls them
+eval-templates. To make one actually run against traffic, wire
+it up with ` + "`oodle genai evaluators`" + `.
 
 Two kinds:
 
@@ -43,25 +48,25 @@ Two kinds:
          model should not be guessing at (JSON validity, exact
          match, latency budgets)
 
-The list also includes Oodle-managed evaluators (ids beginning
-"oodle-managed-"). Those are read-only: reference them from a
-rule, but update and delete are refused.`,
+The list also includes Oodle-managed templates (ids beginning
+"oodle-managed-"). Those are read-only: reference them from an
+evaluator, but update and delete are refused.`,
 	}
 
-	cmd.AddCommand(newGenAIEvaluatorsListCmd())
-	cmd.AddCommand(newGenAIEvaluatorsGetCmd())
-	cmd.AddCommand(newGenAIEvaluatorsCreateCmd())
-	cmd.AddCommand(newGenAIEvaluatorsUpdateCmd())
-	cmd.AddCommand(newGenAIEvaluatorsDeleteCmd())
+	cmd.AddCommand(newGenAITemplatesListCmd())
+	cmd.AddCommand(newGenAITemplatesGetCmd())
+	cmd.AddCommand(newGenAITemplatesCreateCmd())
+	cmd.AddCommand(newGenAITemplatesUpdateCmd())
+	cmd.AddCommand(newGenAITemplatesDeleteCmd())
 
 	return cmd
 }
 
-func newGenAIEvaluatorsListCmd() *cobra.Command {
+func newGenAITemplatesListCmd() *cobra.Command {
 	var page pageFlags
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List evaluators",
+		Short: "List templates",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -86,7 +91,7 @@ func newGenAIEvaluatorsListCmd() *cobra.Command {
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, deref(resp.JSON200.Data), evaluatorColumns,
+				cmd, deref(resp.JSON200.Data), templateColumns,
 			)
 		},
 	}
@@ -94,10 +99,10 @@ func newGenAIEvaluatorsListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGenAIEvaluatorsGetCmd() *cobra.Command {
+func newGenAITemplatesGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <evaluator-id>",
-		Short: "Get an evaluator",
+		Use:   "get <template-id>",
+		Short: "Get a template",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -117,18 +122,18 @@ func newGenAIEvaluatorsGetCmd() *cobra.Command {
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, resp.JSON200, evaluatorColumns,
+				cmd, resp.JSON200, templateColumns,
 			)
 		},
 	}
 }
 
-func newGenAIEvaluatorsCreateCmd() *cobra.Command {
+func newGenAITemplatesCreateCmd() *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an evaluator from a JSON or YAML file",
-		Long: `Create an evaluator from a JSON or YAML file.
+		Short: "Create a template from a JSON or YAML file",
+		Long: `Create an evaluator template from a JSON or YAML file.
 
 An LLM judge:
 
@@ -140,7 +145,7 @@ An LLM judge:
     "outputSchema": {"score": "Numeric 0-1", "reasoning": "Why"}
   }
 
-A code evaluator (source is capped at 256 KB and must be
+A code template (source is capped at 256 KB and must be
 Python; needs the per-instance code-eval flag and an enterprise
 plan, on create and update alike — 400 means the flag is off,
 403 means the plan does not cover it):
@@ -177,30 +182,30 @@ and runs as an LLM judge, so a typo in "type" fails quietly.`,
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, resp.JSON201, evaluatorColumns,
+				cmd, resp.JSON201, templateColumns,
 			)
 		},
 	}
 	cmd.Flags().StringVarP(
 		&file, "file", "f", "",
-		"Path to JSON or YAML file with the evaluator (required)",
+		"Path to JSON or YAML file with the template (required)",
 	)
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }
 
-func newGenAIEvaluatorsUpdateCmd() *cobra.Command {
+func newGenAITemplatesUpdateCmd() *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
-		Use:   "update <evaluator-id>",
-		Short: "Update an evaluator from a JSON or YAML file",
-		Long: `Update an evaluator. Fields left out are untouched.
+		Use:   "update <template-id>",
+		Short: "Update a template from a JSON or YAML file",
+		Long: `Update a template. Fields left out are untouched.
 
 Round-tripping is the safe way to edit one:
 
-  oodle genai evaluators get <id> -o yaml > eval.yaml
+  oodle genai templates get <id> -o yaml > eval.yaml
   $EDITOR eval.yaml
-  oodle genai evaluators update <id> -f eval.yaml`,
+  oodle genai templates update <id> -f eval.yaml`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -224,7 +229,7 @@ Round-tripping is the safe way to edit one:
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, resp.JSON200, evaluatorColumns,
+				cmd, resp.JSON200, templateColumns,
 			)
 		},
 	}
@@ -236,16 +241,16 @@ Round-tripping is the safe way to edit one:
 	return cmd
 }
 
-func newGenAIEvaluatorsDeleteCmd() *cobra.Command {
+func newGenAITemplatesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <evaluator-id>",
-		Short: "Delete an evaluator",
+		Use:   "delete <template-id>",
+		Short: "Delete a template",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 
 			if !confirmAction(fmt.Sprintf(
-				"Delete evaluator %q?", args[0],
+				"Delete template %q?", args[0],
 			), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
 			}
@@ -262,7 +267,7 @@ func newGenAIEvaluatorsDeleteCmd() *cobra.Command {
 			}
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"Deleted evaluator %s\n", args[0],
+				"Deleted template %s\n", args[0],
 			)
 			return nil
 		},
@@ -271,34 +276,40 @@ func newGenAIEvaluatorsDeleteCmd() *cobra.Command {
 
 // --- Evaluation rules ---
 
-func newGenAIEvalRulesCmd() *cobra.Command {
+func newGenAIEvaluatorsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "eval-rules",
-		Aliases: []string{"eval-rule", "rules"},
-		Short:   "Run evaluators over live traffic",
-		Long: `Manage evaluation rules.
+		Use:     "evaluators",
+		Aliases: []string{"evaluator", "eval-rules", "rules"},
+		Short:   "Run templates over live traffic",
+		Long: `Manage evaluators.
 
-A rule is what makes an evaluator actually run: it says which
-spans to score, how often, and how span fields map onto the
-evaluator's variables.
+An evaluator is what makes a template actually run: it says
+which spans to score, how often, and how span fields map onto
+the template's variables. These are what the Oodle UI lists
+under Evaluations > Evaluators; the HTTP API calls them
+evaluation-rules.
+
+An LLM template needs --file with an "llmConnectionId" — the
+server rejects an evaluator that has no model to call, because
+it would be skipped at run time and score nothing.
 
 Sampling and the hourly cap are the cost controls — an
-unsampled rule with no cap runs a model call per matching span,
-so set both before enabling one on a busy service.`,
+unsampled evaluator with no cap runs a model call per matching
+span, so set both before enabling one on a busy service.`,
 	}
 
-	cmd.AddCommand(newGenAIEvalRulesListCmd())
-	cmd.AddCommand(newGenAIEvalRulesCreateCmd())
-	cmd.AddCommand(newGenAIEvalRulesUpdateCmd())
-	cmd.AddCommand(newGenAIEvalRulesDeleteCmd())
+	cmd.AddCommand(newGenAIEvaluatorsListCmd())
+	cmd.AddCommand(newGenAIEvaluatorsCreateCmd())
+	cmd.AddCommand(newGenAIEvaluatorsUpdateCmd())
+	cmd.AddCommand(newGenAIEvaluatorsDeleteCmd())
 
 	return cmd
 }
 
-func newGenAIEvalRulesListCmd() *cobra.Command {
+func newGenAIEvaluatorsListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List evaluation rules",
+		Short: "List evaluators",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -318,22 +329,22 @@ func newGenAIEvalRulesListCmd() *cobra.Command {
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, deref(resp.JSON200.Data), evalRuleColumns,
+				cmd, deref(resp.JSON200.Data), evaluatorColumns,
 			)
 		},
 	}
 }
 
-func newGenAIEvalRulesCreateCmd() *cobra.Command {
+func newGenAIEvaluatorsCreateCmd() *cobra.Command {
 	var file string
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create an evaluation rule from a JSON or YAML file",
-		Long: `Create an evaluation rule from a JSON or YAML file.
+		Short: "Create an evaluator from a JSON or YAML file",
+		Long: `Create an evaluator from a JSON or YAML file.
 
   {
     "name": "Score support answers",
-    "evaluatorId": "oodle-managed-hallucination-v1",
+    "evaluatorId": "<template-id>",
     "targetType": "trace",
     "samplingRate": 0.1,
     "maxInvocationsPerHour": 200,
@@ -371,32 +382,32 @@ while another depends on it.`,
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, resp.JSON201, evalRuleColumns,
+				cmd, resp.JSON201, evaluatorColumns,
 			)
 		},
 	}
 	cmd.Flags().StringVarP(
 		&file, "file", "f", "",
-		"Path to JSON or YAML file with the rule (required)",
+		"Path to JSON or YAML file with the evaluator (required)",
 	)
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }
 
-func newGenAIEvalRulesUpdateCmd() *cobra.Command {
+func newGenAIEvaluatorsUpdateCmd() *cobra.Command {
 	var (
 		file    string
 		enable  bool
 		disable bool
 	)
 	cmd := &cobra.Command{
-		Use:   "update <rule-id>",
-		Short: "Update an evaluation rule",
-		Long: `Update an evaluation rule. Fields left out are untouched.
+		Use:   "update <evaluator-id>",
+		Short: "Update an evaluator",
+		Long: `Update an evaluator. Fields left out are untouched.
 
 --enable / --disable are the common case and need no file:
 
-  oodle genai eval-rules update <id> --disable`,
+  oodle genai evaluators update <id> --disable`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -441,7 +452,7 @@ func newGenAIEvalRulesUpdateCmd() *cobra.Command {
 				return errEmptyResponse
 			}
 			return printGenAI(
-				cmd, resp.JSON200, evalRuleColumns,
+				cmd, resp.JSON200, evaluatorColumns,
 			)
 		},
 	}
@@ -450,24 +461,24 @@ func newGenAIEvalRulesUpdateCmd() *cobra.Command {
 		"Path to JSON or YAML file with the updates",
 	)
 	cmd.Flags().BoolVar(
-		&enable, "enable", false, "Enable the rule",
+		&enable, "enable", false, "Enable the evaluator",
 	)
 	cmd.Flags().BoolVar(
-		&disable, "disable", false, "Disable the rule",
+		&disable, "disable", false, "Disable the evaluator",
 	)
 	return cmd
 }
 
-func newGenAIEvalRulesDeleteCmd() *cobra.Command {
+func newGenAIEvaluatorsDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <rule-id>",
-		Short: "Delete an evaluation rule",
+		Use:   "delete <evaluator-id>",
+		Short: "Delete an evaluator",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 
 			if !confirmAction(fmt.Sprintf(
-				"Delete evaluation rule %q?", args[0],
+				"Delete evaluator %q?", args[0],
 			), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
 			}
@@ -484,7 +495,7 @@ func newGenAIEvalRulesDeleteCmd() *cobra.Command {
 			}
 			fmt.Fprintf(
 				cmd.OutOrStdout(),
-				"Deleted evaluation rule %s\n", args[0],
+				"Deleted evaluator %s\n", args[0],
 			)
 			return nil
 		},

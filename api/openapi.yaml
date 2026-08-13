@@ -568,30 +568,6 @@ components:
             type: string
         type:
           type: string
-    CreateScoreConfigRequest:
-      type: object
-      description: |-
-        CreateScoreConfigRequest declares the shape a named score
-        must take, so the UI and evaluators agree on its range.
-      required:
-        - name
-        - dataType
-      properties:
-        categories:
-          description: Categories is the allowed label set for CATEGORICAL.
-        dataType:
-          type: string
-          description: DataType is NUMERIC, BOOLEAN, or CATEGORICAL.
-        description:
-          type: string
-        maxValue:
-          type: number
-          nullable: true
-        minValue:
-          type: number
-          nullable: true
-        name:
-          type: string
     CreateScoreRequest:
       type: object
       description: |-
@@ -1616,20 +1592,6 @@ components:
           nullable: true
           items:
             type: string
-    ListScoreConfigsResponse:
-      type: object
-      description: ListScoreConfigsResponse is the score config list envelope.
-      required:
-        - data
-        - meta
-      properties:
-        data:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/ScoreConfig'
-        meta:
-          $ref: '#/components/schemas/ListMeta'
     ListScoresResponse:
       type: object
       description: ListScoresResponse is the score list envelope.
@@ -2666,36 +2628,6 @@ components:
         value:
           type: number
           nullable: true
-    ScoreConfig:
-      type: object
-      required:
-        - id
-        - name
-        - dataType
-        - categories
-        - description
-        - createdAt
-        - updatedAt
-      properties:
-        categories: {}
-        createdAt:
-          type: string
-        dataType:
-          type: string
-        description:
-          type: string
-        id:
-          type: string
-        maxValue:
-          type: number
-          nullable: true
-        minValue:
-          type: number
-          nullable: true
-        name:
-          type: string
-        updatedAt:
-          type: string
     ScoreResponse:
       type: object
       description: ScoreResponse is one recorded score.
@@ -6838,108 +6770,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "404":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "500":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/langfuse/api/public/score-configs:
-    get:
-      tags:
-        - GenAI Scores
-      summary: List score configs
-      operationId: listGenaiScoreConfigs
-      parameters:
-        - name: limit
-          in: query
-          description: Results per page. Defaults to 50, capped at 200.
-          schema:
-            type: integer
-        - name: page
-          in: query
-          description: 1-based page number. Defaults to 1.
-          schema:
-            type: integer
-        - name: instance
-          in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListScoreConfigsResponse'
-        "401":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "500":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-    post:
-      tags:
-        - GenAI Scores
-      summary: Create a score config
-      operationId: createGenaiScoreConfig
-      parameters:
-        - name: instance
-          in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateScoreConfigRequest'
-      responses:
-        "201":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ScoreConfig'
-        "400":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "401":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "409":
           description: ""
           content:
             application/json:

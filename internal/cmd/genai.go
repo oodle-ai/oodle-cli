@@ -26,9 +26,9 @@ func newGenAICmd() *cobra.Command {
 
   prompts      versioned prompts, resolved by label
   datasets     evaluation datasets and their items
-  evaluators   LLM-as-judge and code evaluators
-  eval-rules   run evaluators over live traffic
-  scores       evaluator output and manual scores
+  templates    LLM-as-judge and code judges (the Library)
+  evaluators   run templates over live traffic
+  scores       evaluator output (read-only)
   experiments  run a prompt over a dataset and score it
   connections  provider credentials evaluators run against
 
@@ -36,15 +36,15 @@ A first run, end to end:
 
   oodle genai connections create -f openai.json
   oodle genai datasets create -f dataset.json
-  oodle genai evaluators create -f judge.json
+  oodle genai templates create -f judge.json
   oodle genai experiments run --dataset-id <id> \
     --prompt-name my-prompt --connection-id <id> --model gpt-4o`,
 	}
 
 	cmd.AddCommand(newGenAIPromptsCmd())
 	cmd.AddCommand(newGenAIDatasetsCmd())
+	cmd.AddCommand(newGenAITemplatesCmd())
 	cmd.AddCommand(newGenAIEvaluatorsCmd())
-	cmd.AddCommand(newGenAIEvalRulesCmd())
 	cmd.AddCommand(newGenAIScoresCmd())
 	cmd.AddCommand(newGenAIExperimentsCmd())
 	cmd.AddCommand(newGenAIConnectionsCmd())

@@ -238,6 +238,19 @@ is passed through to the job verbatim:
 						"(or llmConnectionId in --file)",
 				)
 			}
+			// A run with no prompt has nothing to send. The
+			// server accepts the job anyway and it fails later
+			// in the worker, so catch it here — the
+			// manage_genai_experiments tool already does.
+			_, hasName := config["promptName"]
+			_, hasTemplate := config["promptTemplate"]
+			if !hasName && !hasTemplate {
+				return fmt.Errorf(
+					"--prompt-name or --prompt-template is " +
+						"required (or promptName / " +
+						"promptTemplate in --file)",
+				)
+			}
 
 			resp, err := c.Inner.CreateGenaiJobWithResponse(
 				cmd.Context(), getInstance(cmd),

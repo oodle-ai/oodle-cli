@@ -299,14 +299,6 @@ type ClientInterface interface {
 
 	UpdateGenaiLlmConnection(ctx context.Context, instance string, connectionId string, body UpdateGenaiLlmConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ListGenaiScoreConfigs request
-	ListGenaiScoreConfigs(ctx context.Context, instance string, params *ListGenaiScoreConfigsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// CreateGenaiScoreConfigWithBody request with any body
-	CreateGenaiScoreConfigWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	CreateGenaiScoreConfig(ctx context.Context, instance string, body CreateGenaiScoreConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// CreateGenaiScoreWithBody request with any body
 	CreateGenaiScoreWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1454,42 +1446,6 @@ func (c *Client) UpdateGenaiLlmConnectionWithBody(ctx context.Context, instance 
 
 func (c *Client) UpdateGenaiLlmConnection(ctx context.Context, instance string, connectionId string, body UpdateGenaiLlmConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateGenaiLlmConnectionRequest(c.Server, instance, connectionId, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) ListGenaiScoreConfigs(ctx context.Context, instance string, params *ListGenaiScoreConfigsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListGenaiScoreConfigsRequest(c.Server, instance, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateGenaiScoreConfigWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateGenaiScoreConfigRequestWithBody(c.Server, instance, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *Client) CreateGenaiScoreConfig(ctx context.Context, instance string, body CreateGenaiScoreConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCreateGenaiScoreConfigRequest(c.Server, instance, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5231,125 +5187,6 @@ func NewUpdateGenaiLlmConnectionRequestWithBody(server string, instance string, 
 	return req, nil
 }
 
-// NewListGenaiScoreConfigsRequest generates requests for ListGenaiScoreConfigs
-func NewListGenaiScoreConfigsRequest(server string, instance string, params *ListGenaiScoreConfigsParams) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/score-configs", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if params.Limit != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Page != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewCreateGenaiScoreConfigRequest calls the generic CreateGenaiScoreConfig builder with application/json body
-func NewCreateGenaiScoreConfigRequest(server string, instance string, body CreateGenaiScoreConfigJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewCreateGenaiScoreConfigRequestWithBody(server, instance, "application/json", bodyReader)
-}
-
-// NewCreateGenaiScoreConfigRequestWithBody generates requests for CreateGenaiScoreConfig with any type of body
-func NewCreateGenaiScoreConfigRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	var pathParam0 string
-
-	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
-	if err != nil {
-		return nil, err
-	}
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/score-configs", pathParam0)
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewCreateGenaiScoreRequest calls the generic CreateGenaiScore builder with application/json body
 func NewCreateGenaiScoreRequest(server string, instance string, body CreateGenaiScoreJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -8958,14 +8795,6 @@ type ClientWithResponsesInterface interface {
 
 	UpdateGenaiLlmConnectionWithResponse(ctx context.Context, instance string, connectionId string, body UpdateGenaiLlmConnectionJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiLlmConnectionResponse, error)
 
-	// ListGenaiScoreConfigsWithResponse request
-	ListGenaiScoreConfigsWithResponse(ctx context.Context, instance string, params *ListGenaiScoreConfigsParams, reqEditors ...RequestEditorFn) (*ListGenaiScoreConfigsResponse, error)
-
-	// CreateGenaiScoreConfigWithBodyWithResponse request with any body
-	CreateGenaiScoreConfigWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiScoreConfigResponse, error)
-
-	CreateGenaiScoreConfigWithResponse(ctx context.Context, instance string, body CreateGenaiScoreConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiScoreConfigResponse, error)
-
 	// CreateGenaiScoreWithBodyWithResponse request with any body
 	CreateGenaiScoreWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiScoreResponse, error)
 
@@ -10631,58 +10460,6 @@ func (r UpdateGenaiLlmConnectionResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateGenaiLlmConnectionResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ListGenaiScoreConfigsResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ListScoreConfigsResponse
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
-	JSONDefault  *OodleUtilHttputilsModelsErrors
-}
-
-// Status returns HTTPResponse.Status
-func (r ListGenaiScoreConfigsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ListGenaiScoreConfigsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type CreateGenaiScoreConfigResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON201      *ScoreConfig
-	JSON400      *OodleUtilHttputilsModelsErrors
-	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON409      *OodleUtilHttputilsModelsErrors
-	JSON500      *OodleUtilHttputilsModelsErrors
-	JSONDefault  *OodleUtilHttputilsModelsErrors
-}
-
-// Status returns HTTPResponse.Status
-func (r CreateGenaiScoreConfigResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r CreateGenaiScoreConfigResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13019,32 +12796,6 @@ func (c *ClientWithResponses) UpdateGenaiLlmConnectionWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseUpdateGenaiLlmConnectionResponse(rsp)
-}
-
-// ListGenaiScoreConfigsWithResponse request returning *ListGenaiScoreConfigsResponse
-func (c *ClientWithResponses) ListGenaiScoreConfigsWithResponse(ctx context.Context, instance string, params *ListGenaiScoreConfigsParams, reqEditors ...RequestEditorFn) (*ListGenaiScoreConfigsResponse, error) {
-	rsp, err := c.ListGenaiScoreConfigs(ctx, instance, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseListGenaiScoreConfigsResponse(rsp)
-}
-
-// CreateGenaiScoreConfigWithBodyWithResponse request with arbitrary body returning *CreateGenaiScoreConfigResponse
-func (c *ClientWithResponses) CreateGenaiScoreConfigWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiScoreConfigResponse, error) {
-	rsp, err := c.CreateGenaiScoreConfigWithBody(ctx, instance, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateGenaiScoreConfigResponse(rsp)
-}
-
-func (c *ClientWithResponses) CreateGenaiScoreConfigWithResponse(ctx context.Context, instance string, body CreateGenaiScoreConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiScoreConfigResponse, error) {
-	rsp, err := c.CreateGenaiScoreConfig(ctx, instance, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseCreateGenaiScoreConfigResponse(rsp)
 }
 
 // CreateGenaiScoreWithBodyWithResponse request with arbitrary body returning *CreateGenaiScoreResponse
@@ -16661,114 +16412,6 @@ func ParseUpdateGenaiLlmConnectionResponse(rsp *http.Response) (*UpdateGenaiLlmC
 			return nil, err
 		}
 		response.JSON404 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseListGenaiScoreConfigsResponse parses an HTTP response from a ListGenaiScoreConfigsWithResponse call
-func ParseListGenaiScoreConfigsResponse(rsp *http.Response) (*ListGenaiScoreConfigsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ListGenaiScoreConfigsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ListScoreConfigsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseCreateGenaiScoreConfigResponse parses an HTTP response from a CreateGenaiScoreConfigWithResponse call
-func ParseCreateGenaiScoreConfigResponse(rsp *http.Response) (*CreateGenaiScoreConfigResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &CreateGenaiScoreConfigResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
-		var dest ScoreConfig
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON201 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON400 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors

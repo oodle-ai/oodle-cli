@@ -402,8 +402,8 @@ telemetry stays under `oodle traces` and `oodle metrics`.
 |-----------------|--------------------------------------------------------|
 | `prompts`       | Versioned prompts, resolved by label                   |
 | `datasets`      | Evaluation datasets and their items                    |
-| `evaluators`    | LLM-as-judge and code evaluators                       |
-| `eval-rules`    | Run evaluators over live traffic                       |
+| `templates`     | LLM-as-judge and code judges (Evaluations > Library)   |
+| `evaluators`    | Run templates over live traffic (Evaluations > Evaluators) |
 | `scores`        | Evaluator output and manual scores                     |
 | `experiments`   | Run a prompt over a dataset and score it               |
 | `connections`   | Provider credentials evaluators and experiments use    |
@@ -451,9 +451,10 @@ oodle genai datasets create --name support-eval
 oodle genai datasets items list support-eval --at 2026-08-01T00:00:00Z
 ```
 
-#### Evaluators — `oodle genai evaluators`
+#### Templates — `oodle genai templates`
 
-Aliases: `evaluator`, `eval`. `list` includes Oodle-managed
+Aliases: `template`, `library`. The judges themselves — what the UI
+calls Evaluations > Library, and the API calls `eval-templates`. `list` includes Oodle-managed
 templates (ids beginning `oodle-managed-`), which are
 read-only.
 
@@ -465,10 +466,13 @@ read-only.
 | `update <id> -f`   | Update an evaluator            |
 | `delete <id>`      | Delete an evaluator            |
 
-#### Evaluation rules — `oodle genai eval-rules`
+#### Evaluators — `oodle genai evaluators`
 
-Aliases: `eval-rule`, `rules`. A rule is what makes an
-evaluator run against live traffic. Set `samplingRate` and
+Aliases: `evaluator`, `eval-rules`, `rules`. What makes a
+template run against live traffic — the UI's Evaluations >
+Evaluators, the API's `evaluation-rules`. An LLM template
+requires an `llmConnectionId`; the server rejects an evaluator
+with no model to call. Set `samplingRate` and
 `maxInvocationsPerHour` before enabling one on a busy service —
 an unsampled, uncapped rule is one model call per matching span.
 
@@ -480,7 +484,7 @@ an unsampled, uncapped rule is one model call per matching span.
 | `delete <id>`      | Delete an evaluation rule          |
 
 ```bash
-oodle genai eval-rules update rule_123 --disable
+oodle genai evaluators update rule_123 --disable
 ```
 
 #### Scores — `oodle genai scores`
@@ -493,13 +497,10 @@ anything older.
 |-------------------------|---------------------------------|
 | `list`                  | List scores                     |
 | `get <id>`              | Get a score                     |
-| `create`                | Attach a score to a trace       |
-| `configs list`          | List score configs              |
-| `configs create`        | Create a score config           |
 
 ```bash
 oodle genai scores list --name Hallucination --start -24h --max 0.5
-oodle genai scores create --trace-id "$TRACE" --name thumbs --value 1
+oodle genai scores get "$SCORE_ID"
 ```
 
 #### Experiments — `oodle genai experiments`

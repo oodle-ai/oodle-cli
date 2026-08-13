@@ -26,20 +26,17 @@ func TestGenAICommandTree(t *testing.T) {
 		{"genai", "datasets", "items", "create"},
 		{"genai", "datasets", "items", "update"},
 		{"genai", "datasets", "items", "delete"},
+		{"genai", "templates", "list"},
+		{"genai", "templates", "get"},
+		{"genai", "templates", "create"},
+		{"genai", "templates", "update"},
+		{"genai", "templates", "delete"},
 		{"genai", "evaluators", "list"},
-		{"genai", "evaluators", "get"},
 		{"genai", "evaluators", "create"},
 		{"genai", "evaluators", "update"},
 		{"genai", "evaluators", "delete"},
-		{"genai", "eval-rules", "list"},
-		{"genai", "eval-rules", "create"},
-		{"genai", "eval-rules", "update"},
-		{"genai", "eval-rules", "delete"},
 		{"genai", "scores", "list"},
 		{"genai", "scores", "get"},
-		{"genai", "scores", "create"},
-		{"genai", "scores", "configs", "list"},
-		{"genai", "scores", "configs", "create"},
 		{"genai", "experiments", "list"},
 		{"genai", "experiments", "items"},
 		{"genai", "experiments", "run"},
@@ -215,7 +212,7 @@ func TestGenAIHelpListsEveryGroup(t *testing.T) {
 		t.Fatalf("Find(genai): %v", err)
 	}
 	for _, group := range []string{
-		"prompts", "datasets", "evaluators", "eval-rules",
+		"prompts", "datasets", "templates", "evaluators",
 		"scores", "experiments", "connections",
 	} {
 		if !strings.Contains(genai.Long, group) {
