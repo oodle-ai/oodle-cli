@@ -391,6 +391,153 @@ oodle traces labels -o json
 oodle traces list
 ```
 
+### GenAI — `oodle genai`
+
+Aliases: `llmops`, `ai`. The evaluation side of Agent
+Observability: versioned prompts, evaluation datasets,
+evaluators, scores, and experiment runs. Reading GenAI
+telemetry stays under `oodle traces` and `oodle metrics`.
+
+| Subcommand      | Description                                            |
+|-----------------|--------------------------------------------------------|
+| `prompts`       | Versioned prompts, resolved by label                   |
+| `datasets`      | Evaluation datasets and their items                    |
+| `templates`     | LLM-as-judge and code judges (Evaluations > Library)   |
+| `evaluators`    | Run templates over live traffic (Evaluations > Evaluators) |
+| `scores`        | Evaluator output and manual scores                     |
+| `experiments`   | Run a prompt over a dataset and score it               |
+| `connections`   | Provider credentials evaluators and experiments use    |
+
+#### Prompts — `oodle genai prompts`
+
+Every create adds a **version**; applications resolve a prompt
+by **label** (`production` by default), so moving a label is
+how a new version is rolled out with no deploy.
+
+| Subcommand         | Description                                    |
+|--------------------|------------------------------------------------|
+| `list`             | List prompts (one row per name)                |
+| `get <name>`       | Get a prompt by name, version, or label        |
+| `versions <name>`  | List a prompt's versions                       |
+| `create -f <file>` | Create a prompt version                        |
+| `label <name>`     | Add or replace labels on a version             |
+| `delete <name>`    | Delete a prompt, or one version with `--version` |
+
+```bash
+oodle genai prompts get support-reply
+oodle genai prompts label support-reply --version 4 --labels production
+```
+
+#### Datasets — `oodle genai datasets`
+
+Aliases: `dataset`, `ds`. Datasets are versioned by time:
+`items --at <RFC3339>` recovers exactly the inputs a past
+experiment ran against.
+
+| Subcommand              | Description                        |
+|-------------------------|------------------------------------|
+| `list`                  | List datasets                      |
+| `get <name>`            | Get a dataset by name              |
+| `create`                | Create a dataset                   |
+| `delete <name>`         | Delete a dataset and its items     |
+| `items list <name>`     | List a dataset's items             |
+| `items get <id>`        | Get a dataset item                 |
+| `items create -f <file>`| Add an item to a dataset           |
+| `items update <id>`     | Update a dataset item              |
+| `items delete <id>`     | Delete a dataset item              |
+
+```bash
+oodle genai datasets create --name support-eval
+oodle genai datasets items list support-eval --at 2026-08-01T00:00:00Z
+```
+
+#### Templates — `oodle genai templates`
+
+Aliases: `template`, `library`. The judges themselves — what the UI
+calls Evaluations > Library, and the API calls `eval-templates`. `list` includes Oodle-managed
+templates (ids beginning `oodle-managed-`), which are
+read-only.
+
+| Subcommand         | Description                    |
+|--------------------|--------------------------------|
+| `list`             | List evaluators                |
+| `get <id>`         | Get an evaluator               |
+| `create -f <file>` | Create an evaluator            |
+| `update <id> -f`   | Update an evaluator            |
+| `delete <id>`      | Delete an evaluator            |
+
+#### Evaluators — `oodle genai evaluators`
+
+Aliases: `evaluator`, `eval-rules`, `rules`. What makes a
+template run against live traffic — the UI's Evaluations >
+Evaluators, the API's `evaluation-rules`. An LLM template
+requires an `llmConnectionId`; the server rejects an evaluator
+with no model to call. Set `samplingRate` and
+`maxInvocationsPerHour` before enabling one on a busy service —
+an unsampled, uncapped rule is one model call per matching span.
+
+| Subcommand         | Description                        |
+|--------------------|------------------------------------|
+| `list`             | List evaluation rules              |
+| `create -f <file>` | Create an evaluation rule          |
+| `update <id>`      | Update, or `--enable` / `--disable`|
+| `delete <id>`      | Delete an evaluation rule          |
+
+```bash
+oodle genai evaluators update rule_123 --disable
+```
+
+#### Scores — `oodle genai scores`
+
+Alias: `score`. Scores are read out of the trace store, so
+`list` defaults to the **last 15 minutes**; pass `--start` for
+anything older.
+
+| Subcommand              | Description                     |
+|-------------------------|---------------------------------|
+| `list`                  | List scores                     |
+| `get <id>`              | Get a score                     |
+
+```bash
+oodle genai scores list --name Hallucination --start -24h --max 0.5
+oodle genai scores get "$SCORE_ID"
+```
+
+#### Experiments — `oodle genai experiments`
+
+Aliases: `experiment`, `runs`, `exp`. A run is queued and
+picked up by a worker, so `run` returns as soon as the job
+exists.
+
+| Subcommand        | Description                                |
+|-------------------|--------------------------------------------|
+| `list <dataset>`  | List a dataset's experiment runs           |
+| `items <run-id>`  | Per-item results, joined with their scores |
+| `run`             | Start an experiment run                    |
+| `status <job-id>` | Get a job's status                         |
+| `cancel <job-id>` | Cancel a queued or running job             |
+| `jobs`            | List pending jobs, or one run's history    |
+
+```bash
+oodle genai experiments run --dataset-id "$DS" --connection-id "$CONN" \
+  --prompt-name support-reply --model gpt-4o \
+  --evaluator-id oodle-managed-hallucination-v1
+```
+
+#### Connections — `oodle genai connections`
+
+Aliases: `connection`, `conn`. Provider credentials that
+evaluators and experiments call models through. Keys are
+encrypted at rest and never returned, so an update that omits
+`--api-key` leaves the stored key in place.
+
+| Subcommand         | Description             |
+|--------------------|-------------------------|
+| `list`             | List LLM connections    |
+| `create`           | Create an LLM connection|
+| `update <id> -f`   | Update an LLM connection|
+| `delete <id>`      | Delete an LLM connection|
+
 ### API Keys — `oodle api-keys`
 
 Aliases: `ak`, `api-key`.

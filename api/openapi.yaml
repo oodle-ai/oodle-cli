@@ -1,24 +1,10 @@
 # AUTO-GENERATED - do not edit manually.
+# Source: src/go/oodle/api-server/cmd/apispec/apis.go
+# Regenerate: make generate_api_spec
 
 openapi: 3.0.0
 components:
   schemas:
-    APIToken:
-      type: object
-      required:
-        - token
-        - expires_at_epoch_millis
-        - created_at_epoch_millis
-        - is_primary
-      properties:
-        created_at_epoch_millis:
-          type: integer
-        expires_at_epoch_millis:
-          type: integer
-        is_primary:
-          type: boolean
-        token:
-          type: string
     ApiKey:
       type: object
       required:
@@ -261,6 +247,37 @@ components:
           $ref: '#/components/schemas/Condition'
         warn:
           $ref: '#/components/schemas/Condition'
+    ConfluentCloudIntegration:
+      type: object
+      description: |-
+        ConfluentCloudIntegration is the API-facing config for a Confluent Cloud
+        integration. ApiSecret is write-only: it is accepted on create/update but
+        never returned in plaintext (a mask is returned instead).
+      properties:
+        accountName:
+          type: string
+          description: |-
+            AccountName is the human-readable identifier for this set of credentials,
+            shown in the UI list of configured accounts. Required.
+        apiKey:
+          type: string
+        apiSecret:
+          type: string
+        clusterIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+        connectorIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ConfluentCloudIntegrationWrapper:
+      type: object
+      properties:
+        confluentCloudIntegration:
+          $ref: '#/components/schemas/ConfluentCloudIntegration'
     CreateApiKeyRequest:
       type: object
       required:
@@ -279,6 +296,63 @@ components:
           nullable: true
           items:
             type: string
+    CreateDatasetItemRequest:
+      type: object
+      description: CreateDatasetItemRequest adds one row to a dataset.
+      required:
+        - datasetName
+        - input
+      properties:
+        datasetName:
+          type: string
+        expectedOutput: {}
+        input: {}
+        metadata: {}
+        sourceObservationId:
+          type: string
+        sourceTraceId:
+          type: string
+          description: |-
+            SourceTraceID / SourceObservationID link the row back to
+            the production trace it was captured from.
+        status:
+          type: string
+    CreateDatasetRequest:
+      type: object
+      description: CreateDatasetRequest creates an evaluation dataset.
+      required:
+        - name
+      properties:
+        description:
+          type: string
+        metadata: {}
+        name:
+          type: string
+    CreateDatasetRunItemRequest:
+      type: object
+      description: |-
+        CreateDatasetRunItemRequest records one dataset row's result
+        inside a run, creating the run on first use.
+      required:
+        - datasetItemId
+        - traceId
+      properties:
+        datasetItemId:
+          type: string
+        errorMessage:
+          type: string
+        observationId:
+          type: string
+        output:
+          type: string
+        runDescription:
+          type: string
+        runName:
+          type: string
+        status:
+          type: string
+        traceId:
+          type: string
     CreateDropRuleRequest:
       type: object
       description: CreateDropRuleRequest is the request body for creating a drop rule.
@@ -299,6 +373,80 @@ components:
           type: string
         type:
           type: string
+    CreateEvalTemplateRequest:
+      type: object
+      description: |-
+        CreateEvalTemplateRequest defines an evaluator: either an
+        LLM-as-judge prompt (`type: llm`) or a Python scorer
+        (`type: code`).
+      required:
+        - name
+        - type
+      properties:
+        modelParams: {}
+        name:
+          type: string
+        outputSchema: {}
+        prompt:
+          type: string
+          description: |-
+            Prompt is the judge prompt for llm evaluators, with
+            {{var}} placeholders drawn from Vars.
+        sourceCode:
+          type: string
+          description: |-
+            SourceCode is required for code evaluators and capped at
+            256 KB. SourceCodeLanguage must be "python".
+        sourceCodeLanguage:
+          type: string
+        type:
+          type: string
+          description: Type is "llm" or "code".
+        vars:
+          type: array
+          nullable: true
+          items:
+            type: string
+    CreateEvaluationRuleRequest:
+      type: object
+      description: |-
+        CreateEvaluationRuleRequest wires an evaluator to live
+        traffic: which spans it runs on, how often, and how span
+        fields map onto the evaluator's variables.
+      required:
+        - name
+        - evaluatorId
+      properties:
+        datasetId:
+          type: string
+        dependsOnRuleIds:
+          type: array
+          description: |-
+            DependsOnRuleIDs gates this rule on other rules' scores.
+            Cycles and self-references are rejected.
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+        evaluatorId:
+          type: string
+        filters: {}
+        llmConnectionId:
+          type: string
+          nullable: true
+        maxInvocationsPerHour:
+          type: integer
+          description: MaxInvocationsPerHr caps spend; 0 means unlimited.
+        modelParams: {}
+        name:
+          type: string
+        samplingRate:
+          type: number
+          description: SamplingRate is 0..1.
+        targetType:
+          type: string
+        variableMapping: {}
     CreateFolderRequest:
       type: object
       description: CreateFolderRequest represents a request to create a folder
@@ -326,9 +474,161 @@ components:
         typeSpecificData:
           oneOf:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
+    CreateJobRequest:
+      type: object
+      description: |-
+        CreateJobRequest starts a background job. `llm-experiment`
+        runs a prompt over a dataset and scores it; `eval_batch`
+        backfills evaluators over existing traces.
+      required:
+        - type
+        - config
+      properties:
+        config:
+          description: |-
+            Config is job-type specific. For llm-experiment:
+            datasetId, llmConnectionId, model, and either
+            promptName (+ optional promptVersion / promptLabel) or a
+            literal promptTemplate; plus optional evaluatorIds,
+            evaluatorRules, and evalConnectionId. runName is
+            assigned automatically when omitted.
+        datasetRunId:
+          type: string
+        type:
+          type: string
+          description: Type is eval_batch, experiment, or llm-experiment.
+    CreateLLMConnectionRequest:
+      type: object
+      description: |-
+        CreateLLMConnectionRequest stores provider credentials used
+        by evaluators and experiments. The API key is encrypted at
+        rest and never returned by the list endpoint.
+      required:
+        - name
+        - provider
+      properties:
+        apiKey:
+          type: string
+        baseUrl:
+          type: string
+        customHeaders: {}
+        customModels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        defaultModel:
+          type: string
+        defaultParams: {}
+        enableDefaultModels:
+          type: boolean
+          description: EnableDefaultModels defaults to true when omitted.
+          nullable: true
+        isDefault:
+          type: boolean
+        name:
+          type: string
+        provider:
+          type: string
+    CreatePromptRequest:
+      type: object
+      description: |-
+        CreatePromptRequest creates a new prompt version. Versions
+        are assigned automatically; posting an existing name adds a
+        version rather than replacing one.
+      required:
+        - name
+        - prompt
+      properties:
+        commitMessage:
+          type: string
+        config: {}
+        labels:
+          type: array
+          description: |-
+            Labels always gains "latest"; "production" is what the
+            SDKs resolve by default.
+          nullable: true
+          items:
+            type: string
+        name:
+          type: string
+        prompt:
+          description: |-
+            Prompt is a string for `text` prompts and an array of
+            chat messages for `chat` prompts.
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        type:
+          type: string
+    CreateScoreRequest:
+      type: object
+      description: |-
+        CreateScoreRequest attaches a score to a trace or a single
+        observation within it.
+      required:
+        - traceId
+        - name
+      properties:
+        comment:
+          type: string
+        configId:
+          type: string
+        dataType:
+          type: string
+        environment:
+          type: string
+        id:
+          type: string
+        inputTokens:
+          type: integer
+        model:
+          type: string
+        name:
+          type: string
+        observationId:
+          type: string
+        outputTokens:
+          type: integer
+        source:
+          type: string
+        stringValue:
+          type: string
+        traceId:
+          type: string
+        value:
+          type: number
+          description: |-
+            Value carries NUMERIC and BOOLEAN scores; StringValue
+            carries CATEGORICAL ones.
+          nullable: true
+    CustomerOrg:
+      type: object
+      required:
+        - is_cost_factors_enabled
+      properties:
+        home_page:
+          type: string
+        id:
+          type: string
+        instances:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Instance'
+        is_cost_factors_enabled:
+          type: boolean
+        name:
+          type: string
+        tier:
+          type: string
     DashboardSearchEntry:
       type: object
       description: DashboardSearchEntry represents a dashboard search result
@@ -364,6 +664,186 @@ components:
         uid:
           type: string
         url:
+          type: string
+    Dataset:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - metadata
+        - itemCount
+        - runCount
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        itemCount:
+          type: integer
+        latestVersion:
+          type: string
+          format: date-time
+          nullable: true
+        metadata: {}
+        name:
+          type: string
+        runCount:
+          type: integer
+        updatedAt:
+          type: string
+    DatasetItem:
+      type: object
+      required:
+        - id
+        - datasetId
+        - input
+        - expectedOutput
+        - metadata
+        - sourceTraceId
+        - sourceObservationId
+        - status
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        datasetId:
+          type: string
+        expectedOutput: {}
+        id:
+          type: string
+        input: {}
+        metadata: {}
+        sourceObservationId:
+          type: string
+        sourceTraceId:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          type: string
+        validFrom:
+          type: string
+          format: date-time
+          nullable: true
+        validTo:
+          type: string
+          format: date-time
+          nullable: true
+        version:
+          type: integer
+    DatasetRunItem:
+      type: object
+      required:
+        - id
+        - datasetRunId
+        - datasetItemId
+        - traceId
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        datasetItemId:
+          type: string
+        datasetRunId:
+          type: string
+        errorMessage:
+          type: string
+        id:
+          type: string
+        observationId:
+          type: string
+        output:
+          type: string
+        status:
+          type: string
+        traceId:
+          type: string
+        updatedAt:
+          type: string
+    DatasetRunItemResponse:
+      type: object
+      description: |-
+        DatasetRunItemResponse is one dataset row's result inside a
+        run, joined with the row's input/expected output and the
+        scores recorded against its trace.
+      required:
+        - id
+        - datasetRunId
+        - datasetItemId
+        - traceId
+        - createdAt
+        - updatedAt
+        - scores
+      properties:
+        createdAt:
+          type: string
+        datasetItemId:
+          type: string
+        datasetRunId:
+          type: string
+        errorMessage:
+          type: string
+        expectedOutput: {}
+        id:
+          type: string
+        input: {}
+        metadata: {}
+        observationId:
+          type: string
+        output:
+          type: string
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Score'
+        status:
+          type: string
+        traceId:
+          type: string
+        updatedAt:
+          type: string
+    DatasetRunResponse:
+      type: object
+      description: |-
+        DatasetRunResponse is one experiment run over a dataset,
+        enriched with the status of the job that produced it.
+      required:
+        - id
+        - datasetId
+        - name
+        - description
+        - metadata
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        datasetId:
+          type: string
+        datasetVersion:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+        id:
+          type: string
+        latestJobConfig: {}
+        latestJobStatus:
+          type: string
+        metadata: {}
+        name:
+          type: string
+        updatedAt:
           type: string
     DeleteDashboardResponse:
       type: object
@@ -449,6 +929,92 @@ components:
         to:
           type: string
           description: Email address to notify.
+    EvalTemplate:
+      type: object
+      required:
+        - id
+        - name
+        - version
+        - type
+        - prompt
+        - modelParams
+        - outputSchema
+        - vars
+        - createdAt
+      properties:
+        createdAt:
+          type: string
+        id:
+          type: string
+        modelParams: {}
+        name:
+          type: string
+        outputSchema: {}
+        projectId:
+          type: string
+          nullable: true
+        prompt:
+          type: string
+        sourceCode:
+          type: string
+        sourceCodeLanguage:
+          type: string
+        type:
+          type: string
+        vars:
+          type: array
+          nullable: true
+          items:
+            type: string
+        version:
+          type: integer
+    EvaluationRule:
+      type: object
+      required:
+        - id
+        - evaluatorId
+        - name
+        - targetType
+        - filters
+        - samplingRate
+        - maxInvocationsPerHour
+        - variableMapping
+        - modelParams
+        - enabled
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        datasetId:
+          type: string
+        dependsOnRuleIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+        evaluatorId:
+          type: string
+        filters: {}
+        id:
+          type: string
+        llmConnectionId:
+          type: string
+          nullable: true
+        maxInvocationsPerHour:
+          type: integer
+        modelParams: {}
+        name:
+          type: string
+        samplingRate:
+          type: number
+        targetType:
+          type: string
+        updatedAt:
+          type: string
+        variableMapping: {}
     Folder:
       type: object
       description: Folder represents a Grafana folder
@@ -504,6 +1070,18 @@ components:
       required:
         - send_resolved
       properties:
+        card_actions:
+          type: string
+        card_details:
+          type: string
+        card_image_url:
+          type: string
+        card_message:
+          type: string
+        card_subtitle:
+          type: string
+        card_title:
+          type: string
         http_config:
           $ref: '#/components/schemas/HTTPClientConfig'
         message:
@@ -649,23 +1227,20 @@ components:
           type: string
         type:
           type: string
+    Instance:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
     Integration:
       type: object
-      required:
-        - apiKeys
       properties:
         apiDomain:
           type: string
-        apiKey:
-          type: string
-          description: |-
-            APIKey and APIKeys is redacted for playground account in
-            src/ui/oodle-frontend/app/api/integrations/route.ts
-        apiKeys:
-          type: array
-          nullable: true
-          items:
-            $ref: '#/components/schemas/APIToken'
         areMonitorsInstalled:
           type: boolean
         categories:
@@ -706,12 +1281,78 @@ components:
         typeSpecificData:
           oneOf:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
         updatedAt:
           type: string
           format: date-time
+    Job:
+      type: object
+      required:
+        - id
+        - type
+        - status
+        - config
+        - createdAt
+        - updatedAt
+      properties:
+        config: {}
+        createdAt:
+          type: string
+        datasetRunId:
+          type: string
+        error:
+          type: string
+        id:
+          type: string
+        status:
+          type: string
+        type:
+          type: string
+        updatedAt:
+          type: string
+    LLMConnection:
+      type: object
+      required:
+        - id
+        - name
+        - provider
+        - defaultModel
+        - baseUrl
+        - defaultParams
+        - isDefault
+        - customModels
+        - enableDefaultModels
+        - createdAt
+        - updatedAt
+      properties:
+        baseUrl:
+          type: string
+        createdAt:
+          type: string
+        customHeaders: {}
+        customModels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        defaultModel:
+          type: string
+        defaultParams: {}
+        enableDefaultModels:
+          type: boolean
+        id:
+          type: string
+        isDefault:
+          type: boolean
+        name:
+          type: string
+        provider:
+          type: string
+        updatedAt:
+          type: string
     Label:
       type: object
       description: Label represents a name-value pair for a metric label.
@@ -760,6 +1401,98 @@ components:
           description: NotificationPolicyID references the notification policy to use when labels match
         notifiers:
           $ref: '#/components/schemas/NotifiersByCondition'
+    ListDatasetItemsResponse:
+      type: object
+      description: ListDatasetItemsResponse is the dataset item list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DatasetItem'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListDatasetRunItemsResponse:
+      type: object
+      description: ListDatasetRunItemsResponse is the run item list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DatasetRunItemResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListDatasetRunsResponse:
+      type: object
+      description: ListDatasetRunsResponse is the experiment run list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DatasetRunResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListDatasetsResponse:
+      type: object
+      description: ListDatasetsResponse is the dataset list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Dataset'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListEvaluationRulesResponse:
+      type: object
+      description: |-
+        ListEvaluationRulesResponse is the evaluation rule list.
+        This endpoint is not paginated.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/EvaluationRule'
+    ListEvaluatorsResponse:
+      type: object
+      description: |-
+        ListEvaluatorsResponse is the evaluator list envelope. It
+        includes both Oodle-managed evaluator templates and the ones
+        defined in this instance.
+      required:
+        - data
+        - meta
+        - codeEvalEnabled
+      properties:
+        codeEvalEnabled:
+          type: boolean
+          description: |-
+            CodeEvalEnabled reports whether `type: code` evaluators
+            may be created for this instance.
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/EvalTemplate'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
     ListInvitationsResponse:
       type: object
       description: |-
@@ -773,6 +1506,79 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/UserInvitation'
+    ListJobsResponse:
+      type: object
+      description: ListJobsResponse is the job list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Job'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListLLMConnectionsResponse:
+      type: object
+      description: |-
+        ListLLMConnectionsResponse is the connection list. Stored
+        API keys are never included.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LLMConnection'
+    ListMeta:
+      type: object
+      description: |-
+        ListMeta is the pagination envelope every llmops list
+        endpoint returns alongside `data`.
+      required:
+        - totalItems
+        - page
+        - limit
+      properties:
+        limit:
+          type: integer
+        page:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+    ListPromptVersionsResponse:
+      type: object
+      description: ListPromptVersionsResponse is the per-name version list.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PromptResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+    ListPromptsResponse:
+      type: object
+      description: ListPromptsResponse is the prompt list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/PromptMetaResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
     ListRolesResponse:
       type: object
       description: |-
@@ -786,6 +1592,20 @@ components:
           nullable: true
           items:
             type: string
+    ListScoresResponse:
+      type: object
+      description: ListScoresResponse is the score list envelope.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScoreResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
     ListSyntheticMonitorsResponse:
       type: object
       description: |-
@@ -1308,6 +2128,8 @@ components:
           $ref: '#/components/schemas/OpsGenieConfig'
         pagerduty_config:
           $ref: '#/components/schemas/PagerdutyConfig'
+        rootly_config:
+          $ref: '#/components/schemas/WebhookConfig'
         slack_config:
           $ref: '#/components/schemas/SlackConfig'
         type:
@@ -1530,6 +2352,7 @@ components:
         typeSpecificData:
           oneOf:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
+            - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -1566,6 +2389,92 @@ components:
           type: array
           items:
             type: string
+    PromptMetaResponse:
+      type: object
+      description: |-
+        PromptMetaResponse is the per-name rollup returned by the
+        prompt list endpoint — one entry per prompt name, not per
+        version.
+      required:
+        - name
+        - versions
+        - labels
+        - tags
+        - type
+        - lastUpdatedAt
+        - lastConfig
+      properties:
+        labels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        lastConfig: {}
+        lastUpdatedAt:
+          type: string
+        name:
+          type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        type:
+          type: string
+        versions:
+          type: array
+          nullable: true
+          items:
+            type: integer
+    PromptResponse:
+      type: object
+      description: PromptResponse is a single prompt version.
+      required:
+        - id
+        - name
+        - version
+        - type
+      properties:
+        commitMessage:
+          type: string
+        config: {}
+        createdAt:
+          type: string
+        id:
+          type: string
+        isActive:
+          type: boolean
+        labels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        name:
+          type: string
+        prompt: {}
+        resolutionGraph:
+          type: object
+          description: |-
+            ResolutionGraph maps a prompt name to the prompts it
+            pulled in, and is only set when `resolve` was not
+            disabled and the prompt has dependency tags.
+          nullable: true
+          additionalProperties:
+            type: array
+            nullable: true
+            items:
+              type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        type:
+          type: string
+        updatedAt:
+          type: string
+        version:
+          type: integer
     SaveDashboardRequest:
       type: object
       required:
@@ -1675,6 +2584,93 @@ components:
           type: string
         start_time:
           type: string
+    Score:
+      type: object
+      required:
+        - id
+        - traceId
+        - name
+        - dataType
+        - source
+        - createdAt
+        - updatedAt
+      properties:
+        comment:
+          type: string
+        configId:
+          type: string
+        createdAt:
+          type: string
+        dataType:
+          type: string
+        environment:
+          type: string
+        id:
+          type: string
+        inputTokens:
+          type: integer
+        model:
+          type: string
+        name:
+          type: string
+        observationId:
+          type: string
+        outputTokens:
+          type: integer
+        source:
+          type: string
+        stringValue:
+          type: string
+        traceId:
+          type: string
+        updatedAt:
+          type: string
+        value:
+          type: number
+          nullable: true
+    ScoreResponse:
+      type: object
+      description: ScoreResponse is one recorded score.
+      required:
+        - id
+        - traceId
+        - name
+        - dataType
+        - source
+      properties:
+        comment:
+          type: string
+        configId:
+          type: string
+        createdAt:
+          type: string
+        dataType:
+          type: string
+        environment:
+          type: string
+        id:
+          type: string
+        inputTokens:
+          type: integer
+        model:
+          type: string
+        name:
+          type: string
+        observationId:
+          type: string
+        outputTokens:
+          type: integer
+        source:
+          type: string
+        stringValue:
+          type: string
+        traceId:
+          type: string
+        updatedAt:
+          type: string
+        value:
+          type: number
+          nullable: true
     SendInvitationRequest:
       type: object
       description: |-
@@ -1870,6 +2866,15 @@ components:
           nullable: true
         status_code:
           type: integer
+        step_results:
+          type: array
+          description: |-
+            Multistep-specific results: one entry per executed step
+            in chain order. The overall Success above is "all required
+            steps passed".
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticStepResult'
         success:
           type: boolean
         timestamp:
@@ -1921,6 +2926,37 @@ components:
           type: string
         record_type:
           type: string
+    SyntheticExtractRule:
+      type: object
+      description: |-
+        ExtractRule pulls a value from a step's response into a
+        named variable.
+      required:
+        - name
+        - source
+        - parser
+        - query
+      properties:
+        name:
+          type: string
+        parser:
+          type: string
+          description: 'Parser: "jsonpath", "regex", or "header_value".'
+        query:
+          type: string
+          description: |-
+            Query is the JSONPath, regex (first capture group),
+            or header name to read.
+        secret:
+          type: boolean
+          description: |-
+            Secret marks the value as redacted in CheckResult,
+            StepResult, and log output. It does NOT affect storage:
+            the rule_config itself is stored as plain JSONB, matching
+            the existing BearerToken / BasicAuth convention.
+        source:
+          type: string
+          description: 'Source: "body" or "header".'
     SyntheticHTTPRuleConfig:
       type: object
       required:
@@ -1960,6 +2996,36 @@ components:
           type: string
         url:
           type: string
+    SyntheticHTTPStep:
+      type: object
+      description: HTTPStep is one request in a multistep chain.
+      required:
+        - name
+        - request
+      properties:
+        continue_on_failure:
+          type: boolean
+          description: |-
+            ContinueOnFailure: if true, a failing step does not stop
+            the chain. The step's failure is recorded but later steps
+            still run and the overall monitor can still pass.
+        exit_on_success:
+          type: boolean
+          description: |-
+            ExitOnSuccess: if true, a successful step ends the chain
+            early. The overall monitor is marked passed.
+        extract:
+          type: array
+          description: |-
+            Extract pulls values out of the response and binds them
+            to variables that later steps can interpolate.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticExtractRule'
+        name:
+          type: string
+        request:
+          $ref: '#/components/schemas/SyntheticHTTPRuleConfig'
     SyntheticLabelMatcherNotifications:
       type: object
       description: LabelMatcherNotifications defines notifications with label matching
@@ -2036,6 +3102,21 @@ components:
         updated_at:
           type: string
           format: date-time
+    SyntheticMultistepRuleConfig:
+      type: object
+      description: |-
+        MultistepRuleConfig is the configuration for a multistep
+        HTTP check. Steps execute in order; later steps can reference
+        variables extracted from earlier responses via {{VAR_NAME}}
+        substitution in URL, headers, and body.
+      required:
+        - steps
+      properties:
+        steps:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/SyntheticHTTPStep'
     SyntheticNotifiersByCondition:
       type: object
       description: NotifiersByCondition defines notifiers for each condition
@@ -2075,6 +3156,8 @@ components:
           $ref: '#/components/schemas/SyntheticDNSRuleConfig'
         http:
           $ref: '#/components/schemas/SyntheticHTTPRuleConfig'
+        multistep:
+          $ref: '#/components/schemas/SyntheticMultistepRuleConfig'
         ping:
           $ref: '#/components/schemas/SyntheticPingRuleConfig'
         ssl:
@@ -2106,6 +3189,30 @@ components:
           type: integer
         warn_days_before_expiry:
           type: integer
+    SyntheticStepResult:
+      type: object
+      description: |-
+        StepResult is the outcome of a single step in a multistep
+        monitor. Per-step ResponseBody / headers are deliberately
+        omitted to keep the result payload small — the run-history
+        UI surfaces step name, success, status, duration, and error
+        only. Secret-extracted values are scrubbed from ErrorMessage
+        before this struct is populated.
+      required:
+        - name
+        - success
+        - duration_ms
+      properties:
+        duration_ms:
+          type: integer
+        error_message:
+          type: string
+        name:
+          type: string
+        status_code:
+          type: integer
+        success:
+          type: boolean
     SyntheticTCPRuleConfig:
       type: object
       description: TCPRuleConfig is the configuration for TCP checks
@@ -2439,6 +3546,17 @@ components:
           nullable: true
           items:
             type: string
+    UpdateDatasetItemRequest:
+      type: object
+      description: |-
+        UpdateDatasetItemRequest patches a dataset row. Omitted
+        fields are left untouched.
+      properties:
+        expectedOutput: {}
+        input: {}
+        metadata: {}
+        status:
+          type: string
     UpdateDropRuleRequest:
       type: object
       description: UpdateDropRuleRequest is the request body for updating a drop rule.
@@ -2459,6 +3577,127 @@ components:
           type: string
         type:
           type: string
+    UpdateEvalTemplateRequest:
+      type: object
+      description: |-
+        UpdateEvalTemplateRequest patches an evaluator. Empty fields
+        are left untouched. Oodle-managed evaluators cannot be
+        updated.
+      properties:
+        modelParams: {}
+        name:
+          type: string
+        outputSchema: {}
+        prompt:
+          type: string
+        sourceCode:
+          type: string
+        sourceCodeLanguage:
+          type: string
+        vars:
+          type: array
+          nullable: true
+          items:
+            type: string
+    UpdateEvaluationRuleRequest:
+      type: object
+      description: |-
+        UpdateEvaluationRuleRequest patches an evaluation rule.
+        Pointer fields distinguish "not supplied" from a zero value.
+      properties:
+        dependsOnRuleIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+          nullable: true
+        filters: {}
+        llmConnectionId:
+          type: string
+          nullable: true
+        maxInvocationsPerHour:
+          type: integer
+          nullable: true
+        modelParams: {}
+        name:
+          type: string
+        samplingRate:
+          type: number
+          nullable: true
+        targetType:
+          type: string
+        variableMapping: {}
+    UpdateJobRequest:
+      type: object
+      description: |-
+        UpdateJobRequest changes a job's status. Only cancellation is
+        accepted over the API; workers own the other transitions.
+      required:
+        - status
+      properties:
+        error:
+          type: string
+        status:
+          type: string
+    UpdateLLMConnectionRequest:
+      type: object
+      description: |-
+        UpdateLLMConnectionRequest patches a connection. An empty
+        apiKey leaves the stored credential in place.
+      properties:
+        apiKey:
+          type: string
+        baseUrl:
+          type: string
+        customHeaders: {}
+        customModels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        defaultModel:
+          type: string
+        defaultParams: {}
+        enableDefaultModels:
+          type: boolean
+          nullable: true
+        isDefault:
+          type: boolean
+        name:
+          type: string
+        provider:
+          type: string
+    UpdatePromptLabelsRequest:
+      type: object
+      description: |-
+        UpdatePromptLabelsRequest replaces the label set on one
+        prompt version.
+      required:
+        - version
+        - labels
+      properties:
+        labels:
+          type: array
+          nullable: true
+          items:
+            type: string
+        version:
+          type: integer
+    UpdatePromptVersionLabelsRequest:
+      type: object
+      description: |-
+        UpdatePromptVersionLabelsRequest additively merges labels
+        onto a version. "latest" is auto-managed and rejected here.
+      required:
+        - newLabels
+      properties:
+        newLabels:
+          type: array
+          nullable: true
+          items:
+            type: string
     UpdateUserRequest:
       type: object
       description: |-
@@ -2480,6 +3719,7 @@ components:
       description: User is the API representation of an org user.
       required:
         - user_id
+        - roles
       properties:
         email:
           type: string
@@ -2487,6 +3727,11 @@ components:
           type: string
         picture:
           type: string
+        roles:
+          type: array
+          nullable: true
+          items:
+            type: string
         user_id:
           type: string
     UserInvitation:
@@ -2688,6 +3933,13 @@ info:
 
     - `https://us1.api.oodle.ai` - US (default)
     - `https://ap1.api.oodle.ai` - AP1
+
+    ## Finding your Instance ID
+
+    Most endpoints require an Oodle **instance ID** (the `{instance}` path parameter, or the `OODLE-INSTANCE` / `X-OODLE-INSTANCE` header on query endpoints). You can find it in two ways:
+
+    - **Oodle UI** (Admin users): open **Settings > API Keys**. The instance ID is shown alongside each key.
+    - **Oodle CLI** (OAuth users): run `oodle auth status` after `oodle auth login`.
   version: 1.0.0
 paths:
   /api/v1/log_index_patterns:
@@ -2740,7 +3992,7 @@ paths:
       parameters:
         - name: OODLE-INSTANCE
           in: header
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -2788,7 +4040,7 @@ paths:
       parameters:
         - name: X-OODLE-INSTANCE
           in: header
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -2828,7 +4080,7 @@ paths:
       parameters:
         - name: OODLE-INSTANCE
           in: header
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -2923,7 +4175,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -2965,7 +4217,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3023,7 +4275,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3071,7 +4323,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3123,7 +4375,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3181,7 +4433,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3223,7 +4475,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3281,7 +4533,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3329,7 +4581,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3381,7 +4633,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3439,7 +4691,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3481,7 +4733,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3539,7 +4791,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3591,7 +4843,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3638,7 +4890,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3680,7 +4932,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3733,7 +4985,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3776,7 +5028,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3829,7 +5081,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3878,7 +5130,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3931,7 +5183,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -3995,7 +5247,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4047,6 +5299,2112 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/dataset-items:
+    post:
+      tags:
+        - GenAI Datasets
+      summary: Create a dataset item
+      operationId: createGenaiDatasetItem
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatasetItemRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetItem'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/dataset-items/{itemId}:
+    delete:
+      tags:
+        - GenAI Datasets
+      summary: Delete a dataset item
+      operationId: deleteGenaiDatasetItem
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          description: Dataset item ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Datasets
+      summary: Get a dataset item
+      operationId: getGenaiDatasetItem
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          description: Dataset item ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetItem'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - GenAI Datasets
+      summary: Update a dataset item
+      operationId: updateGenaiDatasetItem
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: itemId
+          in: path
+          description: Dataset item ID.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDatasetItemRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetItem'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/dataset-run-items:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: List an experiment run's items
+      operationId: listGenaiExperimentItems
+      parameters:
+        - name: datasetRunId
+          in: query
+          description: Run to list items for.
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDatasetRunItemsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Experiments
+      summary: Record an experiment run item
+      operationId: createGenaiExperimentItem
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatasetRunItemRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRunItem'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/datasets:
+    get:
+      tags:
+        - GenAI Datasets
+      summary: List datasets
+      operationId: listGenaiDatasets
+      parameters:
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDatasetsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Datasets
+      summary: Create a dataset
+      operationId: createGenaiDataset
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDatasetRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/datasets/{datasetName}:
+    delete:
+      tags:
+        - GenAI Datasets
+      summary: Delete a dataset
+      operationId: deleteGenaiDataset
+      parameters:
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Datasets
+      summary: Get a dataset by name
+      operationId: getGenaiDataset
+      parameters:
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dataset'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/datasets/{datasetName}/items:
+    get:
+      tags:
+        - GenAI Datasets
+      summary: List a dataset's items
+      operationId: listGenaiDatasetItems
+      parameters:
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: version
+          in: query
+          description: RFC3339 timestamp. Returns the dataset as it stood at that moment, which is how a past run's inputs are recovered.
+          schema:
+            type: string
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDatasetItemsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/datasets/{datasetName}/runs:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: List a dataset's experiment runs
+      operationId: listGenaiExperiments
+      parameters:
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListDatasetRunsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/eval-templates:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: List evaluators
+      operationId: listGenaiEvaluators
+      parameters:
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEvaluatorsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Evaluators
+      summary: Create an evaluator
+      operationId: createGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvalTemplateRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalTemplate'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/eval-templates/{templateId}:
+    delete:
+      tags:
+        - GenAI Evaluators
+      summary: Delete an evaluator
+      operationId: deleteGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: templateId
+          in: path
+          description: Evaluator ID. Oodle-managed evaluators use ids of the form `oodle-managed-*` and are read-only.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: Get an evaluator
+      operationId: getGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: templateId
+          in: path
+          description: Evaluator ID. Oodle-managed evaluators use ids of the form `oodle-managed-*` and are read-only.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalTemplate'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Evaluators
+      summary: Update an evaluator
+      operationId: updateGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: templateId
+          in: path
+          description: Evaluator ID. Oodle-managed evaluators use ids of the form `oodle-managed-*` and are read-only.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvalTemplateRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvalTemplate'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/evaluation-rules:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: List evaluation rules
+      operationId: listGenaiEvaluationRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListEvaluationRulesResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Evaluators
+      summary: Create an evaluation rule
+      operationId: createGenaiEvaluationRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEvaluationRuleRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/evaluation-rules/{ruleId}:
+    delete:
+      tags:
+        - GenAI Evaluators
+      summary: Delete an evaluation rule
+      operationId: deleteGenaiEvaluationRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: ruleId
+          in: path
+          description: Evaluation rule ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Evaluators
+      summary: Update an evaluation rule
+      operationId: updateGenaiEvaluationRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: ruleId
+          in: path
+          description: Evaluation rule ID.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEvaluationRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/jobs:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: List jobs
+      operationId: listGenaiJobs
+      parameters:
+        - name: datasetRunId
+          in: query
+          description: List the jobs for one run. Omit to list jobs still pending.
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListJobsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Experiments
+      summary: Start a job or experiment run
+      operationId: createGenaiJob
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJobRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/jobs/{jobId}:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: Get a job
+      operationId: getGenaiJob
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: jobId
+          in: path
+          description: Job ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - GenAI Experiments
+      summary: Cancel a job
+      operationId: updateGenaiJob
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: jobId
+          in: path
+          description: Job ID.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateJobRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Job'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/llm-connections:
+    get:
+      tags:
+        - GenAI LLM Connections
+      summary: List LLM connections
+      operationId: listGenaiLlmConnections
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListLLMConnectionsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI LLM Connections
+      summary: Create an LLM connection
+      operationId: createGenaiLlmConnection
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLLMConnectionRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMConnection'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/llm-connections/{connectionId}:
+    delete:
+      tags:
+        - GenAI LLM Connections
+      summary: Delete an LLM connection
+      operationId: deleteGenaiLlmConnection
+      parameters:
+        - name: connectionId
+          in: path
+          description: LLM connection ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - GenAI LLM Connections
+      summary: Update an LLM connection
+      operationId: updateGenaiLlmConnection
+      parameters:
+        - name: connectionId
+          in: path
+          description: LLM connection ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLLMConnectionRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LLMConnection'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/scores:
+    post:
+      tags:
+        - GenAI Scores
+      summary: Create a score
+      operationId: createGenaiScore
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScoreRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/scores/{scoreId}:
+    get:
+      tags:
+        - GenAI Scores
+      summary: Get a score
+      operationId: getGenaiScore
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: scoreId
+          in: path
+          description: Score ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Score'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/prompts:
+    get:
+      tags:
+        - GenAI Prompts
+      summary: List prompts
+      operationId: listGenaiPrompts
+      parameters:
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: search
+          in: query
+          description: Substring match on the prompt name.
+          schema:
+            type: string
+        - name: searchField
+          in: query
+          description: Field `search` applies to. Defaults to the name.
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPromptsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Prompts
+      summary: Create a prompt version
+      operationId: createGenaiPrompt
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePromptRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/prompts/{promptName}:
+    delete:
+      tags:
+        - GenAI Prompts
+      summary: Delete a prompt and all its versions
+      operationId: deleteGenaiPrompt
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Prompts
+      summary: Get a prompt by name
+      operationId: getGenaiPrompt
+      parameters:
+        - name: label
+          in: query
+          description: Label to resolve. Defaults to `production`.
+          schema:
+            type: string
+        - name: resolve
+          in: query
+          description: Set to `false` to return the raw prompt with its dependency tags left unexpanded.
+          schema:
+            type: string
+        - name: version
+          in: query
+          description: Exact version to fetch. Takes precedence over `label`.
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Prompts
+      summary: Set the labels on a prompt version
+      operationId: updateGenaiPromptLabels
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromptLabelsRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: object
+                nullable: true
+                additionalProperties:
+                  type: string
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/prompts/{promptName}/versions:
+    get:
+      tags:
+        - GenAI Prompts
+      summary: List a prompt's versions
+      operationId: listGenaiPromptVersions
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListPromptVersionsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/prompts/{promptName}/versions/{promptVersion}:
+    delete:
+      tags:
+        - GenAI Prompts
+      summary: Delete a prompt version
+      operationId: deleteGenaiPromptVersion
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+        - name: promptVersion
+          in: path
+          description: Prompt version number.
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Prompts
+      summary: Add labels to a prompt version
+      operationId: updateGenaiPromptVersionLabels
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: promptName
+          in: path
+          description: Prompt name. URL-encode `/` as `%2F` for namespaced names.
+          required: true
+          schema:
+            type: string
+        - name: promptVersion
+          in: path
+          description: Prompt version number.
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePromptVersionLabelsRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PromptResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/scores:
+    get:
+      tags:
+        - GenAI Scores
+      summary: List scores
+      operationId: listGenaiScores
+      parameters:
+        - name: evaluatorName
+          in: query
+          description: Exact name of the evaluator that produced the score.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 2000.
+          schema:
+            type: integer
+        - name: name
+          in: query
+          description: Exact score name to filter by.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: scoreValueMax
+          in: query
+          description: Upper bound on the numeric value.
+          schema:
+            type: number
+        - name: scoreValueMin
+          in: query
+          description: Lower bound on the numeric value.
+          schema:
+            type: number
+        - name: start
+          in: query
+          description: RFC3339 lower bound on score time. Defaults to 15 minutes ago — scores are read from the trace store, so a wide range must be requested explicitly.
+          schema:
+            type: string
+        - name: traceId
+          in: query
+          description: Only scores on this trace.
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListScoresResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/logmetrics:
     get:
       tags:
@@ -4059,7 +7417,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4101,7 +7459,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4159,7 +7517,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4213,7 +7571,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4271,7 +7629,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4348,7 +7706,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4422,7 +7780,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4502,7 +7860,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4562,7 +7920,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4615,7 +7973,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4658,7 +8016,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4705,7 +8063,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4747,7 +8105,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4805,7 +8163,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4859,7 +8217,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4917,7 +8275,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -4975,7 +8333,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5017,7 +8375,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5075,7 +8433,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5123,7 +8481,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5170,7 +8528,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5212,7 +8570,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5270,7 +8628,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5324,7 +8682,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5382,7 +8740,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5440,7 +8798,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5482,7 +8840,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5540,7 +8898,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5600,7 +8958,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5658,7 +9016,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5716,7 +9074,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5763,7 +9121,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5803,7 +9161,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5861,7 +9219,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5909,7 +9267,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -5961,7 +9319,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6025,7 +9383,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6072,7 +9430,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6134,7 +9492,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6193,7 +9551,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6295,7 +9653,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6356,7 +9714,7 @@ paths:
             format: int64
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6415,7 +9773,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6473,7 +9831,7 @@ paths:
             type: string
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6519,7 +9877,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6573,7 +9931,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6619,7 +9977,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6677,7 +10035,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6731,7 +10089,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6790,7 +10148,7 @@ paths:
       parameters:
         - name: instance
           in: path
-          description: Oodle instance ID
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -6897,6 +10255,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
       security: []
+  /v1/api/org:
+    get:
+      tags:
+        - Org
+      summary: Get organization details
+      description: |-
+        Returns details for the organization associated with the caller, including the list of instances, tier, and home page.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: getOrg
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CustomerOrg'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
 security:
   - OAuth2Auth: []
   - ApiKeyAuth: []
@@ -6938,3 +10331,17 @@ tags:
     description: OAuth well-known discovery metadata.
   - name: Integrations
     description: Integration setup specifications for programmatic onboarding.
+  - name: Org
+    description: Organization details and associated instances.
+  - name: GenAI Prompts
+    description: Version, label, and fetch prompts. Labels (`production`, `latest`, or your own) are how an application pins which version it runs.
+  - name: GenAI Datasets
+    description: Curate evaluation datasets and their items. Items can be authored directly or captured from a production trace.
+  - name: GenAI Evaluators
+    description: Define LLM-as-judge and code evaluators, and the rules that run them over live traffic.
+  - name: GenAI Scores
+    description: Read evaluator output and attach your own scores to traces and observations.
+  - name: GenAI Experiments
+    description: Run a prompt over a dataset, score the result, and compare runs.
+  - name: GenAI LLM Connections
+    description: Provider credentials that evaluators and experiments run against. Stored keys are encrypted and never returned.

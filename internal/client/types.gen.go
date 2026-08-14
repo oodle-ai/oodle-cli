@@ -130,14 +130,6 @@ func (e PrometheusQueryResponseStatus) Valid() bool {
 	}
 }
 
-// APIToken defines model for APIToken.
-type APIToken struct {
-	CreatedAtEpochMillis int    `json:"created_at_epoch_millis"`
-	ExpiresAtEpochMillis int    `json:"expires_at_epoch_millis"`
-	IsPrimary            bool   `json:"is_primary"`
-	Token                string `json:"token"`
-}
-
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -280,11 +272,66 @@ type ConditionBySeverity struct {
 	Warn *Condition `json:"warn,omitempty"`
 }
 
+// ConfluentCloudIntegration ConfluentCloudIntegration is the API-facing config for a Confluent Cloud
+// integration. ApiSecret is write-only: it is accepted on create/update but
+// never returned in plaintext (a mask is returned instead).
+type ConfluentCloudIntegration struct {
+	// AccountName AccountName is the human-readable identifier for this set of credentials,
+	// shown in the UI list of configured accounts. Required.
+	AccountName  *string   `json:"accountName,omitempty"`
+	ApiKey       *string   `json:"apiKey,omitempty"`
+	ApiSecret    *string   `json:"apiSecret,omitempty"`
+	ClusterIds   *[]string `json:"clusterIds,omitempty"`
+	ConnectorIds *[]string `json:"connectorIds,omitempty"`
+}
+
+// ConfluentCloudIntegrationWrapper defines model for ConfluentCloudIntegrationWrapper.
+type ConfluentCloudIntegrationWrapper struct {
+	// ConfluentCloudIntegration ConfluentCloudIntegration is the API-facing config for a Confluent Cloud
+	// integration. ApiSecret is write-only: it is accepted on create/update but
+	// never returned in plaintext (a mask is returned instead).
+	ConfluentCloudIntegration *ConfluentCloudIntegration `json:"confluentCloudIntegration,omitempty"`
+}
+
 // CreateApiKeyRequest defines model for CreateApiKeyRequest.
 type CreateApiKeyRequest struct {
 	Name   string    `json:"name"`
 	Roles  *[]string `json:"roles,omitempty"`
 	Scopes *[]string `json:"scopes"`
+}
+
+// CreateDatasetItemRequest CreateDatasetItemRequest adds one row to a dataset.
+type CreateDatasetItemRequest struct {
+	DatasetName         string      `json:"datasetName"`
+	ExpectedOutput      interface{} `json:"expectedOutput,omitempty"`
+	Input               interface{} `json:"input"`
+	Metadata            interface{} `json:"metadata,omitempty"`
+	SourceObservationId *string     `json:"sourceObservationId,omitempty"`
+
+	// SourceTraceId SourceTraceID / SourceObservationID link the row back to
+	// the production trace it was captured from.
+	SourceTraceId *string `json:"sourceTraceId,omitempty"`
+	Status        *string `json:"status,omitempty"`
+}
+
+// CreateDatasetRequest CreateDatasetRequest creates an evaluation dataset.
+type CreateDatasetRequest struct {
+	Description *string     `json:"description,omitempty"`
+	Metadata    interface{} `json:"metadata,omitempty"`
+	Name        string      `json:"name"`
+}
+
+// CreateDatasetRunItemRequest CreateDatasetRunItemRequest records one dataset row's result
+// inside a run, creating the run on first use.
+type CreateDatasetRunItemRequest struct {
+	DatasetItemId  string  `json:"datasetItemId"`
+	ErrorMessage   *string `json:"errorMessage,omitempty"`
+	ObservationId  *string `json:"observationId,omitempty"`
+	Output         *string `json:"output,omitempty"`
+	RunDescription *string `json:"runDescription,omitempty"`
+	RunName        *string `json:"runName,omitempty"`
+	Status         *string `json:"status,omitempty"`
+	TraceId        string  `json:"traceId"`
 }
 
 // CreateDropRuleRequest CreateDropRuleRequest is the request body for creating a drop rule.
@@ -295,6 +342,53 @@ type CreateDropRuleRequest struct {
 	MetricName MetricLabelMatcher `json:"metric_name"`
 	RuleName   string             `json:"rule_name"`
 	Type       string             `json:"type"`
+}
+
+// CreateEvalTemplateRequest CreateEvalTemplateRequest defines an evaluator: either an
+// LLM-as-judge prompt (`type: llm`) or a Python scorer
+// (`type: code`).
+type CreateEvalTemplateRequest struct {
+	ModelParams  interface{} `json:"modelParams,omitempty"`
+	Name         string      `json:"name"`
+	OutputSchema interface{} `json:"outputSchema,omitempty"`
+
+	// Prompt Prompt is the judge prompt for llm evaluators, with
+	// {{var}} placeholders drawn from Vars.
+	Prompt *string `json:"prompt,omitempty"`
+
+	// SourceCode SourceCode is required for code evaluators and capped at
+	// 256 KB. SourceCodeLanguage must be "python".
+	SourceCode         *string `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string `json:"sourceCodeLanguage,omitempty"`
+
+	// Type Type is "llm" or "code".
+	Type string    `json:"type"`
+	Vars *[]string `json:"vars,omitempty"`
+}
+
+// CreateEvaluationRuleRequest CreateEvaluationRuleRequest wires an evaluator to live
+// traffic: which spans it runs on, how often, and how span
+// fields map onto the evaluator's variables.
+type CreateEvaluationRuleRequest struct {
+	DatasetId *string `json:"datasetId,omitempty"`
+
+	// DependsOnRuleIds DependsOnRuleIDs gates this rule on other rules' scores.
+	// Cycles and self-references are rejected.
+	DependsOnRuleIds *[]string   `json:"dependsOnRuleIds,omitempty"`
+	Enabled          *bool       `json:"enabled,omitempty"`
+	EvaluatorId      string      `json:"evaluatorId"`
+	Filters          interface{} `json:"filters,omitempty"`
+	LlmConnectionId  *string     `json:"llmConnectionId,omitempty"`
+
+	// MaxInvocationsPerHour MaxInvocationsPerHr caps spend; 0 means unlimited.
+	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
+	ModelParams           interface{} `json:"modelParams,omitempty"`
+	Name                  string      `json:"name"`
+
+	// SamplingRate SamplingRate is 0..1.
+	SamplingRate    *float32    `json:"samplingRate,omitempty"`
+	TargetType      *string     `json:"targetType,omitempty"`
+	VariableMapping interface{} `json:"variableMapping,omitempty"`
 }
 
 // CreateFolderRequest CreateFolderRequest represents a request to create a folder
@@ -312,12 +406,98 @@ type CreateIntegrationRequest struct {
 	TypeSpecificData *CreateIntegrationRequest_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// CreateIntegrationRequestTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type CreateIntegrationRequestTypeSpecificData1 map[string]interface{}
+// CreateIntegrationRequestTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type CreateIntegrationRequestTypeSpecificData2 map[string]interface{}
 
 // CreateIntegrationRequest_TypeSpecificData defines model for CreateIntegrationRequest.TypeSpecificData.
 type CreateIntegrationRequest_TypeSpecificData struct {
 	union json.RawMessage
+}
+
+// CreateJobRequest CreateJobRequest starts a background job. `llm-experiment`
+// runs a prompt over a dataset and scores it; `eval_batch`
+// backfills evaluators over existing traces.
+type CreateJobRequest struct {
+	// Config Config is job-type specific. For llm-experiment:
+	// datasetId, llmConnectionId, model, and either
+	// promptName (+ optional promptVersion / promptLabel) or a
+	// literal promptTemplate; plus optional evaluatorIds,
+	// evaluatorRules, and evalConnectionId. runName is
+	// assigned automatically when omitted.
+	Config       interface{} `json:"config"`
+	DatasetRunId *string     `json:"datasetRunId,omitempty"`
+
+	// Type Type is eval_batch, experiment, or llm-experiment.
+	Type string `json:"type"`
+}
+
+// CreateLLMConnectionRequest CreateLLMConnectionRequest stores provider credentials used
+// by evaluators and experiments. The API key is encrypted at
+// rest and never returned by the list endpoint.
+type CreateLLMConnectionRequest struct {
+	ApiKey        *string     `json:"apiKey,omitempty"`
+	BaseUrl       *string     `json:"baseUrl,omitempty"`
+	CustomHeaders interface{} `json:"customHeaders,omitempty"`
+	CustomModels  *[]string   `json:"customModels,omitempty"`
+	DefaultModel  *string     `json:"defaultModel,omitempty"`
+	DefaultParams interface{} `json:"defaultParams,omitempty"`
+
+	// EnableDefaultModels EnableDefaultModels defaults to true when omitted.
+	EnableDefaultModels *bool  `json:"enableDefaultModels,omitempty"`
+	IsDefault           *bool  `json:"isDefault,omitempty"`
+	Name                string `json:"name"`
+	Provider            string `json:"provider"`
+}
+
+// CreatePromptRequest CreatePromptRequest creates a new prompt version. Versions
+// are assigned automatically; posting an existing name adds a
+// version rather than replacing one.
+type CreatePromptRequest struct {
+	CommitMessage *string     `json:"commitMessage,omitempty"`
+	Config        interface{} `json:"config,omitempty"`
+
+	// Labels Labels always gains "latest"; "production" is what the
+	// SDKs resolve by default.
+	Labels *[]string `json:"labels,omitempty"`
+	Name   string    `json:"name"`
+
+	// Prompt Prompt is a string for `text` prompts and an array of
+	// chat messages for `chat` prompts.
+	Prompt interface{} `json:"prompt"`
+	Tags   *[]string   `json:"tags,omitempty"`
+	Type   *string     `json:"type,omitempty"`
+}
+
+// CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
+// observation within it.
+type CreateScoreRequest struct {
+	Comment       *string `json:"comment,omitempty"`
+	ConfigId      *string `json:"configId,omitempty"`
+	DataType      *string `json:"dataType,omitempty"`
+	Environment   *string `json:"environment,omitempty"`
+	Id            *string `json:"id,omitempty"`
+	InputTokens   *int    `json:"inputTokens,omitempty"`
+	Model         *string `json:"model,omitempty"`
+	Name          string  `json:"name"`
+	ObservationId *string `json:"observationId,omitempty"`
+	OutputTokens  *int    `json:"outputTokens,omitempty"`
+	Source        *string `json:"source,omitempty"`
+	StringValue   *string `json:"stringValue,omitempty"`
+	TraceId       string  `json:"traceId"`
+
+	// Value Value carries NUMERIC and BOOLEAN scores; StringValue
+	// carries CATEGORICAL ones.
+	Value *float32 `json:"value,omitempty"`
+}
+
+// CustomerOrg defines model for CustomerOrg.
+type CustomerOrg struct {
+	HomePage             *string     `json:"home_page,omitempty"`
+	Id                   *string     `json:"id,omitempty"`
+	Instances            *[]Instance `json:"instances,omitempty"`
+	IsCostFactorsEnabled bool        `json:"is_cost_factors_enabled"`
+	Name                 *string     `json:"name,omitempty"`
+	Tier                 *string     `json:"tier,omitempty"`
 }
 
 // DashboardSearchEntry DashboardSearchEntry represents a dashboard search result
@@ -333,6 +513,85 @@ type DashboardSearchEntry struct {
 	Type        string    `json:"type"`
 	Uid         string    `json:"uid"`
 	Url         string    `json:"url"`
+}
+
+// Dataset defines model for Dataset.
+type Dataset struct {
+	CreatedAt     string      `json:"createdAt"`
+	Description   string      `json:"description"`
+	Id            string      `json:"id"`
+	ItemCount     int         `json:"itemCount"`
+	LatestVersion *time.Time  `json:"latestVersion,omitempty"`
+	Metadata      interface{} `json:"metadata"`
+	Name          string      `json:"name"`
+	RunCount      int         `json:"runCount"`
+	UpdatedAt     string      `json:"updatedAt"`
+}
+
+// DatasetItem defines model for DatasetItem.
+type DatasetItem struct {
+	CreatedAt           string      `json:"createdAt"`
+	DatasetId           string      `json:"datasetId"`
+	ExpectedOutput      interface{} `json:"expectedOutput"`
+	Id                  string      `json:"id"`
+	Input               interface{} `json:"input"`
+	Metadata            interface{} `json:"metadata"`
+	SourceObservationId string      `json:"sourceObservationId"`
+	SourceTraceId       string      `json:"sourceTraceId"`
+	Status              string      `json:"status"`
+	UpdatedAt           string      `json:"updatedAt"`
+	ValidFrom           *time.Time  `json:"validFrom,omitempty"`
+	ValidTo             *time.Time  `json:"validTo,omitempty"`
+	Version             int         `json:"version"`
+}
+
+// DatasetRunItem defines model for DatasetRunItem.
+type DatasetRunItem struct {
+	CreatedAt     string  `json:"createdAt"`
+	DatasetItemId string  `json:"datasetItemId"`
+	DatasetRunId  string  `json:"datasetRunId"`
+	ErrorMessage  *string `json:"errorMessage,omitempty"`
+	Id            string  `json:"id"`
+	ObservationId *string `json:"observationId,omitempty"`
+	Output        *string `json:"output,omitempty"`
+	Status        *string `json:"status,omitempty"`
+	TraceId       string  `json:"traceId"`
+	UpdatedAt     string  `json:"updatedAt"`
+}
+
+// DatasetRunItemResponse DatasetRunItemResponse is one dataset row's result inside a
+// run, joined with the row's input/expected output and the
+// scores recorded against its trace.
+type DatasetRunItemResponse struct {
+	CreatedAt      string      `json:"createdAt"`
+	DatasetItemId  string      `json:"datasetItemId"`
+	DatasetRunId   string      `json:"datasetRunId"`
+	ErrorMessage   *string     `json:"errorMessage,omitempty"`
+	ExpectedOutput interface{} `json:"expectedOutput,omitempty"`
+	Id             string      `json:"id"`
+	Input          interface{} `json:"input,omitempty"`
+	Metadata       interface{} `json:"metadata,omitempty"`
+	ObservationId  *string     `json:"observationId,omitempty"`
+	Output         *string     `json:"output,omitempty"`
+	Scores         *[]Score    `json:"scores"`
+	Status         *string     `json:"status,omitempty"`
+	TraceId        string      `json:"traceId"`
+	UpdatedAt      string      `json:"updatedAt"`
+}
+
+// DatasetRunResponse DatasetRunResponse is one experiment run over a dataset,
+// enriched with the status of the job that produced it.
+type DatasetRunResponse struct {
+	CreatedAt       string      `json:"createdAt"`
+	DatasetId       string      `json:"datasetId"`
+	DatasetVersion  *time.Time  `json:"datasetVersion,omitempty"`
+	Description     string      `json:"description"`
+	Id              string      `json:"id"`
+	LatestJobConfig interface{} `json:"latestJobConfig,omitempty"`
+	LatestJobStatus *string     `json:"latestJobStatus,omitempty"`
+	Metadata        interface{} `json:"metadata"`
+	Name            string      `json:"name"`
+	UpdatedAt       string      `json:"updatedAt"`
 }
 
 // DeleteDashboardResponse DeleteDashboardResponse is the JSON body of a successful
@@ -382,6 +641,41 @@ type EmailConfig struct {
 	To *string `json:"to,omitempty"`
 }
 
+// EvalTemplate defines model for EvalTemplate.
+type EvalTemplate struct {
+	CreatedAt          string      `json:"createdAt"`
+	Id                 string      `json:"id"`
+	ModelParams        interface{} `json:"modelParams"`
+	Name               string      `json:"name"`
+	OutputSchema       interface{} `json:"outputSchema"`
+	ProjectId          *string     `json:"projectId,omitempty"`
+	Prompt             string      `json:"prompt"`
+	SourceCode         *string     `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string     `json:"sourceCodeLanguage,omitempty"`
+	Type               string      `json:"type"`
+	Vars               *[]string   `json:"vars"`
+	Version            int         `json:"version"`
+}
+
+// EvaluationRule defines model for EvaluationRule.
+type EvaluationRule struct {
+	CreatedAt             string      `json:"createdAt"`
+	DatasetId             *string     `json:"datasetId,omitempty"`
+	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
+	Enabled               bool        `json:"enabled"`
+	EvaluatorId           string      `json:"evaluatorId"`
+	Filters               interface{} `json:"filters"`
+	Id                    string      `json:"id"`
+	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
+	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
+	ModelParams           interface{} `json:"modelParams"`
+	Name                  string      `json:"name"`
+	SamplingRate          float32     `json:"samplingRate"`
+	TargetType            string      `json:"targetType"`
+	UpdatedAt             string      `json:"updatedAt"`
+	VariableMapping       interface{} `json:"variableMapping"`
+}
+
 // Folder Folder represents a Grafana folder
 type Folder struct {
 	Created   *string `json:"created,omitempty"`
@@ -412,6 +706,13 @@ type GetDashboardResponse struct {
 
 // GoogleChatConfig GoogleChatConfig configures notifications via Google Chat.
 type GoogleChatConfig struct {
+	CardActions  *string `json:"card_actions,omitempty"`
+	CardDetails  *string `json:"card_details,omitempty"`
+	CardImageUrl *string `json:"card_image_url,omitempty"`
+	CardMessage  *string `json:"card_message,omitempty"`
+	CardSubtitle *string `json:"card_subtitle,omitempty"`
+	CardTitle    *string `json:"card_title,omitempty"`
+
 	// HttpConfig HTTPClientConfig configures an HTTP client.
 	HttpConfig   *HTTPClientConfig `json:"http_config,omitempty"`
 	Message      *string           `json:"message,omitempty"`
@@ -496,14 +797,16 @@ type IndexPatternField struct {
 	Type string `json:"type"`
 }
 
+// Instance defines model for Instance.
+type Instance struct {
+	Id     *string `json:"id,omitempty"`
+	Name   *string `json:"name,omitempty"`
+	Status *string `json:"status,omitempty"`
+}
+
 // Integration defines model for Integration.
 type Integration struct {
-	ApiDomain *string `json:"apiDomain,omitempty"`
-
-	// ApiKey APIKey and APIKeys is redacted for playground account in
-	// src/ui/oodle-frontend/app/api/integrations/route.ts
-	ApiKey                       *string                       `json:"apiKey,omitempty"`
-	ApiKeys                      *[]APIToken                   `json:"apiKeys"`
+	ApiDomain                    *string                       `json:"apiDomain,omitempty"`
 	AreMonitorsInstalled         *bool                         `json:"areMonitorsInstalled,omitempty"`
 	Categories                   *[]string                     `json:"categories,omitempty"`
 	CollectorDomain              *string                       `json:"collectorDomain,omitempty"`
@@ -523,12 +826,40 @@ type Integration struct {
 	UpdatedAt                    *time.Time                    `json:"updatedAt,omitempty"`
 }
 
-// IntegrationTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type IntegrationTypeSpecificData1 map[string]interface{}
+// IntegrationTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type IntegrationTypeSpecificData2 map[string]interface{}
 
 // Integration_TypeSpecificData defines model for Integration.TypeSpecificData.
 type Integration_TypeSpecificData struct {
 	union json.RawMessage
+}
+
+// Job defines model for Job.
+type Job struct {
+	Config       interface{} `json:"config"`
+	CreatedAt    string      `json:"createdAt"`
+	DatasetRunId *string     `json:"datasetRunId,omitempty"`
+	Error        *string     `json:"error,omitempty"`
+	Id           string      `json:"id"`
+	Status       string      `json:"status"`
+	Type         string      `json:"type"`
+	UpdatedAt    string      `json:"updatedAt"`
+}
+
+// LLMConnection defines model for LLMConnection.
+type LLMConnection struct {
+	BaseUrl             string      `json:"baseUrl"`
+	CreatedAt           string      `json:"createdAt"`
+	CustomHeaders       interface{} `json:"customHeaders,omitempty"`
+	CustomModels        *[]string   `json:"customModels"`
+	DefaultModel        string      `json:"defaultModel"`
+	DefaultParams       interface{} `json:"defaultParams"`
+	EnableDefaultModels bool        `json:"enableDefaultModels"`
+	Id                  string      `json:"id"`
+	IsDefault           bool        `json:"isDefault"`
+	Name                string      `json:"name"`
+	Provider            string      `json:"provider"`
+	UpdatedAt           string      `json:"updatedAt"`
 }
 
 // Label Label represents a name-value pair for a metric label.
@@ -570,16 +901,123 @@ type LabelMatcherNotifications struct {
 	Notifiers *NotifiersByCondition `json:"notifiers,omitempty"`
 }
 
+// ListDatasetItemsResponse ListDatasetItemsResponse is the dataset item list envelope.
+type ListDatasetItemsResponse struct {
+	Data *[]DatasetItem `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListDatasetRunItemsResponse ListDatasetRunItemsResponse is the run item list envelope.
+type ListDatasetRunItemsResponse struct {
+	Data *[]DatasetRunItemResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListDatasetRunsResponse ListDatasetRunsResponse is the experiment run list envelope.
+type ListDatasetRunsResponse struct {
+	Data *[]DatasetRunResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListDatasetsResponse ListDatasetsResponse is the dataset list envelope.
+type ListDatasetsResponse struct {
+	Data *[]Dataset `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListEvaluationRulesResponse ListEvaluationRulesResponse is the evaluation rule list.
+// This endpoint is not paginated.
+type ListEvaluationRulesResponse struct {
+	Data *[]EvaluationRule `json:"data"`
+}
+
+// ListEvaluatorsResponse ListEvaluatorsResponse is the evaluator list envelope. It
+// includes both Oodle-managed evaluator templates and the ones
+// defined in this instance.
+type ListEvaluatorsResponse struct {
+	// CodeEvalEnabled CodeEvalEnabled reports whether `type: code` evaluators
+	// may be created for this instance.
+	CodeEvalEnabled bool            `json:"codeEvalEnabled"`
+	Data            *[]EvalTemplate `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
 // ListInvitationsResponse ListInvitationsResponse is the response for listing
 // invitations.
 type ListInvitationsResponse struct {
 	Invitations *[]UserInvitation `json:"invitations"`
 }
 
+// ListJobsResponse ListJobsResponse is the job list envelope.
+type ListJobsResponse struct {
+	Data *[]Job `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListLLMConnectionsResponse ListLLMConnectionsResponse is the connection list. Stored
+// API keys are never included.
+type ListLLMConnectionsResponse struct {
+	Data *[]LLMConnection `json:"data"`
+}
+
+// ListMeta ListMeta is the pagination envelope every llmops list
+// endpoint returns alongside `data`.
+type ListMeta struct {
+	Limit      int  `json:"limit"`
+	Page       int  `json:"page"`
+	TotalItems int  `json:"totalItems"`
+	TotalPages *int `json:"totalPages,omitempty"`
+}
+
+// ListPromptVersionsResponse ListPromptVersionsResponse is the per-name version list.
+type ListPromptVersionsResponse struct {
+	Data *[]PromptResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
+// ListPromptsResponse ListPromptsResponse is the prompt list envelope.
+type ListPromptsResponse struct {
+	Data *[]PromptMetaResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
 // ListRolesResponse ListRolesResponse is the response for listing available
 // user roles.
 type ListRolesResponse struct {
 	Roles *[]string `json:"roles"`
+}
+
+// ListScoresResponse ListScoresResponse is the score list envelope.
+type ListScoresResponse struct {
+	Data *[]ScoreResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
 }
 
 // ListSyntheticMonitorsResponse ListSyntheticMonitorsResponse is the response body for listing synthetic
@@ -907,6 +1345,9 @@ type Notifier struct {
 	// PagerdutyConfig PagerdutyConfig configures notifications via PagerDuty.
 	PagerdutyConfig *PagerdutyConfig `json:"pagerduty_config,omitempty"`
 
+	// RootlyConfig WebhookConfig configures notifications via a generic webhook.
+	RootlyConfig *WebhookConfig `json:"rootly_config,omitempty"`
+
 	// SlackConfig SlackConfig configures notifications via Slack.
 	SlackConfig *SlackConfig `json:"slack_config,omitempty"`
 	Type        int          `json:"type"`
@@ -1034,8 +1475,8 @@ type PatchIntegration struct {
 	TypeSpecificData *PatchIntegration_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// PatchIntegrationTypeSpecificData1 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type PatchIntegrationTypeSpecificData1 map[string]interface{}
+// PatchIntegrationTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type PatchIntegrationTypeSpecificData2 map[string]interface{}
 
 // PatchIntegration_TypeSpecificData defines model for PatchIntegration.TypeSpecificData.
 type PatchIntegration_TypeSpecificData struct {
@@ -1059,6 +1500,40 @@ type PrometheusQueryResponseDataResultType string
 
 // PrometheusQueryResponseStatus defines model for PrometheusQueryResponse.Status.
 type PrometheusQueryResponseStatus string
+
+// PromptMetaResponse PromptMetaResponse is the per-name rollup returned by the
+// prompt list endpoint — one entry per prompt name, not per
+// version.
+type PromptMetaResponse struct {
+	Labels        *[]string   `json:"labels"`
+	LastConfig    interface{} `json:"lastConfig"`
+	LastUpdatedAt string      `json:"lastUpdatedAt"`
+	Name          string      `json:"name"`
+	Tags          *[]string   `json:"tags"`
+	Type          string      `json:"type"`
+	Versions      *[]int      `json:"versions"`
+}
+
+// PromptResponse PromptResponse is a single prompt version.
+type PromptResponse struct {
+	CommitMessage *string     `json:"commitMessage,omitempty"`
+	Config        interface{} `json:"config,omitempty"`
+	CreatedAt     *string     `json:"createdAt,omitempty"`
+	Id            string      `json:"id"`
+	IsActive      *bool       `json:"isActive,omitempty"`
+	Labels        *[]string   `json:"labels,omitempty"`
+	Name          string      `json:"name"`
+	Prompt        interface{} `json:"prompt,omitempty"`
+
+	// ResolutionGraph ResolutionGraph maps a prompt name to the prompts it
+	// pulled in, and is only set when `resolve` was not
+	// disabled and the prompt has dependency tags.
+	ResolutionGraph *map[string]*[]string `json:"resolutionGraph,omitempty"`
+	Tags            *[]string             `json:"tags,omitempty"`
+	Type            string                `json:"type"`
+	UpdatedAt       *string               `json:"updatedAt,omitempty"`
+	Version         int                   `json:"version"`
+}
 
 // SaveDashboardRequest defines model for SaveDashboardRequest.
 type SaveDashboardRequest struct {
@@ -1105,6 +1580,46 @@ type ScheduleTimeInterval struct {
 type ScheduleTimeRange struct {
 	EndTime   string `json:"end_time"`
 	StartTime string `json:"start_time"`
+}
+
+// Score defines model for Score.
+type Score struct {
+	Comment       *string  `json:"comment,omitempty"`
+	ConfigId      *string  `json:"configId,omitempty"`
+	CreatedAt     string   `json:"createdAt"`
+	DataType      string   `json:"dataType"`
+	Environment   *string  `json:"environment,omitempty"`
+	Id            string   `json:"id"`
+	InputTokens   *int     `json:"inputTokens,omitempty"`
+	Model         *string  `json:"model,omitempty"`
+	Name          string   `json:"name"`
+	ObservationId *string  `json:"observationId,omitempty"`
+	OutputTokens  *int     `json:"outputTokens,omitempty"`
+	Source        string   `json:"source"`
+	StringValue   *string  `json:"stringValue,omitempty"`
+	TraceId       string   `json:"traceId"`
+	UpdatedAt     string   `json:"updatedAt"`
+	Value         *float32 `json:"value,omitempty"`
+}
+
+// ScoreResponse ScoreResponse is one recorded score.
+type ScoreResponse struct {
+	Comment       *string  `json:"comment,omitempty"`
+	ConfigId      *string  `json:"configId,omitempty"`
+	CreatedAt     *string  `json:"createdAt,omitempty"`
+	DataType      string   `json:"dataType"`
+	Environment   *string  `json:"environment,omitempty"`
+	Id            string   `json:"id"`
+	InputTokens   *int     `json:"inputTokens,omitempty"`
+	Model         *string  `json:"model,omitempty"`
+	Name          string   `json:"name"`
+	ObservationId *string  `json:"observationId,omitempty"`
+	OutputTokens  *int     `json:"outputTokens,omitempty"`
+	Source        string   `json:"source"`
+	StringValue   *string  `json:"stringValue,omitempty"`
+	TraceId       string   `json:"traceId"`
+	UpdatedAt     *string  `json:"updatedAt,omitempty"`
+	Value         *float32 `json:"value,omitempty"`
 }
 
 // SendInvitationRequest SendInvitationRequest is the request body for sending
@@ -1211,8 +1726,13 @@ type SyntheticCheckResult struct {
 	// SslExpiry SSL-specific results
 	SslExpiry  *time.Time `json:"ssl_expiry,omitempty"`
 	StatusCode *int       `json:"status_code,omitempty"`
-	Success    bool       `json:"success"`
-	Timestamp  time.Time  `json:"timestamp"`
+
+	// StepResults Multistep-specific results: one entry per executed step
+	// in chain order. The overall Success above is "all required
+	// steps passed".
+	StepResults *[]SyntheticStepResult `json:"step_results,omitempty"`
+	Success     bool                   `json:"success"`
+	Timestamp   time.Time              `json:"timestamp"`
 }
 
 // SyntheticCondition Condition defines alert conditions
@@ -1241,6 +1761,28 @@ type SyntheticDNSRuleConfig struct {
 	RecordType       string    `json:"record_type"`
 }
 
+// SyntheticExtractRule ExtractRule pulls a value from a step's response into a
+// named variable.
+type SyntheticExtractRule struct {
+	Name string `json:"name"`
+
+	// Parser Parser: "jsonpath", "regex", or "header_value".
+	Parser string `json:"parser"`
+
+	// Query Query is the JSONPath, regex (first capture group),
+	// or header name to read.
+	Query string `json:"query"`
+
+	// Secret Secret marks the value as redacted in CheckResult,
+	// StepResult, and log output. It does NOT affect storage:
+	// the rule_config itself is stored as plain JSONB, matching
+	// the existing BearerToken / BasicAuth convention.
+	Secret *bool `json:"secret,omitempty"`
+
+	// Source Source: "body" or "header".
+	Source string `json:"source"`
+}
+
 // SyntheticHTTPRuleConfig defines model for SyntheticHTTPRuleConfig.
 type SyntheticHTTPRuleConfig struct {
 	BearerToken         *string            `json:"bearer_token,omitempty"`
@@ -1255,6 +1797,24 @@ type SyntheticHTTPRuleConfig struct {
 	MaxResponseTimeMs   *int64             `json:"max_response_time_ms,omitempty"`
 	Method              string             `json:"method"`
 	Url                 string             `json:"url"`
+}
+
+// SyntheticHTTPStep HTTPStep is one request in a multistep chain.
+type SyntheticHTTPStep struct {
+	// ContinueOnFailure ContinueOnFailure: if true, a failing step does not stop
+	// the chain. The step's failure is recorded but later steps
+	// still run and the overall monitor can still pass.
+	ContinueOnFailure *bool `json:"continue_on_failure,omitempty"`
+
+	// ExitOnSuccess ExitOnSuccess: if true, a successful step ends the chain
+	// early. The overall monitor is marked passed.
+	ExitOnSuccess *bool `json:"exit_on_success,omitempty"`
+
+	// Extract Extract pulls values out of the response and binds them
+	// to variables that later steps can interpolate.
+	Extract *[]SyntheticExtractRule `json:"extract,omitempty"`
+	Name    string                  `json:"name"`
+	Request SyntheticHTTPRuleConfig `json:"request"`
 }
 
 // SyntheticLabelMatcherNotifications LabelMatcherNotifications defines notifications with label matching
@@ -1296,6 +1856,14 @@ type SyntheticMonitor struct {
 	UpdatedAt  *time.Time          `json:"updated_at,omitempty"`
 }
 
+// SyntheticMultistepRuleConfig MultistepRuleConfig is the configuration for a multistep
+// HTTP check. Steps execute in order; later steps can reference
+// variables extracted from earlier responses via {{VAR_NAME}}
+// substitution in URL, headers, and body.
+type SyntheticMultistepRuleConfig struct {
+	Steps *[]SyntheticHTTPStep `json:"steps"`
+}
+
 // SyntheticNotifiersByCondition NotifiersByCondition defines notifiers for each condition
 type SyntheticNotifiersByCondition struct {
 	Any      *[]string `json:"any,omitempty"`
@@ -1315,6 +1883,12 @@ type SyntheticRuleConfig struct {
 	// Dns DNSRuleConfig is the configuration for DNS checks
 	Dns  *SyntheticDNSRuleConfig  `json:"dns,omitempty"`
 	Http *SyntheticHTTPRuleConfig `json:"http,omitempty"`
+
+	// Multistep MultistepRuleConfig is the configuration for a multistep
+	// HTTP check. Steps execute in order; later steps can reference
+	// variables extracted from earlier responses via {{VAR_NAME}}
+	// substitution in URL, headers, and body.
+	Multistep *SyntheticMultistepRuleConfig `json:"multistep,omitempty"`
 
 	// Ping PingRuleConfig is the configuration for ICMP ping checks
 	Ping *SyntheticPingRuleConfig `json:"ping,omitempty"`
@@ -1337,6 +1911,20 @@ type SyntheticSSLRuleConfig struct {
 	InsecureSkipVerify        bool   `json:"insecure_skip_verify"`
 	Port                      int    `json:"port"`
 	WarnDaysBeforeExpiry      int    `json:"warn_days_before_expiry"`
+}
+
+// SyntheticStepResult StepResult is the outcome of a single step in a multistep
+// monitor. Per-step ResponseBody / headers are deliberately
+// omitted to keep the result payload small — the run-history
+// UI surfaces step name, success, status, duration, and error
+// only. Secret-extracted values are scrubbed from ErrorMessage
+// before this struct is populated.
+type SyntheticStepResult struct {
+	DurationMs   int     `json:"duration_ms"`
+	ErrorMessage *string `json:"error_message,omitempty"`
+	Name         string  `json:"name"`
+	StatusCode   *int    `json:"status_code,omitempty"`
+	Success      bool    `json:"success"`
 }
 
 // SyntheticTCPRuleConfig TCPRuleConfig is the configuration for TCP checks
@@ -1535,6 +2123,15 @@ type UpdateApiKeyRequest struct {
 	Scopes *[]string `json:"scopes"`
 }
 
+// UpdateDatasetItemRequest UpdateDatasetItemRequest patches a dataset row. Omitted
+// fields are left untouched.
+type UpdateDatasetItemRequest struct {
+	ExpectedOutput interface{} `json:"expectedOutput,omitempty"`
+	Input          interface{} `json:"input,omitempty"`
+	Metadata       interface{} `json:"metadata,omitempty"`
+	Status         *string     `json:"status,omitempty"`
+}
+
 // UpdateDropRuleRequest UpdateDropRuleRequest is the request body for updating a drop rule.
 type UpdateDropRuleRequest struct {
 	Filters *[]MetricLabelMatcher `json:"filters"`
@@ -1543,6 +2140,69 @@ type UpdateDropRuleRequest struct {
 	MetricName MetricLabelMatcher `json:"metric_name"`
 	RuleName   string             `json:"rule_name"`
 	Type       string             `json:"type"`
+}
+
+// UpdateEvalTemplateRequest UpdateEvalTemplateRequest patches an evaluator. Empty fields
+// are left untouched. Oodle-managed evaluators cannot be
+// updated.
+type UpdateEvalTemplateRequest struct {
+	ModelParams        interface{} `json:"modelParams,omitempty"`
+	Name               *string     `json:"name,omitempty"`
+	OutputSchema       interface{} `json:"outputSchema,omitempty"`
+	Prompt             *string     `json:"prompt,omitempty"`
+	SourceCode         *string     `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string     `json:"sourceCodeLanguage,omitempty"`
+	Vars               *[]string   `json:"vars,omitempty"`
+}
+
+// UpdateEvaluationRuleRequest UpdateEvaluationRuleRequest patches an evaluation rule.
+// Pointer fields distinguish "not supplied" from a zero value.
+type UpdateEvaluationRuleRequest struct {
+	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
+	Enabled               *bool       `json:"enabled,omitempty"`
+	Filters               interface{} `json:"filters,omitempty"`
+	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
+	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
+	ModelParams           interface{} `json:"modelParams,omitempty"`
+	Name                  *string     `json:"name,omitempty"`
+	SamplingRate          *float32    `json:"samplingRate,omitempty"`
+	TargetType            *string     `json:"targetType,omitempty"`
+	VariableMapping       interface{} `json:"variableMapping,omitempty"`
+}
+
+// UpdateJobRequest UpdateJobRequest changes a job's status. Only cancellation is
+// accepted over the API; workers own the other transitions.
+type UpdateJobRequest struct {
+	Error  *string `json:"error,omitempty"`
+	Status string  `json:"status"`
+}
+
+// UpdateLLMConnectionRequest UpdateLLMConnectionRequest patches a connection. An empty
+// apiKey leaves the stored credential in place.
+type UpdateLLMConnectionRequest struct {
+	ApiKey              *string     `json:"apiKey,omitempty"`
+	BaseUrl             *string     `json:"baseUrl,omitempty"`
+	CustomHeaders       interface{} `json:"customHeaders,omitempty"`
+	CustomModels        *[]string   `json:"customModels,omitempty"`
+	DefaultModel        *string     `json:"defaultModel,omitempty"`
+	DefaultParams       interface{} `json:"defaultParams,omitempty"`
+	EnableDefaultModels *bool       `json:"enableDefaultModels,omitempty"`
+	IsDefault           *bool       `json:"isDefault,omitempty"`
+	Name                *string     `json:"name,omitempty"`
+	Provider            *string     `json:"provider,omitempty"`
+}
+
+// UpdatePromptLabelsRequest UpdatePromptLabelsRequest replaces the label set on one
+// prompt version.
+type UpdatePromptLabelsRequest struct {
+	Labels  *[]string `json:"labels"`
+	Version int       `json:"version"`
+}
+
+// UpdatePromptVersionLabelsRequest UpdatePromptVersionLabelsRequest additively merges labels
+// onto a version. "latest" is auto-managed and rejected here.
+type UpdatePromptVersionLabelsRequest struct {
+	NewLabels *[]string `json:"newLabels"`
 }
 
 // UpdateUserRequest UpdateUserRequest is the request body for updating a
@@ -1554,10 +2214,11 @@ type UpdateUserRequest struct {
 
 // User User is the API representation of an org user.
 type User struct {
-	Email   *string `json:"email,omitempty"`
-	Name    *string `json:"name,omitempty"`
-	Picture *string `json:"picture,omitempty"`
-	UserId  string  `json:"user_id"`
+	Email   *string   `json:"email,omitempty"`
+	Name    *string   `json:"name,omitempty"`
+	Picture *string   `json:"picture,omitempty"`
+	Roles   *[]string `json:"roles"`
+	UserId  string    `json:"user_id"`
 }
 
 // UserInvitation UserInvitation is the API representation of an invitation.
@@ -1647,13 +2308,13 @@ type QueryMetricsInstantParams struct {
 	// Time Evaluation timestamp in Unix seconds. Defaults to current time.
 	Time *float64 `form:"time,omitempty" json:"time,omitempty"`
 
-	// OODLEINSTANCE Oodle instance ID
+	// OODLEINSTANCE Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
 	OODLEINSTANCE string `json:"OODLE-INSTANCE"`
 }
 
 // QueryLogsParams defines parameters for QueryLogs.
 type QueryLogsParams struct {
-	// XOODLEINSTANCE Oodle instance ID
+	// XOODLEINSTANCE Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
 	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
 }
 
@@ -1674,8 +2335,119 @@ type QueryMetricsRangeParams struct {
 	// PartialResponse When true, return partial data if some stores are unavailable
 	PartialResponse *bool `form:"partial_response,omitempty" json:"partial_response,omitempty"`
 
-	// OODLEINSTANCE Oodle instance ID
+	// OODLEINSTANCE Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
 	OODLEINSTANCE string `json:"OODLE-INSTANCE"`
+}
+
+// ListGenaiExperimentItemsParams defines parameters for ListGenaiExperimentItems.
+type ListGenaiExperimentItemsParams struct {
+	// DatasetRunId Run to list items for.
+	DatasetRunId string `form:"datasetRunId" json:"datasetRunId"`
+
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiDatasetsParams defines parameters for ListGenaiDatasets.
+type ListGenaiDatasetsParams struct {
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiDatasetItemsParams defines parameters for ListGenaiDatasetItems.
+type ListGenaiDatasetItemsParams struct {
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// Version RFC3339 timestamp. Returns the dataset as it stood at that moment, which is how a past run's inputs are recovered.
+	Version *string `form:"version,omitempty" json:"version,omitempty"`
+}
+
+// ListGenaiExperimentsParams defines parameters for ListGenaiExperiments.
+type ListGenaiExperimentsParams struct {
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiEvaluatorsParams defines parameters for ListGenaiEvaluators.
+type ListGenaiEvaluatorsParams struct {
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiJobsParams defines parameters for ListGenaiJobs.
+type ListGenaiJobsParams struct {
+	// DatasetRunId List the jobs for one run. Omit to list jobs still pending.
+	DatasetRunId *string `form:"datasetRunId,omitempty" json:"datasetRunId,omitempty"`
+}
+
+// ListGenaiPromptsParams defines parameters for ListGenaiPrompts.
+type ListGenaiPromptsParams struct {
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// Search Substring match on the prompt name.
+	Search *string `form:"search,omitempty" json:"search,omitempty"`
+
+	// SearchField Field `search` applies to. Defaults to the name.
+	SearchField *string `form:"searchField,omitempty" json:"searchField,omitempty"`
+}
+
+// GetGenaiPromptParams defines parameters for GetGenaiPrompt.
+type GetGenaiPromptParams struct {
+	// Label Label to resolve. Defaults to `production`.
+	Label *string `form:"label,omitempty" json:"label,omitempty"`
+
+	// Resolve Set to `false` to return the raw prompt with its dependency tags left unexpanded.
+	Resolve *string `form:"resolve,omitempty" json:"resolve,omitempty"`
+
+	// Version Exact version to fetch. Takes precedence over `label`.
+	Version *int `form:"version,omitempty" json:"version,omitempty"`
+}
+
+// ListGenaiScoresParams defines parameters for ListGenaiScores.
+type ListGenaiScoresParams struct {
+	// EvaluatorName Exact name of the evaluator that produced the score.
+	EvaluatorName *string `form:"evaluatorName,omitempty" json:"evaluatorName,omitempty"`
+
+	// Limit Results per page. Defaults to 50, capped at 2000.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Name Exact score name to filter by.
+	Name *string `form:"name,omitempty" json:"name,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// ScoreValueMax Upper bound on the numeric value.
+	ScoreValueMax *float32 `form:"scoreValueMax,omitempty" json:"scoreValueMax,omitempty"`
+
+	// ScoreValueMin Lower bound on the numeric value.
+	ScoreValueMin *float32 `form:"scoreValueMin,omitempty" json:"scoreValueMin,omitempty"`
+
+	// Start RFC3339 lower bound on score time. Defaults to 15 minutes ago — scores are read from the trace store, so a wide range must be requested explicitly.
+	Start *string `form:"start,omitempty" json:"start,omitempty"`
+
+	// TraceId Only scores on this trace.
+	TraceId *string `form:"traceId,omitempty" json:"traceId,omitempty"`
 }
 
 // ListNamesParams defines parameters for ListNames.
@@ -1810,6 +2582,54 @@ type PatchIntegrationsByIdJSONRequestBody = PatchIntegration
 // UpdateIntegrationsByIdJSONRequestBody defines body for UpdateIntegrationsById for application/json ContentType.
 type UpdateIntegrationsByIdJSONRequestBody = PatchIntegration
 
+// CreateGenaiDatasetItemJSONRequestBody defines body for CreateGenaiDatasetItem for application/json ContentType.
+type CreateGenaiDatasetItemJSONRequestBody = CreateDatasetItemRequest
+
+// UpdateGenaiDatasetItemJSONRequestBody defines body for UpdateGenaiDatasetItem for application/json ContentType.
+type UpdateGenaiDatasetItemJSONRequestBody = UpdateDatasetItemRequest
+
+// CreateGenaiExperimentItemJSONRequestBody defines body for CreateGenaiExperimentItem for application/json ContentType.
+type CreateGenaiExperimentItemJSONRequestBody = CreateDatasetRunItemRequest
+
+// CreateGenaiDatasetJSONRequestBody defines body for CreateGenaiDataset for application/json ContentType.
+type CreateGenaiDatasetJSONRequestBody = CreateDatasetRequest
+
+// CreateGenaiEvaluatorJSONRequestBody defines body for CreateGenaiEvaluator for application/json ContentType.
+type CreateGenaiEvaluatorJSONRequestBody = CreateEvalTemplateRequest
+
+// UpdateGenaiEvaluatorJSONRequestBody defines body for UpdateGenaiEvaluator for application/json ContentType.
+type UpdateGenaiEvaluatorJSONRequestBody = UpdateEvalTemplateRequest
+
+// CreateGenaiEvaluationRuleJSONRequestBody defines body for CreateGenaiEvaluationRule for application/json ContentType.
+type CreateGenaiEvaluationRuleJSONRequestBody = CreateEvaluationRuleRequest
+
+// UpdateGenaiEvaluationRuleJSONRequestBody defines body for UpdateGenaiEvaluationRule for application/json ContentType.
+type UpdateGenaiEvaluationRuleJSONRequestBody = UpdateEvaluationRuleRequest
+
+// CreateGenaiJobJSONRequestBody defines body for CreateGenaiJob for application/json ContentType.
+type CreateGenaiJobJSONRequestBody = CreateJobRequest
+
+// UpdateGenaiJobJSONRequestBody defines body for UpdateGenaiJob for application/json ContentType.
+type UpdateGenaiJobJSONRequestBody = UpdateJobRequest
+
+// CreateGenaiLlmConnectionJSONRequestBody defines body for CreateGenaiLlmConnection for application/json ContentType.
+type CreateGenaiLlmConnectionJSONRequestBody = CreateLLMConnectionRequest
+
+// UpdateGenaiLlmConnectionJSONRequestBody defines body for UpdateGenaiLlmConnection for application/json ContentType.
+type UpdateGenaiLlmConnectionJSONRequestBody = UpdateLLMConnectionRequest
+
+// CreateGenaiScoreJSONRequestBody defines body for CreateGenaiScore for application/json ContentType.
+type CreateGenaiScoreJSONRequestBody = CreateScoreRequest
+
+// CreateGenaiPromptJSONRequestBody defines body for CreateGenaiPrompt for application/json ContentType.
+type CreateGenaiPromptJSONRequestBody = CreatePromptRequest
+
+// UpdateGenaiPromptLabelsJSONRequestBody defines body for UpdateGenaiPromptLabels for application/json ContentType.
+type UpdateGenaiPromptLabelsJSONRequestBody = UpdatePromptLabelsRequest
+
+// UpdateGenaiPromptVersionLabelsJSONRequestBody defines body for UpdateGenaiPromptVersionLabels for application/json ContentType.
+type UpdateGenaiPromptVersionLabelsJSONRequestBody = UpdatePromptVersionLabelsRequest
+
 // CreateLogmetricsJSONRequestBody defines body for CreateLogmetrics for application/json ContentType.
 type CreateLogmetricsJSONRequestBody = LogMetrics
 
@@ -1884,22 +2704,48 @@ func (t *CreateIntegrationRequest_TypeSpecificData) MergeCloudWatchMetricPullInt
 	return err
 }
 
-// AsCreateIntegrationRequestTypeSpecificData1 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData1
-func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData1() (CreateIntegrationRequestTypeSpecificData1, error) {
-	var body CreateIntegrationRequestTypeSpecificData1
+// AsConfluentCloudIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a ConfluentCloudIntegrationWrapper
+func (t CreateIntegrationRequest_TypeSpecificData) AsConfluentCloudIntegrationWrapper() (ConfluentCloudIntegrationWrapper, error) {
+	var body ConfluentCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIntegrationRequestTypeSpecificData1 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData1
-func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData1(v CreateIntegrationRequestTypeSpecificData1) error {
+// FromConfluentCloudIntegrationWrapper overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided ConfluentCloudIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) FromConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIntegrationRequestTypeSpecificData1 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData1
-func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData1(v CreateIntegrationRequestTypeSpecificData1) error {
+// MergeConfluentCloudIntegrationWrapper performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided ConfluentCloudIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIntegrationRequestTypeSpecificData2 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData2
+func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData2() (CreateIntegrationRequestTypeSpecificData2, error) {
+	var body CreateIntegrationRequestTypeSpecificData2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIntegrationRequestTypeSpecificData2 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData2
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData2(v CreateIntegrationRequestTypeSpecificData2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIntegrationRequestTypeSpecificData2 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData2
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData2(v CreateIntegrationRequestTypeSpecificData2) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -1946,22 +2792,48 @@ func (t *Integration_TypeSpecificData) MergeCloudWatchMetricPullIntegrationWrapp
 	return err
 }
 
-// AsIntegrationTypeSpecificData1 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData1
-func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData1() (IntegrationTypeSpecificData1, error) {
-	var body IntegrationTypeSpecificData1
+// AsConfluentCloudIntegrationWrapper returns the union data inside the Integration_TypeSpecificData as a ConfluentCloudIntegrationWrapper
+func (t Integration_TypeSpecificData) AsConfluentCloudIntegrationWrapper() (ConfluentCloudIntegrationWrapper, error) {
+	var body ConfluentCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromIntegrationTypeSpecificData1 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData1
-func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData1(v IntegrationTypeSpecificData1) error {
+// FromConfluentCloudIntegrationWrapper overwrites any union data inside the Integration_TypeSpecificData as the provided ConfluentCloudIntegrationWrapper
+func (t *Integration_TypeSpecificData) FromConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeIntegrationTypeSpecificData1 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData1
-func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData1(v IntegrationTypeSpecificData1) error {
+// MergeConfluentCloudIntegrationWrapper performs a merge with any union data inside the Integration_TypeSpecificData, using the provided ConfluentCloudIntegrationWrapper
+func (t *Integration_TypeSpecificData) MergeConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIntegrationTypeSpecificData2 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData2
+func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData2() (IntegrationTypeSpecificData2, error) {
+	var body IntegrationTypeSpecificData2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIntegrationTypeSpecificData2 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData2
+func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData2(v IntegrationTypeSpecificData2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIntegrationTypeSpecificData2 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData2
+func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData2(v IntegrationTypeSpecificData2) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2008,22 +2880,48 @@ func (t *PatchIntegration_TypeSpecificData) MergeCloudWatchMetricPullIntegration
 	return err
 }
 
-// AsPatchIntegrationTypeSpecificData1 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData1
-func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData1() (PatchIntegrationTypeSpecificData1, error) {
-	var body PatchIntegrationTypeSpecificData1
+// AsConfluentCloudIntegrationWrapper returns the union data inside the PatchIntegration_TypeSpecificData as a ConfluentCloudIntegrationWrapper
+func (t PatchIntegration_TypeSpecificData) AsConfluentCloudIntegrationWrapper() (ConfluentCloudIntegrationWrapper, error) {
+	var body ConfluentCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromPatchIntegrationTypeSpecificData1 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData1
-func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData1(v PatchIntegrationTypeSpecificData1) error {
+// FromConfluentCloudIntegrationWrapper overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided ConfluentCloudIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) FromConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergePatchIntegrationTypeSpecificData1 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData1
-func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData1(v PatchIntegrationTypeSpecificData1) error {
+// MergeConfluentCloudIntegrationWrapper performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided ConfluentCloudIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) MergeConfluentCloudIntegrationWrapper(v ConfluentCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPatchIntegrationTypeSpecificData2 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData2
+func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData2() (PatchIntegrationTypeSpecificData2, error) {
+	var body PatchIntegrationTypeSpecificData2
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPatchIntegrationTypeSpecificData2 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData2
+func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData2(v PatchIntegrationTypeSpecificData2) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePatchIntegrationTypeSpecificData2 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData2
+func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData2(v PatchIntegrationTypeSpecificData2) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

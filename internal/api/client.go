@@ -399,12 +399,19 @@ func CheckResponse(resp *http.Response, body []byte) error {
 
 	apiErr := &APIError{StatusCode: resp.StatusCode}
 
+	// The server's own message, when it came from the structured
+	// error envelope. The raw-body fallback below is deliberately
+	// excluded: it can be an HTML error page, which is noise
+	// rather than explanation.
+	var serverMsg string
+
 	// Try to parse the Oodle error envelope.
 	var envelope client.OodleUtilHttputilsModelsErrors
 	if len(body) > 0 && json.Unmarshal(body, &envelope) == nil && envelope.Errors != nil && len(*envelope.Errors) > 0 {
 		first := (*envelope.Errors)[0]
 		if first.Message != nil {
 			apiErr.Message = *first.Message
+			serverMsg = *first.Message
 		}
 		if first.Code != nil {
 			apiErr.Code = *first.Code
@@ -429,8 +436,23 @@ func CheckResponse(resp *http.Response, body []byte) error {
 		}
 	}
 
+	// A 401 here covers two different problems: a credential that
+	// is wrong, and a credential that is fine but not authorized
+	// for the instance being addressed. Naming only the first
+	// sends people to re-check a key that was never the issue, so
+	// name both — and keep whatever the server said, since the
+	// generic text used to overwrite it.
 	if resp.StatusCode == http.StatusUnauthorized {
-		apiErr.Message = "Authentication failed. Check your API key or OAuth login."
+		apiErr.Message = "Authentication failed. Check your API key " +
+			"or OAuth login, and that the credential is authorized " +
+			"for this instance (--instance / OODLE_INSTANCE)."
+		if serverMsg != "" {
+			apiErr.Message += " Server said: " + serverMsg
+		}
+	}
+	if resp.StatusCode == http.StatusForbidden && serverMsg == "" {
+		apiErr.Message = "Forbidden. The credential is valid but " +
+			"lacks permission for this operation or instance."
 	}
 
 	return apiErr
