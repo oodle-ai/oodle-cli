@@ -153,17 +153,8 @@ lookup. Use -o json to see those nested fields.`,
 
 func newGenAIExperimentsRunCmd() *cobra.Command {
 	var (
-		file             string
-		datasetID        string
-		runName          string
-		promptName       string
-		promptVersion    int
-		promptLabel      string
-		promptTemplate   string
-		connectionID     string
-		model            string
-		evaluatorIDs     []string
-		evalConnectionID string
+		file string
+		cfg  experimentConfigFlags
 	)
 	cmd := &cobra.Command{
 		Use:   "run",
@@ -180,6 +171,15 @@ The prompt comes from either --prompt-name (resolved through
 or a literal --prompt-template. The run name is assigned
 automatically when --run-name is omitted.
 
+Evaluators come in two kinds and each id goes in its own flag.
+An ordinary judge scores the generation on its own merits and
+goes in --evaluator-id. An output comparer scores it against
+the dataset item's expected output and goes in
+--output-comparer-id; an item with no expected output is
+skipped rather than scored zero. The server rejects an id put
+in the wrong one, so ` + "`oodle genai evaluators list`" + ` reports each
+evaluator's kind.
+
 Anything the flags cannot express — per-evaluator model
 overrides, extra model params — goes in a --file config, which
 is passed through to the job verbatim:
@@ -194,8 +194,19 @@ is passed through to the job verbatim:
       {"templateId": "<id>", "ruleName": "relevance",
        "model": "gpt-4o-mini"}
     ],
+    "outputComparerIds": ["<id>"],
+    "outputComparerRules": [
+      {"templateId": "<id>", "ruleName": "output match",
+       "model": "gpt-4o-mini"}
+    ],
     "evalConnectionId": "<id>"
-  }`,
+  }
+
+An evaluator judges with the model its template names, falling
+back to the eval connection's default model.
+--evaluator-model overrides that for every id given by flag,
+which is how a run judges with a cheaper model than it
+generates with; the rules above override it per evaluator.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -206,50 +217,9 @@ is passed through to the job verbatim:
 					return err
 				}
 			}
-
-			setStr := func(key, val string) {
-				if val != "" {
-					config[key] = val
-				}
-			}
-			setStr("datasetId", datasetID)
-			setStr("runName", runName)
-			setStr("promptName", promptName)
-			setStr("promptLabel", promptLabel)
-			setStr("promptTemplate", promptTemplate)
-			setStr("llmConnectionId", connectionID)
-			setStr("model", model)
-			setStr("evalConnectionId", evalConnectionID)
-			if promptVersion > 0 {
-				config["promptVersion"] = promptVersion
-			}
-			if len(evaluatorIDs) > 0 {
-				config["evaluatorIds"] = evaluatorIDs
-			}
-
-			if _, ok := config["datasetId"]; !ok {
-				return fmt.Errorf(
-					"--dataset-id is required (or datasetId in --file)",
-				)
-			}
-			if _, ok := config["llmConnectionId"]; !ok {
-				return fmt.Errorf(
-					"--connection-id is required " +
-						"(or llmConnectionId in --file)",
-				)
-			}
-			// A run with no prompt has nothing to send. The
-			// server accepts the job anyway and it fails later
-			// in the worker, so catch it here — the
-			// manage_genai_experiments tool already does.
-			_, hasName := config["promptName"]
-			_, hasTemplate := config["promptTemplate"]
-			if !hasName && !hasTemplate {
-				return fmt.Errorf(
-					"--prompt-name or --prompt-template is " +
-						"required (or promptName / " +
-						"promptTemplate in --file)",
-				)
+			cfg.applyTo(config)
+			if err := validateExperimentConfig(config); err != nil {
+				return err
 			}
 
 			resp, err := c.Inner.CreateGenaiJobWithResponse(
@@ -277,46 +247,7 @@ is passed through to the job verbatim:
 		&file, "file", "f", "",
 		"Path to JSON or YAML file with the job config",
 	)
-	cmd.Flags().StringVar(
-		&datasetID, "dataset-id", "",
-		"Dataset to run over",
-	)
-	cmd.Flags().StringVar(
-		&runName, "run-name", "",
-		"Name for this run (default: next run number)",
-	)
-	cmd.Flags().StringVar(
-		&promptName, "prompt-name", "",
-		"Managed prompt to run",
-	)
-	cmd.Flags().IntVar(
-		&promptVersion, "prompt-version", 0,
-		"Prompt version (default: resolve --prompt-label)",
-	)
-	cmd.Flags().StringVar(
-		&promptLabel, "prompt-label", "",
-		"Prompt label to resolve (default: production)",
-	)
-	cmd.Flags().StringVar(
-		&promptTemplate, "prompt-template", "",
-		"Literal prompt text, instead of a managed prompt",
-	)
-	cmd.Flags().StringVar(
-		&connectionID, "connection-id", "",
-		"LLM connection to generate with",
-	)
-	cmd.Flags().StringVar(
-		&model, "model", "",
-		"Model override for this run",
-	)
-	cmd.Flags().StringSliceVar(
-		&evaluatorIDs, "evaluator-id", nil,
-		"Evaluator to score the run with (repeatable)",
-	)
-	cmd.Flags().StringVar(
-		&evalConnectionID, "eval-connection-id", "",
-		"LLM connection the evaluators run against",
-	)
+	cfg.addTo(cmd, true)
 	return cmd
 }
 

@@ -35,7 +35,10 @@ func newGenAIDatasetsCmd() *cobra.Command {
 
 Datasets are versioned by time rather than by number: every item
 edit opens a new validity window, so ` + "`items --at`" + ` can recover
-exactly the inputs a past experiment ran against.`,
+exactly the inputs a past experiment ran against.
+
+A dataset can also carry one schedule, which runs its experiment
+without anyone starting it. See ` + "`datasets schedule`" + `.`,
 	}
 
 	cmd.AddCommand(newGenAIDatasetsListCmd())
@@ -43,6 +46,7 @@ exactly the inputs a past experiment ran against.`,
 	cmd.AddCommand(newGenAIDatasetsCreateCmd())
 	cmd.AddCommand(newGenAIDatasetsDeleteCmd())
 	cmd.AddCommand(newGenAIDatasetItemsCmd())
+	cmd.AddCommand(newGenAIDatasetScheduleCmd())
 
 	return cmd
 }
