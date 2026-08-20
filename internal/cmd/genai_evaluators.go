@@ -22,6 +22,7 @@ var evaluatorColumns = []output.Column{
 	{Header: "NAME", Field: "Name"},
 	{Header: "ID", Field: "Id"},
 	{Header: "TEMPLATE", Field: "EvaluatorId"},
+	{Header: "KIND", Field: "EvaluatorType"},
 	{Header: "TARGET", Field: "TargetType"},
 	{Header: "SAMPLING", Field: "SamplingRate"},
 	{Header: "MAX/HR", Field: "MaxInvocationsPerHour"},
@@ -40,13 +41,21 @@ where "New Template" creates one. The HTTP API calls them
 eval-templates. To make one actually run against traffic, wire
 it up with ` + "`oodle genai evaluators`" + `.
 
-Two kinds:
+Three kinds:
 
-  llm    a judge prompt with {{var}} placeholders, run by a
-         model against a span's fields
-  code   a Python function scored against a span, for checks a
-         model should not be guessing at (JSON validity, exact
-         match, latency budgets)
+  llm              a judge prompt with {{var}} placeholders, run
+                   by a model against a span's fields
+  code             a Python function scored against a span, for
+                   checks a model should not be guessing at
+                   (JSON validity, exact match, latency budgets)
+  output_comparer  a judge prompt that scores the output against
+                   a dataset item's expected output, using
+                   {{output}} and {{expected_output}}
+
+An output comparer only has ground truth inside an experiment,
+so it never runs against live traffic and goes in that run's
+--output-comparer-id rather than --evaluator-id. An item with no
+expected output is skipped rather than scored zero.
 
 The list also includes Oodle-managed templates (ids beginning
 "oodle-managed-"). Those are read-only: reference them from an
@@ -307,15 +316,24 @@ span, so set both before enabling one on a busy service.`,
 }
 
 func newGenAIEvaluatorsListCmd() *cobra.Command {
-	return &cobra.Command{
+	var evaluatorType string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List evaluators",
-		Args:  cobra.NoArgs,
+		Long: `List evaluators.
+
+The KIND column is the type of the template each one runs, so an
+output comparer can be told from an ordinary judge without
+fetching the template. Narrow the list with --type.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 
 			resp, err := c.Inner.ListGenaiEvaluationRulesWithResponse(
 				cmd.Context(), getInstance(cmd),
+				&client.ListGenaiEvaluationRulesParams{
+					EvaluatorType: optStr(evaluatorType),
+				},
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -333,6 +351,12 @@ func newGenAIEvaluatorsListCmd() *cobra.Command {
 			)
 		},
 	}
+	cmd.Flags().StringVar(
+		&evaluatorType, "type", "",
+		"Only evaluators whose template is of this type: "+
+			"llm, code or output_comparer",
+	)
+	return cmd
 }
 
 func newGenAIEvaluatorsCreateCmd() *cobra.Command {

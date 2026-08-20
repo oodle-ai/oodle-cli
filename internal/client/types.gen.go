@@ -130,6 +130,9 @@ func (e PrometheusQueryResponseStatus) Valid() bool {
 	}
 }
 
+// AnonymousType1 defines model for AnonymousType1.
+type AnonymousType1 = map[string]interface{}
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -344,9 +347,11 @@ type CreateDropRuleRequest struct {
 	Type       string             `json:"type"`
 }
 
-// CreateEvalTemplateRequest CreateEvalTemplateRequest defines an evaluator: either an
-// LLM-as-judge prompt (`type: llm`) or a Python scorer
-// (`type: code`).
+// CreateEvalTemplateRequest CreateEvalTemplateRequest defines an evaluator: an
+// LLM-as-judge prompt (`type: llm`), a Python scorer
+// (`type: code`), or a judge that compares the model's output
+// against a dataset item's expected output
+// (`type: output_comparer`).
 type CreateEvalTemplateRequest struct {
 	ModelParams  interface{} `json:"modelParams,omitempty"`
 	Name         string      `json:"name"`
@@ -361,7 +366,13 @@ type CreateEvalTemplateRequest struct {
 	SourceCode         *string `json:"sourceCode,omitempty"`
 	SourceCodeLanguage *string `json:"sourceCodeLanguage,omitempty"`
 
-	// Type Type is "llm" or "code".
+	// Type Type is "llm", "code" or "output_comparer".
+	//
+	// An output comparer is an LLM judge with ground truth: its
+	// prompt may use {{expected_output}} and {{output}}, and it
+	// only runs inside an experiment, where the dataset item
+	// supplies the expected output. It is skipped on live
+	// traffic, which has none.
 	Type string    `json:"type"`
 	Vars *[]string `json:"vars,omitempty"`
 }
@@ -422,8 +433,13 @@ type CreateJobRequest struct {
 	// datasetId, llmConnectionId, model, and either
 	// promptName (+ optional promptVersion / promptLabel) or a
 	// literal promptTemplate; plus optional evaluatorIds,
-	// evaluatorRules, and evalConnectionId. runName is
-	// assigned automatically when omitted.
+	// outputComparerIds, evaluatorRules, outputComparerRules,
+	// and evalConnectionId. runName is assigned automatically
+	// when omitted.
+	//
+	// evaluatorIds and outputComparerIds are both lists of
+	// evaluator template ids; an id has to sit in the list
+	// matching its template type or the request is rejected.
 	Config       interface{} `json:"config"`
 	DatasetRunId *string     `json:"datasetRunId,omitempty"`
 
@@ -594,6 +610,57 @@ type DatasetRunResponse struct {
 	UpdatedAt       string      `json:"updatedAt"`
 }
 
+// DatasetScheduleResponse DatasetScheduleResponse is one dataset's schedule.
+type DatasetScheduleResponse struct {
+	CreatedAt *string `json:"createdAt,omitempty"`
+	CreatedBy *string `json:"createdBy,omitempty"`
+
+	// DatasetId DatasetID is unique per instance: a dataset carries at
+	// most one schedule.
+	DatasetId string `json:"datasetId"`
+
+	// DaysOfMonth DaysOfMonth are "1".."31".
+	DaysOfMonth *[]string `json:"daysOfMonth,omitempty"`
+	Enabled     bool      `json:"enabled"`
+
+	// ExperimentConfig ExperimentConfig is the `llm-experiment` job config this
+	// schedule launches, minus `runName` (assigned per run).
+	// The keys are the ones `experiment_runner.py` reads.
+	ExperimentConfig interface{} `json:"experimentConfig,omitempty"`
+	Id               string      `json:"id"`
+	IntervalUnit     *string     `json:"intervalUnit,omitempty"`
+
+	// IntervalValue IntervalValue and IntervalUnit describe an interval
+	// schedule: 30 + "minutes", 6 + "hours", 1 + "days". Both
+	// are ignored in calendar mode.
+	IntervalValue *int `json:"intervalValue,omitempty"`
+
+	// LastError LastError is why the most recent scheduled launch did not
+	// start, and empty once one succeeds. A scheduled run that
+	// cannot be queued has no job row and no dataset run, so
+	// without this the schedule looks healthy and simply never
+	// produces results.
+	LastError *string    `json:"lastError,omitempty"`
+	LastRunAt *time.Time `json:"lastRunAt,omitempty"`
+
+	// Mode Mode is "calendar" or "interval". Empty means calendar.
+	Mode      *string    `json:"mode,omitempty"`
+	NextRunAt *time.Time `json:"nextRunAt,omitempty"`
+
+	// Times Times are "HH:MM" instants in Timezone. At least one is
+	// required.
+	Times *[]string `json:"times,omitempty"`
+
+	// Timezone Timezone is an IANA name. Empty means UTC. Calendar mode
+	// only: an interval is a duration, and a duration is the
+	// same length everywhere.
+	Timezone  *string `json:"timezone,omitempty"`
+	UpdatedAt *string `json:"updatedAt,omitempty"`
+
+	// Weekdays Weekdays are lowercase English weekday names.
+	Weekdays *[]string `json:"weekdays,omitempty"`
+}
+
 // DeleteDashboardResponse DeleteDashboardResponse is the JSON body of a successful
 // `DELETE /grafana/dashboards/{id}`. Unlike most DELETEs (which return
 // 204 No Content) this endpoint returns the upstream Grafana status
@@ -664,6 +731,36 @@ type EvaluationRule struct {
 	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
 	Enabled               bool        `json:"enabled"`
 	EvaluatorId           string      `json:"evaluatorId"`
+	Filters               interface{} `json:"filters"`
+	Id                    string      `json:"id"`
+	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
+	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
+	ModelParams           interface{} `json:"modelParams"`
+	Name                  string      `json:"name"`
+	SamplingRate          float32     `json:"samplingRate"`
+	TargetType            string      `json:"targetType"`
+	UpdatedAt             string      `json:"updatedAt"`
+	VariableMapping       interface{} `json:"variableMapping"`
+}
+
+// EvaluationRuleResponse EvaluationRuleResponse is one evaluator, joined with the type
+// of the template it points at.
+//
+// EvaluatorType is the only field the store type cannot carry:
+// it lives on the template, and a rule referencing an
+// Oodle-managed template has no template row to read it from.
+// Clients split output comparers out of the evaluator list with
+// it.
+type EvaluationRuleResponse struct {
+	CreatedAt        string    `json:"createdAt"`
+	DatasetId        *string   `json:"datasetId,omitempty"`
+	DependsOnRuleIds *[]string `json:"dependsOnRuleIds,omitempty"`
+	Enabled          bool      `json:"enabled"`
+	EvaluatorId      string    `json:"evaluatorId"`
+
+	// EvaluatorType EvaluatorType is "llm", "code" or "output_comparer", and
+	// is empty when the referenced template no longer exists.
+	EvaluatorType         *string     `json:"evaluatorType,omitempty"`
 	Filters               interface{} `json:"filters"`
 	Id                    string      `json:"id"`
 	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
@@ -940,7 +1037,7 @@ type ListDatasetsResponse struct {
 // ListEvaluationRulesResponse ListEvaluationRulesResponse is the evaluation rule list.
 // This endpoint is not paginated.
 type ListEvaluationRulesResponse struct {
-	Data *[]EvaluationRule `json:"data"`
+	Data *[]EvaluationRuleResponse `json:"data"`
 }
 
 // ListEvaluatorsResponse ListEvaluatorsResponse is the evaluator list envelope. It
@@ -1604,22 +1701,32 @@ type Score struct {
 
 // ScoreResponse ScoreResponse is one recorded score.
 type ScoreResponse struct {
-	Comment       *string  `json:"comment,omitempty"`
-	ConfigId      *string  `json:"configId,omitempty"`
-	CreatedAt     *string  `json:"createdAt,omitempty"`
-	DataType      string   `json:"dataType"`
-	Environment   *string  `json:"environment,omitempty"`
-	Id            string   `json:"id"`
-	InputTokens   *int     `json:"inputTokens,omitempty"`
-	Model         *string  `json:"model,omitempty"`
-	Name          string   `json:"name"`
-	ObservationId *string  `json:"observationId,omitempty"`
-	OutputTokens  *int     `json:"outputTokens,omitempty"`
-	Source        string   `json:"source"`
-	StringValue   *string  `json:"stringValue,omitempty"`
-	TraceId       string   `json:"traceId"`
-	UpdatedAt     *string  `json:"updatedAt,omitempty"`
-	Value         *float32 `json:"value,omitempty"`
+	Comment       *string `json:"comment,omitempty"`
+	ConfigId      *string `json:"configId,omitempty"`
+	CreatedAt     *string `json:"createdAt,omitempty"`
+	DataType      string  `json:"dataType"`
+	Environment   *string `json:"environment,omitempty"`
+	ErrorClass    *string `json:"errorClass,omitempty"`
+	ErrorMessage  *string `json:"errorMessage,omitempty"`
+	ErrorType     *string `json:"errorType,omitempty"`
+	EvaluatorName *string `json:"evaluatorName,omitempty"`
+	Id            string  `json:"id"`
+	InputTokens   *int    `json:"inputTokens,omitempty"`
+	Model         *string `json:"model,omitempty"`
+	Name          string  `json:"name"`
+	ObservationId *string `json:"observationId,omitempty"`
+	OutputTokens  *int    `json:"outputTokens,omitempty"`
+	Permanent     *bool   `json:"permanent,omitempty"`
+	Source        string  `json:"source"`
+
+	// Status Failure fields. Status is "error" on a run that
+	// produced no score and empty otherwise, so callers
+	// that predate this can keep ignoring all of it.
+	Status      *string  `json:"status,omitempty"`
+	StringValue *string  `json:"stringValue,omitempty"`
+	TraceId     string   `json:"traceId"`
+	UpdatedAt   *string  `json:"updatedAt,omitempty"`
+	Value       *float32 `json:"value,omitempty"`
 }
 
 // SendInvitationRequest SendInvitationRequest is the request body for sending
@@ -2212,6 +2319,56 @@ type UpdateUserRequest struct {
 	UserId string    `json:"user_id"`
 }
 
+// UpsertDatasetScheduleRequest UpsertDatasetScheduleRequest sets the one schedule a dataset
+// may carry, replacing any existing one.
+//
+// The schedule describes *when* an experiment starts; what it
+// runs is ExperimentConfig, the same `llm-experiment` job config
+// `POST jobs` takes. `datasetId` is taken from the path, and
+// `runName` is ignored: every fired run gets its own number.
+type UpsertDatasetScheduleRequest struct {
+	// DaysOfMonth DaysOfMonth are "1".."31"; empty means every day. With
+	// Weekdays also set, a day has to satisfy both.
+	DaysOfMonth *[]string `json:"daysOfMonth,omitempty"`
+
+	// Enabled Enabled false keeps the definition but stops it firing.
+	Enabled bool `json:"enabled"`
+
+	// ExperimentConfig ExperimentConfig is the job config each run launches.
+	ExperimentConfig interface{} `json:"experimentConfig"`
+	IntervalUnit     *string     `json:"intervalUnit,omitempty"`
+
+	// IntervalValue IntervalValue and IntervalUnit describe an interval
+	// schedule: 30 + "minutes", 6 + "hours", 1 + "days". The
+	// period must be at least 5 minutes, which is what the
+	// worker's poll cycle can honour, and at most 365 days.
+	IntervalValue *int `json:"intervalValue,omitempty"`
+
+	// Mode Mode is "calendar" or "interval"; empty means calendar.
+	//
+	// The two answer different questions, and the fields below
+	// split along the same line. Calendar is for a run that has
+	// to land at a time of day someone cares about, and reads
+	// Timezone/Times/Weekdays/DaysOfMonth. Interval is for a run
+	// whose cadence matters but whose wall-clock time does not,
+	// and reads IntervalValue/IntervalUnit; a duration needs no
+	// timezone, so the calendar fields are ignored for it.
+	Mode *string `json:"mode,omitempty"`
+
+	// Times Times are "HH:MM" instants the experiment starts at. At
+	// least one is required in calendar mode.
+	Times *[]string `json:"times,omitempty"`
+
+	// Timezone Timezone is an IANA name; empty means UTC. The times below
+	// are read in it, so a schedule follows daylight saving
+	// rather than drifting by an hour twice a year.
+	Timezone *string `json:"timezone,omitempty"`
+
+	// Weekdays Weekdays are lowercase weekday names; empty means every
+	// day.
+	Weekdays *[]string `json:"weekdays,omitempty"`
+}
+
 // User User is the API representation of an org user.
 type User struct {
 	Email   *string   `json:"email,omitempty"`
@@ -2388,6 +2545,12 @@ type ListGenaiEvaluatorsParams struct {
 
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiEvaluationRulesParams defines parameters for ListGenaiEvaluationRules.
+type ListGenaiEvaluationRulesParams struct {
+	// EvaluatorType Narrow to evaluators whose template is of this type: `llm`, `code`, or `output_comparer`.
+	EvaluatorType *string `form:"evaluatorType,omitempty" json:"evaluatorType,omitempty"`
 }
 
 // ListGenaiJobsParams defines parameters for ListGenaiJobs.
@@ -2593,6 +2756,9 @@ type CreateGenaiExperimentItemJSONRequestBody = CreateDatasetRunItemRequest
 
 // CreateGenaiDatasetJSONRequestBody defines body for CreateGenaiDataset for application/json ContentType.
 type CreateGenaiDatasetJSONRequestBody = CreateDatasetRequest
+
+// SetGenaiDatasetScheduleJSONRequestBody defines body for SetGenaiDatasetSchedule for application/json ContentType.
+type SetGenaiDatasetScheduleJSONRequestBody = UpsertDatasetScheduleRequest
 
 // CreateGenaiEvaluatorJSONRequestBody defines body for CreateGenaiEvaluator for application/json ContentType.
 type CreateGenaiEvaluatorJSONRequestBody = CreateEvalTemplateRequest

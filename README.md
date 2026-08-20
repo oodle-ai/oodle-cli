@@ -445,10 +445,49 @@ experiment ran against.
 | `items create -f <file>`| Add an item to a dataset           |
 | `items update <id>`     | Update a dataset item              |
 | `items delete <id>`     | Delete a dataset item              |
+| `schedule get <name>`   | Get the dataset's recurring run    |
+| `schedule set <name>`   | Set the dataset's recurring run    |
+| `schedule delete <name>`| Delete the dataset's recurring run |
 
 ```bash
 oodle genai datasets create --name support-eval
 oodle genai datasets items list support-eval --at 2026-08-01T00:00:00Z
+```
+
+##### Schedules — `oodle genai datasets schedule`
+
+A dataset carries at most one schedule, which runs its
+experiment without anyone starting it. `set` replaces the whole
+definition, and takes the same config flags as
+`experiments run`. Two shapes:
+
+- **calendar** — `--time HH:MM` (repeatable) in `--timezone`,
+  optionally narrowed by `--weekday` or `--day-of-month`. The
+  times follow daylight saving rather than drifting twice a
+  year.
+- **interval** — `--every 30m|6h|1d`, at least 5m and at most
+  365d. No timezone applies to a duration.
+
+A firing starts shortly after it is due rather than exactly on
+the minute, and a schedule that falls behind runs once instead
+of replaying every firing it missed.
+
+```bash
+# Every six hours.
+oodle genai datasets schedule set support-eval --every 6h \
+  --dataset-id "$DS" --connection-id "$CONN" \
+  --prompt-name support-reply --model gpt-4o
+
+# Weekday mornings, Los Angeles time.
+oodle genai datasets schedule set support-eval \
+  --time 09:00 --weekday monday --weekday friday \
+  --timezone America/Los_Angeles --dataset-id "$DS" \
+  --connection-id "$CONN" --prompt-name support-reply
+
+# Keep the definition, stop it firing.
+oodle genai datasets schedule set support-eval --enabled=false \
+  --dataset-id "$DS" --connection-id "$CONN" \
+  --prompt-name support-reply
 ```
 
 #### Templates — `oodle genai templates`
@@ -457,6 +496,12 @@ Aliases: `template`, `library`. The judges themselves — what the UI
 calls Evaluations > Library, and the API calls `eval-templates`. `list` includes Oodle-managed
 templates (ids beginning `oodle-managed-`), which are
 read-only.
+
+Three `type` values: `llm` (a judge prompt), `code` (a Python
+scorer), and `output_comparer` (a judge that scores the output
+against a dataset item's expected output, using `{{output}}` and
+`{{expected_output}}`). A comparer has ground truth only inside
+an experiment, so it never runs against live traffic.
 
 | Subcommand         | Description                    |
 |--------------------|--------------------------------|
@@ -483,8 +528,13 @@ an unsampled, uncapped rule is one model call per matching span.
 | `update <id>`      | Update, or `--enable` / `--disable`|
 | `delete <id>`      | Delete an evaluation rule          |
 
+`list` reports each rule's `KIND` — the type of the template it
+runs — so an output comparer can be told from an ordinary judge.
+`--type` narrows the list to one kind.
+
 ```bash
 oodle genai evaluators update rule_123 --disable
+oodle genai evaluators list --type output_comparer
 ```
 
 #### Scores — `oodle genai scores`
@@ -518,10 +568,25 @@ exists.
 | `cancel <job-id>` | Cancel a queued or running job             |
 | `jobs`            | List pending jobs, or one run's history    |
 
+Evaluators come in two kinds and each id goes in its own flag.
+An ordinary judge scores the generation on its own merits
+(`--evaluator-id`); an output comparer scores it against the
+dataset item's expected output (`--output-comparer-id`), and
+skips an item that has none. The server rejects an id put in
+the wrong flag.
+
+An evaluator judges with the model its template names, falling
+back to the eval connection's default model.
+`--evaluator-model` overrides that for every evaluator given by
+flag — the way to judge with a cheaper model than you generate
+with, without defining a rule first.
+
 ```bash
 oodle genai experiments run --dataset-id "$DS" --connection-id "$CONN" \
   --prompt-name support-reply --model gpt-4o \
-  --evaluator-id oodle-managed-hallucination-v1
+  --evaluator-id oodle-managed-hallucination-v1 \
+  --output-comparer-id oodle-managed-output-match-v1 \
+  --evaluator-model gpt-4o-mini
 ```
 
 #### Connections — `oodle genai connections`

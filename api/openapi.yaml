@@ -5,6 +5,8 @@
 openapi: 3.0.0
 components:
   schemas:
+    AnonymousType1:
+      type: object
     ApiKey:
       type: object
       required:
@@ -376,9 +378,11 @@ components:
     CreateEvalTemplateRequest:
       type: object
       description: |-
-        CreateEvalTemplateRequest defines an evaluator: either an
-        LLM-as-judge prompt (`type: llm`) or a Python scorer
-        (`type: code`).
+        CreateEvalTemplateRequest defines an evaluator: an
+        LLM-as-judge prompt (`type: llm`), a Python scorer
+        (`type: code`), or a judge that compares the model's output
+        against a dataset item's expected output
+        (`type: output_comparer`).
       required:
         - name
         - type
@@ -401,7 +405,14 @@ components:
           type: string
         type:
           type: string
-          description: Type is "llm" or "code".
+          description: |-
+            Type is "llm", "code" or "output_comparer".
+
+            An output comparer is an LLM judge with ground truth: its
+            prompt may use {{expected_output}} and {{output}}, and it
+            only runs inside an experiment, where the dataset item
+            supplies the expected output. It is skipped on live
+            traffic, which has none.
         vars:
           type: array
           nullable: true
@@ -494,8 +505,13 @@ components:
             datasetId, llmConnectionId, model, and either
             promptName (+ optional promptVersion / promptLabel) or a
             literal promptTemplate; plus optional evaluatorIds,
-            evaluatorRules, and evalConnectionId. runName is
-            assigned automatically when omitted.
+            outputComparerIds, evaluatorRules, outputComparerRules,
+            and evalConnectionId. runName is assigned automatically
+            when omitted.
+
+            evaluatorIds and outputComparerIds are both lists of
+            evaluator template ids; an id has to sit in the list
+            matching its template type or the request is rejected.
         datasetRunId:
           type: string
         type:
@@ -845,6 +861,87 @@ components:
           type: string
         updatedAt:
           type: string
+    DatasetScheduleResponse:
+      type: object
+      description: DatasetScheduleResponse is one dataset's schedule.
+      required:
+        - id
+        - datasetId
+        - enabled
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        datasetId:
+          type: string
+          description: |-
+            DatasetID is unique per instance: a dataset carries at
+            most one schedule.
+        daysOfMonth:
+          type: array
+          description: DaysOfMonth are "1".."31".
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+        experimentConfig:
+          description: |-
+            ExperimentConfig is the `llm-experiment` job config this
+            schedule launches, minus `runName` (assigned per run).
+            The keys are the ones `experiment_runner.py` reads.
+        id:
+          type: string
+        intervalUnit:
+          type: string
+        intervalValue:
+          type: integer
+          description: |-
+            IntervalValue and IntervalUnit describe an interval
+            schedule: 30 + "minutes", 6 + "hours", 1 + "days". Both
+            are ignored in calendar mode.
+        lastError:
+          type: string
+          description: |-
+            LastError is why the most recent scheduled launch did not
+            start, and empty once one succeeds. A scheduled run that
+            cannot be queued has no job row and no dataset run, so
+            without this the schedule looks healthy and simply never
+            produces results.
+        lastRunAt:
+          type: string
+          format: date-time
+          nullable: true
+        mode:
+          type: string
+          description: Mode is "calendar" or "interval". Empty means calendar.
+        nextRunAt:
+          type: string
+          format: date-time
+          nullable: true
+        times:
+          type: array
+          description: |-
+            Times are "HH:MM" instants in Timezone. At least one is
+            required.
+          nullable: true
+          items:
+            type: string
+        timezone:
+          type: string
+          description: |-
+            Timezone is an IANA name. Empty means UTC. Calendar mode
+            only: an interval is a duration, and a duration is the
+            same length everywhere.
+        updatedAt:
+          type: string
+        weekdays:
+          type: array
+          description: Weekdays are lowercase English weekday names.
+          nullable: true
+          items:
+            type: string
     DeleteDashboardResponse:
       type: object
       description: |-
@@ -997,6 +1094,67 @@ components:
           type: boolean
         evaluatorId:
           type: string
+        filters: {}
+        id:
+          type: string
+        llmConnectionId:
+          type: string
+          nullable: true
+        maxInvocationsPerHour:
+          type: integer
+        modelParams: {}
+        name:
+          type: string
+        samplingRate:
+          type: number
+        targetType:
+          type: string
+        updatedAt:
+          type: string
+        variableMapping: {}
+    EvaluationRuleResponse:
+      type: object
+      description: |-
+        EvaluationRuleResponse is one evaluator, joined with the type
+        of the template it points at.
+
+        EvaluatorType is the only field the store type cannot carry:
+        it lives on the template, and a rule referencing an
+        Oodle-managed template has no template row to read it from.
+        Clients split output comparers out of the evaluator list with
+        it.
+      required:
+        - id
+        - evaluatorId
+        - name
+        - targetType
+        - filters
+        - samplingRate
+        - maxInvocationsPerHour
+        - variableMapping
+        - modelParams
+        - enabled
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        datasetId:
+          type: string
+        dependsOnRuleIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+        evaluatorId:
+          type: string
+        evaluatorType:
+          type: string
+          description: |-
+            EvaluatorType is "llm", "code" or "output_comparer", and
+            is empty when the referenced template no longer exists.
         filters: {}
         id:
           type: string
@@ -1469,7 +1627,7 @@ components:
           type: array
           nullable: true
           items:
-            $ref: '#/components/schemas/EvaluationRule'
+            $ref: '#/components/schemas/EvaluationRuleResponse'
     ListEvaluatorsResponse:
       type: object
       description: |-
@@ -2648,6 +2806,14 @@ components:
           type: string
         environment:
           type: string
+        errorClass:
+          type: string
+        errorMessage:
+          type: string
+        errorType:
+          type: string
+        evaluatorName:
+          type: string
         id:
           type: string
         inputTokens:
@@ -2660,8 +2826,16 @@ components:
           type: string
         outputTokens:
           type: integer
+        permanent:
+          type: boolean
         source:
           type: string
+        status:
+          type: string
+          description: |-
+            Failure fields. Status is "error" on a run that
+            produced no score and empty otherwise, so callers
+            that predate this can keep ignoring all of it.
         stringValue:
           type: string
         traceId:
@@ -3714,6 +3888,76 @@ components:
             type: string
         user_id:
           type: string
+    UpsertDatasetScheduleRequest:
+      type: object
+      description: |-
+        UpsertDatasetScheduleRequest sets the one schedule a dataset
+        may carry, replacing any existing one.
+
+        The schedule describes *when* an experiment starts; what it
+        runs is ExperimentConfig, the same `llm-experiment` job config
+        `POST jobs` takes. `datasetId` is taken from the path, and
+        `runName` is ignored: every fired run gets its own number.
+      required:
+        - enabled
+        - experimentConfig
+      properties:
+        daysOfMonth:
+          type: array
+          description: |-
+            DaysOfMonth are "1".."31"; empty means every day. With
+            Weekdays also set, a day has to satisfy both.
+          nullable: true
+          items:
+            type: string
+        enabled:
+          type: boolean
+          description: Enabled false keeps the definition but stops it firing.
+        experimentConfig:
+          description: ExperimentConfig is the job config each run launches.
+        intervalUnit:
+          type: string
+        intervalValue:
+          type: integer
+          description: |-
+            IntervalValue and IntervalUnit describe an interval
+            schedule: 30 + "minutes", 6 + "hours", 1 + "days". The
+            period must be at least 5 minutes, which is what the
+            worker's poll cycle can honour, and at most 365 days.
+        mode:
+          type: string
+          description: |-
+            Mode is "calendar" or "interval"; empty means calendar.
+
+            The two answer different questions, and the fields below
+            split along the same line. Calendar is for a run that has
+            to land at a time of day someone cares about, and reads
+            Timezone/Times/Weekdays/DaysOfMonth. Interval is for a run
+            whose cadence matters but whose wall-clock time does not,
+            and reads IntervalValue/IntervalUnit; a duration needs no
+            timezone, so the calendar fields are ignored for it.
+        times:
+          type: array
+          description: |-
+            Times are "HH:MM" instants the experiment starts at. At
+            least one is required in calendar mode.
+          nullable: true
+          items:
+            type: string
+        timezone:
+          type: string
+          description: |-
+            Timezone is an IANA name; empty means UTC. The times below
+            are read in it, so a schedule follows daylight saving
+            rather than drifting by an hour twice a year.
+        weekdays:
+          type: array
+          description: |-
+            Weekdays are lowercase weekday names; empty means every
+            day.
+          nullable: true
+          items:
+            type: string
     User:
       type: object
       description: User is the API representation of an org user.
@@ -5957,6 +6201,165 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/datasets/{datasetName}/schedule:
+    delete:
+      tags:
+        - GenAI Experiments
+      summary: Delete a dataset's experiment schedule
+      operationId: deleteGenaiDatasetSchedule
+      parameters:
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType1'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Experiments
+      summary: Get a dataset's experiment schedule
+      operationId: getGenaiDatasetSchedule
+      parameters:
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetScheduleResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - GenAI Experiments
+      summary: Set a dataset's experiment schedule
+      operationId: setGenaiDatasetSchedule
+      parameters:
+        - name: datasetName
+          in: path
+          description: Dataset name.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpsertDatasetScheduleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetScheduleResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/langfuse/api/public/eval-templates:
     get:
       tags:
@@ -6215,6 +6618,11 @@ paths:
       summary: List evaluation rules
       operationId: listGenaiEvaluationRules
       parameters:
+        - name: evaluatorType
+          in: query
+          description: 'Narrow to evaluators whose template is of this type: `llm`, `code`, or `output_comparer`.'
+          schema:
+            type: string
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.

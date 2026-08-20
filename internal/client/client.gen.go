@@ -232,6 +232,17 @@ type ClientInterface interface {
 	// ListGenaiExperiments request
 	ListGenaiExperiments(ctx context.Context, instance string, datasetName string, params *ListGenaiExperimentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteGenaiDatasetSchedule request
+	DeleteGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiDatasetSchedule request
+	GetGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetGenaiDatasetScheduleWithBody request with any body
+	SetGenaiDatasetScheduleWithBody(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, body SetGenaiDatasetScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListGenaiEvaluators request
 	ListGenaiEvaluators(ctx context.Context, instance string, params *ListGenaiEvaluatorsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -252,7 +263,7 @@ type ClientInterface interface {
 	UpdateGenaiEvaluator(ctx context.Context, instance string, templateId string, body UpdateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGenaiEvaluationRules request
-	ListGenaiEvaluationRules(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListGenaiEvaluationRules(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateGenaiEvaluationRuleWithBody request with any body
 	CreateGenaiEvaluationRuleWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1156,6 +1167,54 @@ func (c *Client) ListGenaiExperiments(ctx context.Context, instance string, data
 	return c.Client.Do(req)
 }
 
+func (c *Client) DeleteGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGenaiDatasetScheduleRequest(c.Server, instance, datasetName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiDatasetScheduleRequest(c.Server, instance, datasetName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetGenaiDatasetScheduleWithBody(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetGenaiDatasetScheduleRequestWithBody(c.Server, instance, datasetName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SetGenaiDatasetSchedule(ctx context.Context, instance string, datasetName string, body SetGenaiDatasetScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetGenaiDatasetScheduleRequest(c.Server, instance, datasetName, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListGenaiEvaluators(ctx context.Context, instance string, params *ListGenaiEvaluatorsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGenaiEvaluatorsRequest(c.Server, instance, params)
 	if err != nil {
@@ -1240,8 +1299,8 @@ func (c *Client) UpdateGenaiEvaluator(ctx context.Context, instance string, temp
 	return c.Client.Do(req)
 }
 
-func (c *Client) ListGenaiEvaluationRules(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListGenaiEvaluationRulesRequest(c.Server, instance)
+func (c *Client) ListGenaiEvaluationRules(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiEvaluationRulesRequest(c.Server, instance, params)
 	if err != nil {
 		return nil, err
 	}
@@ -4382,6 +4441,142 @@ func NewListGenaiExperimentsRequest(server string, instance string, datasetName 
 	return req, nil
 }
 
+// NewDeleteGenaiDatasetScheduleRequest generates requests for DeleteGenaiDatasetSchedule
+func NewDeleteGenaiDatasetScheduleRequest(server string, instance string, datasetName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetName", datasetName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/datasets/%s/schedule", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiDatasetScheduleRequest generates requests for GetGenaiDatasetSchedule
+func NewGetGenaiDatasetScheduleRequest(server string, instance string, datasetName string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetName", datasetName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/datasets/%s/schedule", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetGenaiDatasetScheduleRequest calls the generic SetGenaiDatasetSchedule builder with application/json body
+func NewSetGenaiDatasetScheduleRequest(server string, instance string, datasetName string, body SetGenaiDatasetScheduleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetGenaiDatasetScheduleRequestWithBody(server, instance, datasetName, "application/json", bodyReader)
+}
+
+// NewSetGenaiDatasetScheduleRequestWithBody generates requests for SetGenaiDatasetSchedule with any type of body
+func NewSetGenaiDatasetScheduleRequestWithBody(server string, instance string, datasetName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetName", datasetName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/datasets/%s/schedule", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListGenaiEvaluatorsRequest generates requests for ListGenaiEvaluators
 func NewListGenaiEvaluatorsRequest(server string, instance string, params *ListGenaiEvaluatorsParams) (*http.Request, error) {
 	var err error
@@ -4638,7 +4833,7 @@ func NewUpdateGenaiEvaluatorRequestWithBody(server string, instance string, temp
 }
 
 // NewListGenaiEvaluationRulesRequest generates requests for ListGenaiEvaluationRules
-func NewListGenaiEvaluationRulesRequest(server string, instance string) (*http.Request, error) {
+func NewListGenaiEvaluationRulesRequest(server string, instance string, params *ListGenaiEvaluationRulesParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -4661,6 +4856,28 @@ func NewListGenaiEvaluationRulesRequest(server string, instance string) (*http.R
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.EvaluatorType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "evaluatorType", *params.EvaluatorType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -8728,6 +8945,17 @@ type ClientWithResponsesInterface interface {
 	// ListGenaiExperimentsWithResponse request
 	ListGenaiExperimentsWithResponse(ctx context.Context, instance string, datasetName string, params *ListGenaiExperimentsParams, reqEditors ...RequestEditorFn) (*ListGenaiExperimentsResponse, error)
 
+	// DeleteGenaiDatasetScheduleWithResponse request
+	DeleteGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*DeleteGenaiDatasetScheduleResponse, error)
+
+	// GetGenaiDatasetScheduleWithResponse request
+	GetGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*GetGenaiDatasetScheduleResponse, error)
+
+	// SetGenaiDatasetScheduleWithBodyWithResponse request with any body
+	SetGenaiDatasetScheduleWithBodyWithResponse(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetGenaiDatasetScheduleResponse, error)
+
+	SetGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, body SetGenaiDatasetScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetGenaiDatasetScheduleResponse, error)
+
 	// ListGenaiEvaluatorsWithResponse request
 	ListGenaiEvaluatorsWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluatorsParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluatorsResponse, error)
 
@@ -8748,7 +8976,7 @@ type ClientWithResponsesInterface interface {
 	UpdateGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, body UpdateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiEvaluatorResponse, error)
 
 	// ListGenaiEvaluationRulesWithResponse request
-	ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error)
+	ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error)
 
 	// CreateGenaiEvaluationRuleWithBodyWithResponse request with any body
 	CreateGenaiEvaluationRuleWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiEvaluationRuleResponse, error)
@@ -10022,6 +10250,85 @@ func (r ListGenaiExperimentsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListGenaiExperimentsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGenaiDatasetScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON204      *AnonymousType1
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGenaiDatasetScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGenaiDatasetScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiDatasetScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatasetScheduleResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiDatasetScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiDatasetScheduleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetGenaiDatasetScheduleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DatasetScheduleResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r SetGenaiDatasetScheduleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetGenaiDatasetScheduleResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -12581,6 +12888,41 @@ func (c *ClientWithResponses) ListGenaiExperimentsWithResponse(ctx context.Conte
 	return ParseListGenaiExperimentsResponse(rsp)
 }
 
+// DeleteGenaiDatasetScheduleWithResponse request returning *DeleteGenaiDatasetScheduleResponse
+func (c *ClientWithResponses) DeleteGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*DeleteGenaiDatasetScheduleResponse, error) {
+	rsp, err := c.DeleteGenaiDatasetSchedule(ctx, instance, datasetName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGenaiDatasetScheduleResponse(rsp)
+}
+
+// GetGenaiDatasetScheduleWithResponse request returning *GetGenaiDatasetScheduleResponse
+func (c *ClientWithResponses) GetGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*GetGenaiDatasetScheduleResponse, error) {
+	rsp, err := c.GetGenaiDatasetSchedule(ctx, instance, datasetName, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiDatasetScheduleResponse(rsp)
+}
+
+// SetGenaiDatasetScheduleWithBodyWithResponse request with arbitrary body returning *SetGenaiDatasetScheduleResponse
+func (c *ClientWithResponses) SetGenaiDatasetScheduleWithBodyWithResponse(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetGenaiDatasetScheduleResponse, error) {
+	rsp, err := c.SetGenaiDatasetScheduleWithBody(ctx, instance, datasetName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetGenaiDatasetScheduleResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetGenaiDatasetScheduleWithResponse(ctx context.Context, instance string, datasetName string, body SetGenaiDatasetScheduleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetGenaiDatasetScheduleResponse, error) {
+	rsp, err := c.SetGenaiDatasetSchedule(ctx, instance, datasetName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetGenaiDatasetScheduleResponse(rsp)
+}
+
 // ListGenaiEvaluatorsWithResponse request returning *ListGenaiEvaluatorsResponse
 func (c *ClientWithResponses) ListGenaiEvaluatorsWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluatorsParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluatorsResponse, error) {
 	rsp, err := c.ListGenaiEvaluators(ctx, instance, params, reqEditors...)
@@ -12643,8 +12985,8 @@ func (c *ClientWithResponses) UpdateGenaiEvaluatorWithResponse(ctx context.Conte
 }
 
 // ListGenaiEvaluationRulesWithResponse request returning *ListGenaiEvaluationRulesResponse
-func (c *ClientWithResponses) ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error) {
-	rsp, err := c.ListGenaiEvaluationRules(ctx, instance, reqEditors...)
+func (c *ClientWithResponses) ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error) {
+	rsp, err := c.ListGenaiEvaluationRules(ctx, instance, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -15508,6 +15850,175 @@ func ParseListGenaiExperimentsResponse(rsp *http.Response) (*ListGenaiExperiment
 			return nil, err
 		}
 		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGenaiDatasetScheduleResponse parses an HTTP response from a DeleteGenaiDatasetScheduleWithResponse call
+func ParseDeleteGenaiDatasetScheduleResponse(rsp *http.Response) (*DeleteGenaiDatasetScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGenaiDatasetScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 204:
+		var dest AnonymousType1
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON204 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiDatasetScheduleResponse parses an HTTP response from a GetGenaiDatasetScheduleWithResponse call
+func ParseGetGenaiDatasetScheduleResponse(rsp *http.Response) (*GetGenaiDatasetScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiDatasetScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatasetScheduleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetGenaiDatasetScheduleResponse parses an HTTP response from a SetGenaiDatasetScheduleWithResponse call
+func ParseSetGenaiDatasetScheduleResponse(rsp *http.Response) (*SetGenaiDatasetScheduleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetGenaiDatasetScheduleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DatasetScheduleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
 		var dest OodleUtilHttputilsModelsErrors
