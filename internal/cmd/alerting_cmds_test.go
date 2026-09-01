@@ -115,6 +115,82 @@ func TestMonitorsDelete_RequiresIDOrIDs(t *testing.T) {
 	}
 }
 
+// TestParseHistoryRange verifies the raw --history-range form is validated
+// locally, so a typo surfaces as a CLI error rather than an opaque server one.
+func TestParseHistoryRange(t *testing.T) {
+	t.Run("Valid", func(t *testing.T) {
+		got, err := parseHistoryRange("1705036708-1705123108")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "1705036708-1705123108" {
+			t.Errorf("got %q, want it returned unchanged", got)
+		}
+	})
+
+	t.Run("TrimsSurroundingSpace", func(t *testing.T) {
+		got, err := parseHistoryRange("  1705036708-1705123108  ")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != "1705036708-1705123108" {
+			t.Errorf("got %q, want trimmed value", got)
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		for _, v := range []string{
+			"bogus",                            // no separator
+			"1705036708",                       // only one bound
+			"abc-def",                          // non-numeric bounds
+			"-7d-now",                          // relative syntax belongs on --start/--end
+			"1705036708-",                      // missing end
+			"1705036708-1705123108-1705123109", // trailing junk
+		} {
+			if _, err := parseHistoryRange(v); err == nil {
+				t.Errorf("expected error for %q", v)
+			}
+		}
+	})
+
+	t.Run("StartAfterEnd", func(t *testing.T) {
+		_, err := parseHistoryRange("1705123108-1705036708")
+		if err == nil {
+			t.Fatal("expected error when start is after end")
+		}
+		if !strings.Contains(err.Error(), "after end") {
+			t.Errorf("unexpected error message: %v", err)
+		}
+	})
+}
+
+// TestMonitorsState_TimeFlags verifies `monitors state` exposes the CLI-wide
+// --start/--end syntax alongside the raw --history-range, and that the two
+// forms are mutually exclusive.
+func TestMonitorsState_TimeFlags(t *testing.T) {
+	state := findSubcommand(newMonitorsCmd(), "state")
+	if state == nil {
+		t.Fatal("state subcommand missing")
+	}
+	for _, name := range []string{"history-range", "start", "end"} {
+		if state.Flags().Lookup(name) == nil {
+			t.Errorf("missing --%s flag", name)
+		}
+	}
+
+	// --history-range together with --start must be rejected by cobra's
+	// mutually-exclusive group rather than silently preferring one. Drive
+	// this from the root command: Execute on a subcommand reroutes to the
+	// root, so the args must include the "state" path themselves.
+	root := newMonitorsCmd()
+	root.SetArgs([]string{"state", "m1", "--history-range", "1-2", "--start", "-1h"})
+	root.SilenceUsage, root.SilenceErrors = true, true
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "none of the others") {
+		t.Errorf("expected mutual-exclusion error, got %v", err)
+	}
+}
+
 func TestNewNotifiersCmd_Structure(t *testing.T) {
 	cmd := newNotifiersCmd()
 	if cmd.Use != "notifiers" {

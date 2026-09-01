@@ -164,7 +164,10 @@ func newTracesGetCmd() *cobra.Command {
 }
 
 func newTracesLabelsCmd() *cobra.Command {
-	var endStr string
+	var (
+		startStr string
+		endStr   string
+	)
 	cmd := &cobra.Command{
 		Use:   "labels",
 		Short: "List trace label names",
@@ -175,6 +178,13 @@ func newTracesLabelsCmd() *cobra.Command {
 			format := getOutputFormat(cmd)
 
 			params := &client.ListLabelsParams{}
+			if cmd.Flags().Changed("start") {
+				start, err := parseTimeFlag(startStr)
+				if err != nil {
+					return fmt.Errorf("--start: %w", err)
+				}
+				params.Start = &start
+			}
 			if cmd.Flags().Changed("end") {
 				end, err := parseTimeFlag(endStr)
 				if err != nil {
@@ -196,12 +206,16 @@ func newTracesLabelsCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
 		},
 	}
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
 	return cmd
 }
 
 func newTracesLabelValuesCmd() *cobra.Command {
-	var endStr string
+	var (
+		startStr string
+		endStr   string
+	)
 	cmd := &cobra.Command{
 		Use:   "label-values <label_name>",
 		Short: "List values for a trace label",
@@ -212,6 +226,13 @@ func newTracesLabelValuesCmd() *cobra.Command {
 			format := getOutputFormat(cmd)
 
 			params := &client.GetTraceLabelValuesByIdParams{}
+			if cmd.Flags().Changed("start") {
+				start, err := parseTimeFlag(startStr)
+				if err != nil {
+					return fmt.Errorf("--start: %w", err)
+				}
+				params.Start = &start
+			}
 			if cmd.Flags().Changed("end") {
 				end, err := parseTimeFlag(endStr)
 				if err != nil {
@@ -233,6 +254,7 @@ func newTracesLabelValuesCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200.Data, "Value")
 		},
 	}
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
 	return cmd
 }
