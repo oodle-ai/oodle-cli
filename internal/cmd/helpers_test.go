@@ -263,6 +263,56 @@ func TestParseTimeFlagSeconds(t *testing.T) {
 	})
 }
 
+// --- parseTimeFlagSec tests ---
+// parseTimeFlagSec returns whole epoch seconds, distinguishing it from
+// parseTimeFlagSeconds (float64) and parseTimeFlagMs (milliseconds).
+
+func TestParseTimeFlagSec(t *testing.T) {
+	const tolerance = 2 // seconds
+
+	t.Run("Epoch", func(t *testing.T) {
+		got, err := parseTimeFlagSec("1700000000")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got != 1700000000 {
+			t.Errorf("got %d, want 1700000000", got)
+		}
+	})
+
+	t.Run("UnitConversion", func(t *testing.T) {
+		got, err := parseTimeFlagSec("now")
+		if err != nil {
+			t.Fatal(err)
+		}
+		now := time.Now().Unix()
+		if got < now-tolerance || got > now+tolerance {
+			t.Errorf("parseTimeFlagSec(\"now\") = %d not within %ds of %d (likely wrong unit)", got, tolerance, now)
+		}
+	})
+
+	t.Run("Relative7d", func(t *testing.T) {
+		got, err := parseTimeFlagSec("-7d")
+		if err != nil {
+			t.Fatal(err)
+		}
+		delta := time.Now().Unix() - got
+		const expected = 7 * 24 * 3600
+		if delta < expected-tolerance || delta > expected+tolerance {
+			t.Errorf("delta = %d, want ~%d", delta, expected)
+		}
+	})
+
+	t.Run("Invalid", func(t *testing.T) {
+		if _, err := parseTimeFlagSec("garbage"); err == nil {
+			t.Error("expected error for 'garbage'")
+		}
+		if _, err := parseTimeFlagSec(""); err == nil {
+			t.Error("expected error for empty string")
+		}
+	})
+}
+
 func TestConfirmAction_Force(t *testing.T) {
 	if !confirmAction("delete?", true) {
 		t.Error("force=true should return true")

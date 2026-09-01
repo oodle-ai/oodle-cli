@@ -60,8 +60,12 @@ Example NDJSON file contents:
 			}
 
 			// Track whether the user explicitly provided --start/--end.
-			startExplicit := startStr != ""
-			endExplicit := endStr != ""
+			// Use Changed rather than a non-empty check: passing an
+			// explicit empty value still signals intent to bound the
+			// query, so it should override a range already present in
+			// the body rather than be mistaken for an absent flag.
+			startExplicit := cmd.Flags().Changed("start")
+			endExplicit := cmd.Flags().Changed("end")
 
 			// If the query body already contains a timestamp range and
 			// the user did not explicitly provide --start/--end, honour

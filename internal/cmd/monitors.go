@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -245,7 +246,11 @@ func newMonitorsDeleteCmd() *cobra.Command {
 }
 
 func newMonitorsStateCmd() *cobra.Command {
-	var historyRange string
+	var (
+		historyRange string
+		startStr     string
+		endStr       string
+	)
 	cmd := &cobra.Command{
 		Use:   "state <id>",
 		Short: "Get a monitor's state",
@@ -256,8 +261,35 @@ func newMonitorsStateCmd() *cobra.Command {
 			format := getOutputFormat(cmd)
 
 			params := &client.GetMonitorStateByIdParams{}
-			if strings.TrimSpace(historyRange) != "" {
-				hr := historyRange
+			switch {
+			case cmd.Flags().Changed("start") || cmd.Flags().Changed("end"):
+				// Compose the range from the CLI-wide --start/--end
+				// syntax. The endpoint requires both bounds, so fill
+				// the missing side from the defaults.
+				if startStr == "" {
+					startStr = defaultHistoryStartOffset
+				}
+				if endStr == "" {
+					endStr = defaultEndValue
+				}
+				start, err := parseTimeFlagSec(startStr)
+				if err != nil {
+					return fmt.Errorf("--start: %w", err)
+				}
+				end, err := parseTimeFlagSec(endStr)
+				if err != nil {
+					return fmt.Errorf("--end: %w", err)
+				}
+				if start > end {
+					return fmt.Errorf("--start (%d) is after --end (%d)", start, end)
+				}
+				hr := fmt.Sprintf("%d-%d", start, end)
+				params.HistoryRange = &hr
+			case strings.TrimSpace(historyRange) != "":
+				hr, err := parseHistoryRange(historyRange)
+				if err != nil {
+					return err
+				}
 				params.HistoryRange = &hr
 			}
 
@@ -274,8 +306,45 @@ func newMonitorsStateCmd() *cobra.Command {
 			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
 		},
 	}
-	cmd.Flags().StringVar(&historyRange, "history-range", "", "Time range for monitor history (e.g. 1705036708-1705123108)")
+	cmd.Flags().StringVar(&historyRange, "history-range", "", "Raw time range for monitor history, \"<start>-<end>\" in epoch seconds (e.g. 1705036708-1705123108). Prefer --start/--end")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the monitor history range (epoch seconds, 'now', or relative like -7d). Defaults to "+defaultHistoryStartOffset+" if only --end is given")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the monitor history range (epoch seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if only --start is given")
+	cmd.MarkFlagsMutuallyExclusive("history-range", "start")
+	cmd.MarkFlagsMutuallyExclusive("history-range", "end")
 	return cmd
+}
+
+// parseHistoryRange validates the raw --history-range form, "<start>-<end>"
+// in epoch seconds (e.g. 1705036708-1705123108), and returns it unchanged.
+// Validating locally means a typo surfaces here rather than as an opaque
+// server-side error.
+func parseHistoryRange(value string) (string, error) {
+	v := strings.TrimSpace(value)
+	startStr, endStr, ok := strings.Cut(v, "-")
+	if !ok {
+		return "", historyRangeError(value)
+	}
+	start, err := strconv.ParseInt(startStr, 10, 64)
+	if err != nil {
+		return "", historyRangeError(value)
+	}
+	end, err := strconv.ParseInt(endStr, 10, 64)
+	if err != nil {
+		return "", historyRangeError(value)
+	}
+	if start > end {
+		return "", fmt.Errorf("invalid --history-range %q: start (%d) is after end (%d)", value, start, end)
+	}
+	return v, nil
+}
+
+func historyRangeError(value string) error {
+	return fmt.Errorf(
+		"invalid --history-range %q: expected \"<start>-<end>\" in epoch "+
+			"seconds (e.g. 1705036708-1705123108); use --start/--end for "+
+			"'now' or relative durations like -7d",
+		value,
+	)
 }
 
 func newMonitorsTriggersCmd() *cobra.Command {

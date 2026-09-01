@@ -25,6 +25,11 @@ const (
 	defaultStartOffset = "-1h"
 	defaultEndValue    = "now"
 	defaultStep        = "60s"
+
+	// defaultHistoryStartOffset mirrors the monitor history endpoint's own
+	// documented default window (last 7 days), used to fill in the missing
+	// bound when only one side of the range is supplied.
+	defaultHistoryStartOffset = "-7d"
 )
 
 // exactArgs returns a cobra.PositionalArgs validator that requires exactly n
@@ -137,6 +142,14 @@ func parseTimeFlag(value string) (int64, error) {
 // Use this for endpoints (e.g. metrics) that expect millisecond timestamps.
 func parseTimeFlagMs(value string) (int64, error) {
 	return parseTimeFlagAs(value, "milliseconds", time.Time.UnixMilli)
+}
+
+// parseTimeFlagSec is like parseTimeFlag but returns whole epoch seconds.
+// Use this for endpoints (e.g. the monitor history range) that expect
+// integral second timestamps. This differs from parseTimeFlagSeconds, which
+// returns a float64 for the Prometheus API's sub-second precision.
+func parseTimeFlagSec(value string) (int64, error) {
+	return parseTimeFlagAs(value, "seconds", time.Time.Unix)
 }
 
 // parseTimeFlagAs is the shared core for parseTimeFlag and parseTimeFlagMs.
