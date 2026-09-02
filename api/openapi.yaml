@@ -387,6 +387,29 @@ components:
         - name
         - type
       properties:
+        cleanValue:
+          type: string
+          description: |-
+            CleanValue is the categorical value that means nothing
+            was found. Only a categorical template needs it, and
+            only to gate a dependent evaluator: a categorical score
+            has no place on the 0..1 scale that gate compares
+            against, so without this the chain is switched off for
+            the rule rather than run on every span.
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter says which end of the score range is the
+            good one. Set it to false only when your prompt scores 1
+            for the bad outcome: an evaluator named for the bad
+            thing is not necessarily lower-is-better, so read the
+            prompt rather than the name. Omit it and scores are
+            treated as higher-is-better, which is how they have
+            always been rendered.
+
+            (A pointer so the handler can tell an explicit false
+            from an omitted field.)
+          nullable: true
         modelParams: {}
         name:
           type: string
@@ -396,6 +419,12 @@ components:
           description: |-
             Prompt is the judge prompt for llm evaluators, with
             {{var}} placeholders drawn from Vars.
+        scoreType:
+          type: string
+          description: |-
+            ScoreType is the shape of the value the evaluator
+            returns: numeric, boolean or categorical. Optional;
+            anything else is rejected.
         sourceCode:
           type: string
           description: |-
@@ -443,6 +472,13 @@ components:
         evaluatorId:
           type: string
         filters: {}
+        generationSpansOnly:
+          type: boolean
+          description: |-
+            GenerationSpansOnly limits the rule to leaf model
+            calls. Absent means true, which is what every rule did
+            before the field existed.
+          nullable: true
         llmConnectionId:
           type: string
           nullable: true
@@ -831,7 +867,8 @@ components:
       type: object
       description: |-
         DatasetRunResponse is one experiment run over a dataset,
-        enriched with the status of the job that produced it.
+        enriched with the status of the job that produced it and
+        the scores its items were given, one entry per score name.
       required:
         - id
         - datasetId
@@ -840,6 +877,7 @@ components:
         - metadata
         - createdAt
         - updatedAt
+        - scores
       properties:
         createdAt:
           type: string
@@ -859,6 +897,11 @@ components:
         metadata: {}
         name:
           type: string
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RunScoreAggregate'
         updatedAt:
           type: string
     DatasetScheduleResponse:
@@ -1038,9 +1081,40 @@ components:
         - outputSchema
         - vars
         - createdAt
+        - higherIsBetter
       properties:
+        cleanValue:
+          type: string
+          description: |-
+            CleanValue is the categorical value that means nothing
+            was found.
+
+            Only categorical templates need it, and only to be a
+            parent in an evaluator chain. A categorical score has no
+            position on a 0..1 scale, so without this the gate that
+            decides which spans reach a dependent evaluator has
+            nothing to compare against -- and the failure is silent:
+            it ran the child on every span, and a child running too
+            often looks exactly like a child that is working.
+
+            Left empty, the chain is switched off for that rule
+            rather than run on everything.
         createdAt:
           type: string
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter says which way is good. It lives on the
+            template rather than the rule because it describes the
+            thing being measured, so every rule pointing here
+            inherits one answer.
+
+            Four things read it, and each is wrong without it: the
+            score colours (higher-is-better was hardcoded, so a
+            toxicity score of 0.9 rendered green), the chained
+            evaluator gate, an alert's comparison direction, and
+            the experiment run comparison, which today can show two
+            numbers but cannot say which won.
         id:
           type: string
         modelParams: {}
@@ -1052,6 +1126,13 @@ components:
           nullable: true
         prompt:
           type: string
+        scoreType:
+          type: string
+          description: |-
+            ScoreType is numeric, boolean or categorical. Empty
+            means the template predates the column and never
+            declared one; the UI renders that neutral rather than
+            guessing.
         sourceCode:
           type: string
         sourceCodeLanguage:
@@ -1078,6 +1159,7 @@ components:
         - variableMapping
         - modelParams
         - enabled
+        - generationSpansOnly
         - createdAt
         - updatedAt
       properties:
@@ -1095,6 +1177,14 @@ components:
         evaluatorId:
           type: string
         filters: {}
+        generationSpansOnly:
+          type: boolean
+          description: |-
+            GenerationSpansOnly limits the rule to leaf model
+            calls. True for an LLM judge, which has nothing to
+            grade on an agent or tool span; a code evaluator often
+            wants the opposite, since a tool failure is a span it
+            alone can read.
         id:
           type: string
         llmConnectionId:
@@ -1134,9 +1224,17 @@ components:
         - variableMapping
         - modelParams
         - enabled
+        - generationSpansOnly
         - createdAt
         - updatedAt
+        - higherIsBetter
       properties:
+        cleanValue:
+          type: string
+          description: |-
+            CleanValue is the categorical value meaning nothing was
+            found. A categorical rule without one cannot gate a
+            dependent evaluator at all.
         createdAt:
           type: string
         datasetId:
@@ -1156,6 +1254,21 @@ components:
             EvaluatorType is "llm", "code" or "output_comparer", and
             is empty when the referenced template no longer exists.
         filters: {}
+        generationSpansOnly:
+          type: boolean
+          description: |-
+            GenerationSpansOnly limits the rule to leaf model
+            calls. True for an LLM judge, which has nothing to
+            grade on an agent or tool span; a code evaluator often
+            wants the opposite, since a tool failure is a span it
+            alone can read.
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter says which way is good for this rule's
+            score. Served on the rule so a client can say when a
+            dependent evaluator will run without fetching every
+            template.
         id:
           type: string
         llmConnectionId:
@@ -1168,6 +1281,11 @@ components:
           type: string
         samplingRate:
           type: number
+        scoreType:
+          type: string
+          description: |-
+            ScoreType is numeric, boolean or categorical. Empty when
+            the template never declared one.
         targetType:
           type: string
         updatedAt:
@@ -2297,6 +2415,15 @@ components:
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
         webhook_config:
           $ref: '#/components/schemas/WebhookConfig'
+    NotifierTestResult:
+      type: object
+      description: NotifierTestResult reports the outcome of a notifier test.
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Message tells the user where the test alert went.
     NotifiersByCondition:
       type: object
       description: NotifiersByCondition represents notifiers for each severity level.
@@ -2633,6 +2760,45 @@ components:
           type: string
         version:
           type: integer
+    RunScoreAggregate:
+      type: object
+      description: |-
+        RunScoreAggregate is every score of one name over one
+        dataset run, collapsed to what a table cell can hold.
+
+        A run holds up to one row per dataset item, so the run list
+        cannot carry the scores themselves: the reader wants "how
+        did this run do", which is the average for a number and the
+        spread of answers for a label.
+      required:
+        - name
+        - dataType
+        - count
+      properties:
+        average:
+          type: number
+          description: |-
+            Average is absent when no score of this name carried a
+            number, which is what a purely categorical score is.
+          nullable: true
+        count:
+          type: integer
+          description: |-
+            Count is how many scores of this name the run has, over
+            every data type. It is the denominator the average and
+            the value counts are read against.
+        dataType:
+          type: string
+        name:
+          type: string
+        values:
+          type: object
+          description: |-
+            Values counts each distinct label of a categorical
+            score. Absent when the name has no labelled scores.
+          nullable: true
+          additionalProperties:
+            type: integer
     SaveDashboardRequest:
       type: object
       required:
@@ -2814,6 +2980,21 @@ components:
           type: string
         evaluatorName:
           type: string
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter is which way is good for this score,
+            stamped on the score span when it was written rather
+            than joined from the template at read time. A
+            historical score therefore keeps the meaning it was
+            written with even if the template is later flipped.
+
+            A pointer because absent is meaningful: scores written
+            before the column existed, and templates that never
+            declared a direction, have none. The UI renders those
+            neutral instead of assuming higher is better -- which
+            is what used to make a toxicity score of 0.9 green.
+          nullable: true
         id:
           type: string
         inputTokens:
@@ -3663,8 +3844,28 @@ components:
           type: integer
         offset:
           type: integer
+        rowLimit:
+          type: integer
+          description: |-
+            RowLimit is the limit that stopped the query,
+            in the same units as RowsRead.
+        rowsRead:
+          type: integer
+          description: |-
+            RowsRead is how much of the trace the query read
+            before it reached the limit. A span contributes
+            one row per span event, so this is larger than the
+            number of spans returned.
         total:
           type: integer
+        truncated:
+          type: boolean
+          description: |-
+            Truncated reports that the trace is incomplete
+            because the query reached its size limit. Spans
+            are missing, and the response is otherwise
+            well-formed. Narrow the time range to read the
+            rest.
     URL:
       type: object
       description: URL is a custom URL type that allows validation at configuration load time.
@@ -3758,11 +3959,28 @@ components:
         are left untouched. Oodle-managed evaluators cannot be
         updated.
       properties:
+        cleanValue:
+          type: string
+          description: |-
+            CleanValue is the categorical value meaning nothing was
+            found. See CreateEvalTemplateRequest. Omit it to leave
+            the current value alone; send an empty string to clear
+            it, which stops anything depending on this evaluator.
+          nullable: true
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter changes which end of the score range is
+            the good one. Omit it to leave the current setting
+            alone; send false to mark the evaluator lower-is-better.
+          nullable: true
         modelParams: {}
         name:
           type: string
         outputSchema: {}
         prompt:
+          type: string
+        scoreType:
           type: string
         sourceCode:
           type: string
@@ -3788,6 +4006,9 @@ components:
           type: boolean
           nullable: true
         filters: {}
+        generationSpansOnly:
+          type: boolean
+          nullable: true
         llmConnectionId:
           type: string
           nullable: true
@@ -4044,6 +4265,11 @@ components:
             MaxAlerts is the maximum number of alerts to be sent per webhook message.
             Alerts exceeding this threshold will be truncated. Setting this to 0
             allows an unlimited number of alerts.
+        payload:
+          type: object
+          description: 'Replaces the default webhook body with a fully custom one. Every string key and value in this (arbitrarily nested) object is rendered as a Go template against the alert notification data, e.g. `{"text": "{{ .CommonLabels.alertname }}"}`. Use the `toJson` template function to embed structured data such as `{{ .CommonLabels | toJson }}`. The rendered payload is posted verbatim; Oodle does not validate that it matches what the receiving endpoint expects.'
+          nullable: true
+          additionalProperties: true
         send_resolved:
           type: boolean
         url:
@@ -9459,6 +9685,71 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/notifiers/{id}/test:
+    post:
+      tags:
+        - Notifiers
+      summary: Send a test alert to a notifier
+      description: |2-
+
+        **Required role:** Editor or Admin
+      operationId: testNotifier
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotifierTestResult'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
           description: ""
           content:
             application/json:
