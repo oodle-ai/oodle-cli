@@ -461,6 +461,9 @@ type ClientInterface interface {
 
 	UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TestNotifier request
+	TestNotifier(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListRolesOp request
 	ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -2165,6 +2168,18 @@ func (c *Client) UpdateNotifiersByIdWithBody(ctx context.Context, instance strin
 
 func (c *Client) UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateNotifiersByIdRequest(c.Server, instance, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestNotifier(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestNotifierRequest(c.Server, instance, id)
 	if err != nil {
 		return nil, err
 	}
@@ -7587,6 +7602,47 @@ func NewUpdateNotifiersByIdRequestWithBody(server string, instance string, id st
 	return req, nil
 }
 
+// NewTestNotifierRequest generates requests for TestNotifier
+func NewTestNotifierRequest(server string, instance string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/notifiers/%s/test", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListRolesOpRequest generates requests for ListRolesOp
 func NewListRolesOpRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -9173,6 +9229,9 @@ type ClientWithResponsesInterface interface {
 	UpdateNotifiersByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
 
 	UpdateNotifiersByIdWithResponse(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
+
+	// TestNotifierWithResponse request
+	TestNotifierWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*TestNotifierResponse, error)
 
 	// ListRolesOpWithResponse request
 	ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error)
@@ -11838,6 +11897,34 @@ func (r UpdateNotifiersByIdResponse) StatusCode() int {
 	return 0
 }
 
+type TestNotifierResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotifierTestResult
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r TestNotifierResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestNotifierResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListRolesOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -13619,6 +13706,15 @@ func (c *ClientWithResponses) UpdateNotifiersByIdWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseUpdateNotifiersByIdResponse(rsp)
+}
+
+// TestNotifierWithResponse request returning *TestNotifierResponse
+func (c *ClientWithResponses) TestNotifierWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*TestNotifierResponse, error) {
+	rsp, err := c.TestNotifier(ctx, instance, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestNotifierResponse(rsp)
 }
 
 // ListRolesOpWithResponse request returning *ListRolesOpResponse
@@ -19137,6 +19233,74 @@ func ParseUpdateNotifiersByIdResponse(rsp *http.Response) (*UpdateNotifiersByIdR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestNotifierResponse parses an HTTP response from a TestNotifierWithResponse call
+func ParseTestNotifierResponse(rsp *http.Response) (*TestNotifierResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestNotifierResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotifierTestResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
