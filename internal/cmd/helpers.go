@@ -3,7 +3,6 @@ package cmd
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,7 +11,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	"sigs.k8s.io/yaml"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/output"
@@ -103,24 +102,20 @@ func readInputFile(path string, v any) error {
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", path, err)
 	}
+	// sigs.k8s.io/yaml converts the document to JSON and decodes that, thus a
+	// field is matched by its `json` tag. The API types carry only those tags,
+	// where a plain YAML decoder matches the lowercased Go name instead and
+	// drops every field whose name holds an underscore, such as
+	// `webhook_config`. It reads JSON as well, because YAML is a superset.
 	ext := strings.ToLower(filepath.Ext(path))
-	switch ext {
-	case ".json":
-		if err := json.Unmarshal(data, v); err != nil {
+	if err := yaml.Unmarshal(data, v); err != nil {
+		if ext == ".json" {
 			return fmt.Errorf("parsing JSON from %s: %w", path, err)
 		}
-	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, v); err != nil {
-			return fmt.Errorf("parsing YAML from %s: %w", path, err)
-		}
-	default:
-		// YAML is a superset of JSON; try yaml first, fall back to json.
-		if err := yaml.Unmarshal(data, v); err != nil {
-			if jerr := json.Unmarshal(data, v); jerr != nil {
-				return fmt.Errorf("parsing %s (tried YAML and JSON): %w", path, err)
-			}
-		}
+
+		return fmt.Errorf("parsing %s: %w", path, err)
 	}
+
 	return nil
 }
 

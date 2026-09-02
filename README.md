@@ -246,6 +246,29 @@ oodle notifiers list
 oodle notifiers create -f slack-notifier.yaml
 ```
 
+A webhook or Rootly notifier can carry a custom payload, a JSON object whose
+every string is a Go template rendered against the alert data:
+
+```yaml
+name: rootly-notifier
+type: 7
+rootly_config:
+  url: https://webhooks.rootly.com/webhooks/incoming/alertmanager_webhooks
+  send_resolved: true
+  max_alerts: 0
+  http_config:
+    authorization:
+      type: Bearer
+      credentials: rootly_alert_source_bearer_token
+  payload:
+    summary: "{{ .CommonLabels.alertname }} is {{ .Status }}"
+    severity: "{{ .CommonLabels._oodle_severity }}"
+```
+
+Oodle adds the standard Alertmanager fields to a Rootly payload as it delivers
+the alert, so write only your own keys. A webhook notifier (`type: 4`) instead
+replaces the whole body with what the payload holds.
+
 ### Notification Policies — `oodle notification-policies`
 
 Aliases: `np`, `notification-policy`.
