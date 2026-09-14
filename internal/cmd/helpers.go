@@ -110,18 +110,40 @@ func readInputFile(path string, v any) error {
 			return fmt.Errorf("parsing JSON from %s: %w", path, err)
 		}
 	case ".yaml", ".yml":
-		if err := yaml.Unmarshal(data, v); err != nil {
+		if err := unmarshalYAMLAsJSON(data, v); err != nil {
 			return fmt.Errorf("parsing YAML from %s: %w", path, err)
 		}
 	default:
 		// YAML is a superset of JSON; try yaml first, fall back to json.
-		if err := yaml.Unmarshal(data, v); err != nil {
+		if err := unmarshalYAMLAsJSON(data, v); err != nil {
 			if jerr := json.Unmarshal(data, v); jerr != nil {
 				return fmt.Errorf("parsing %s (tried YAML and JSON): %w", path, err)
 			}
 		}
 	}
 	return nil
+}
+
+// unmarshalYAMLAsJSON decodes YAML by transcoding it to JSON first, so the
+// target is filled through its JSON decoding path.
+//
+// Decoding YAML straight into v goes through gopkg.in/yaml.v3, which honours
+// neither `json` struct tags nor json.Unmarshaler. The generated API types have
+// only `json` tags, and their oneOf unions (integration typeSpecificData, for
+// one) carry their payload in a json.RawMessage populated by a custom
+// UnmarshalJSON. Decoded as YAML those unions silently come back empty, so a
+// --file request would drop its entire type-specific body and still be accepted
+// by the server as an unconfigured integration.
+func unmarshalYAMLAsJSON(data []byte, v any) error {
+	var intermediate any
+	if err := yaml.Unmarshal(data, &intermediate); err != nil {
+		return err
+	}
+	encoded, err := json.Marshal(intermediate)
+	if err != nil {
+		return fmt.Errorf("converting YAML to JSON: %w", err)
+	}
+	return json.Unmarshal(encoded, v)
 }
 
 // parseTimeFlag converts a time flag value to epoch microseconds. Accepted

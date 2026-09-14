@@ -158,6 +158,45 @@ type Authorization struct {
 	Type           *string `json:"type,omitempty"`
 }
 
+// AzureMetricsIntegration AzureMetricsIntegration is the API-facing config for an Azure Monitor metric
+// pull integration. One record is one Azure subscription.
+//
+// ClientSecret is write-only: it is accepted on create and update but never
+// returned in plaintext (a mask is returned instead).
+type AzureMetricsIntegration struct {
+	ClientId          *string   `json:"clientId,omitempty"`
+	ClientSecret      *string   `json:"clientSecret,omitempty"`
+	ResourceGroups    *[]string `json:"resourceGroups,omitempty"`
+	ResourceNameRegex *string   `json:"resourceNameRegex,omitempty"`
+
+	// ServiceFilters ServiceFilters selects which Azure services to collect, grouped so each
+	// group can carry its own tag filters. Empty means the defaults.
+	ServiceFilters *[]AzureServiceFilter `json:"serviceFilters,omitempty"`
+	SubscriptionId *string               `json:"subscriptionId,omitempty"`
+
+	// SubscriptionName SubscriptionName is the human-readable identifier shown in the UI list of
+	// configured subscriptions. Required.
+	SubscriptionName *string `json:"subscriptionName,omitempty"`
+	TenantId         *string `json:"tenantId,omitempty"`
+}
+
+// AzureMetricsIntegrationWrapper defines model for AzureMetricsIntegrationWrapper.
+type AzureMetricsIntegrationWrapper struct {
+	// AzureMetricsIntegration AzureMetricsIntegration is the API-facing config for an Azure Monitor metric
+	// pull integration. One record is one Azure subscription.
+	//
+	// ClientSecret is write-only: it is accepted on create and update but never
+	// returned in plaintext (a mask is returned instead).
+	AzureMetricsIntegration *AzureMetricsIntegration `json:"azureMetricsIntegration,omitempty"`
+}
+
+// AzureServiceFilter AzureServiceFilter is one group of services plus the tags that narrow it.
+// Tags are include-only: a resource must carry every tag listed.
+type AzureServiceFilter struct {
+	ServiceIds *[]string          `json:"serviceIds,omitempty"`
+	Tags       *map[string]string `json:"tags,omitempty"`
+}
+
 // BasicAuth BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Password     *string `json:"password,omitempty"`
@@ -353,13 +392,37 @@ type CreateDropRuleRequest struct {
 // against a dataset item's expected output
 // (`type: output_comparer`).
 type CreateEvalTemplateRequest struct {
-	ModelParams  interface{} `json:"modelParams,omitempty"`
-	Name         string      `json:"name"`
-	OutputSchema interface{} `json:"outputSchema,omitempty"`
+	// CleanValue CleanValue is the categorical value that means nothing
+	// was found. Only a categorical template needs it, and
+	// only to gate a dependent evaluator: a categorical score
+	// has no place on the 0..1 scale that gate compares
+	// against, so without this the chain is switched off for
+	// the rule rather than run on every span.
+	CleanValue *string `json:"cleanValue,omitempty"`
+
+	// HigherIsBetter HigherIsBetter says which end of the score range is the
+	// good one. Set it to false only when your prompt scores 1
+	// for the bad outcome: an evaluator named for the bad
+	// thing is not necessarily lower-is-better, so read the
+	// prompt rather than the name. Omit it and scores are
+	// treated as higher-is-better, which is how they have
+	// always been rendered.
+	//
+	// (A pointer so the handler can tell an explicit false
+	// from an omitted field.)
+	HigherIsBetter *bool       `json:"higherIsBetter,omitempty"`
+	ModelParams    interface{} `json:"modelParams,omitempty"`
+	Name           string      `json:"name"`
+	OutputSchema   interface{} `json:"outputSchema,omitempty"`
 
 	// Prompt Prompt is the judge prompt for llm evaluators, with
 	// {{var}} placeholders drawn from Vars.
 	Prompt *string `json:"prompt,omitempty"`
+
+	// ScoreType ScoreType is the shape of the value the evaluator
+	// returns: numeric, boolean or categorical. Optional;
+	// anything else is rejected.
+	ScoreType *string `json:"scoreType,omitempty"`
 
 	// SourceCode SourceCode is required for code evaluators and capped at
 	// 256 KB. SourceCodeLanguage must be "python".
@@ -389,7 +452,12 @@ type CreateEvaluationRuleRequest struct {
 	Enabled          *bool       `json:"enabled,omitempty"`
 	EvaluatorId      string      `json:"evaluatorId"`
 	Filters          interface{} `json:"filters,omitempty"`
-	LlmConnectionId  *string     `json:"llmConnectionId,omitempty"`
+
+	// GenerationSpansOnly GenerationSpansOnly limits the rule to leaf model
+	// calls. Absent means true, which is what every rule did
+	// before the field existed.
+	GenerationSpansOnly *bool   `json:"generationSpansOnly,omitempty"`
+	LlmConnectionId     *string `json:"llmConnectionId,omitempty"`
 
 	// MaxInvocationsPerHour MaxInvocationsPerHr caps spend; 0 means unlimited.
 	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
@@ -417,8 +485,8 @@ type CreateIntegrationRequest struct {
 	TypeSpecificData *CreateIntegrationRequest_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// CreateIntegrationRequestTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type CreateIntegrationRequestTypeSpecificData2 map[string]interface{}
+// CreateIntegrationRequestTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type CreateIntegrationRequestTypeSpecificData3 map[string]interface{}
 
 // CreateIntegrationRequest_TypeSpecificData defines model for CreateIntegrationRequest.TypeSpecificData.
 type CreateIntegrationRequest_TypeSpecificData struct {
@@ -544,6 +612,12 @@ type Dataset struct {
 	UpdatedAt     string      `json:"updatedAt"`
 }
 
+// DatasetFolderRenameMove DatasetFolderRenameMove is one dataset the rename moves.
+type DatasetFolderRenameMove struct {
+	NewName string `json:"newName"`
+	OldName string `json:"oldName"`
+}
+
 // DatasetItem defines model for DatasetItem.
 type DatasetItem struct {
 	CreatedAt           string      `json:"createdAt"`
@@ -596,18 +670,20 @@ type DatasetRunItemResponse struct {
 }
 
 // DatasetRunResponse DatasetRunResponse is one experiment run over a dataset,
-// enriched with the status of the job that produced it.
+// enriched with the status of the job that produced it and
+// the scores its items were given, one entry per score name.
 type DatasetRunResponse struct {
-	CreatedAt       string      `json:"createdAt"`
-	DatasetId       string      `json:"datasetId"`
-	DatasetVersion  *time.Time  `json:"datasetVersion,omitempty"`
-	Description     string      `json:"description"`
-	Id              string      `json:"id"`
-	LatestJobConfig interface{} `json:"latestJobConfig,omitempty"`
-	LatestJobStatus *string     `json:"latestJobStatus,omitempty"`
-	Metadata        interface{} `json:"metadata"`
-	Name            string      `json:"name"`
-	UpdatedAt       string      `json:"updatedAt"`
+	CreatedAt       string               `json:"createdAt"`
+	DatasetId       string               `json:"datasetId"`
+	DatasetVersion  *time.Time           `json:"datasetVersion,omitempty"`
+	Description     string               `json:"description"`
+	Id              string               `json:"id"`
+	LatestJobConfig interface{}          `json:"latestJobConfig,omitempty"`
+	LatestJobStatus *string              `json:"latestJobStatus,omitempty"`
+	Metadata        interface{}          `json:"metadata"`
+	Name            string               `json:"name"`
+	Scores          *[]RunScoreAggregate `json:"scores"`
+	UpdatedAt       string               `json:"updatedAt"`
 }
 
 // DatasetScheduleResponse DatasetScheduleResponse is one dataset's schedule.
@@ -710,28 +786,68 @@ type EmailConfig struct {
 
 // EvalTemplate defines model for EvalTemplate.
 type EvalTemplate struct {
-	CreatedAt          string      `json:"createdAt"`
-	Id                 string      `json:"id"`
-	ModelParams        interface{} `json:"modelParams"`
-	Name               string      `json:"name"`
-	OutputSchema       interface{} `json:"outputSchema"`
-	ProjectId          *string     `json:"projectId,omitempty"`
-	Prompt             string      `json:"prompt"`
-	SourceCode         *string     `json:"sourceCode,omitempty"`
-	SourceCodeLanguage *string     `json:"sourceCodeLanguage,omitempty"`
-	Type               string      `json:"type"`
-	Vars               *[]string   `json:"vars"`
-	Version            int         `json:"version"`
+	// CleanValue CleanValue is the categorical value that means nothing
+	// was found.
+	//
+	// Only categorical templates need it, and only to be a
+	// parent in an evaluator chain. A categorical score has no
+	// position on a 0..1 scale, so without this the gate that
+	// decides which spans reach a dependent evaluator has
+	// nothing to compare against -- and the failure is silent:
+	// it ran the child on every span, and a child running too
+	// often looks exactly like a child that is working.
+	//
+	// Left empty, the chain is switched off for that rule
+	// rather than run on everything.
+	CleanValue *string `json:"cleanValue,omitempty"`
+	CreatedAt  string  `json:"createdAt"`
+
+	// HigherIsBetter HigherIsBetter says which way is good. It lives on the
+	// template rather than the rule because it describes the
+	// thing being measured, so every rule pointing here
+	// inherits one answer.
+	//
+	// Four things read it, and each is wrong without it: the
+	// score colours (higher-is-better was hardcoded, so a
+	// toxicity score of 0.9 rendered green), the chained
+	// evaluator gate, an alert's comparison direction, and
+	// the experiment run comparison, which today can show two
+	// numbers but cannot say which won.
+	HigherIsBetter bool        `json:"higherIsBetter"`
+	Id             string      `json:"id"`
+	ModelParams    interface{} `json:"modelParams"`
+	Name           string      `json:"name"`
+	OutputSchema   interface{} `json:"outputSchema"`
+	ProjectId      *string     `json:"projectId,omitempty"`
+	Prompt         string      `json:"prompt"`
+
+	// ScoreType ScoreType is numeric, boolean or categorical. Empty
+	// means the template predates the column and never
+	// declared one; the UI renders that neutral rather than
+	// guessing.
+	ScoreType          *string   `json:"scoreType,omitempty"`
+	SourceCode         *string   `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string   `json:"sourceCodeLanguage,omitempty"`
+	Type               string    `json:"type"`
+	Vars               *[]string `json:"vars"`
+	Version            int       `json:"version"`
 }
 
 // EvaluationRule defines model for EvaluationRule.
 type EvaluationRule struct {
-	CreatedAt             string      `json:"createdAt"`
-	DatasetId             *string     `json:"datasetId,omitempty"`
-	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
-	Enabled               bool        `json:"enabled"`
-	EvaluatorId           string      `json:"evaluatorId"`
-	Filters               interface{} `json:"filters"`
+	CreatedAt        string      `json:"createdAt"`
+	DatasetId        *string     `json:"datasetId,omitempty"`
+	DependsOnRuleIds *[]string   `json:"dependsOnRuleIds,omitempty"`
+	Enabled          bool        `json:"enabled"`
+	EvaluatorId      string      `json:"evaluatorId"`
+	Filters          interface{} `json:"filters"`
+
+	// GenerationSpansOnly GenerationSpansOnly limits the rule to leaf model
+	// calls. True for an LLM judge, which has nothing to
+	// grade on an agent or tool span; a code evaluator often
+	// wants the opposite, since a tool failure is a span it
+	// alone can read.
+	GenerationSpansOnly   bool        `json:"generationSpansOnly"`
 	Id                    string      `json:"id"`
 	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
 	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
@@ -752,6 +868,10 @@ type EvaluationRule struct {
 // Clients split output comparers out of the evaluator list with
 // it.
 type EvaluationRuleResponse struct {
+	// CleanValue CleanValue is the categorical value meaning nothing was
+	// found. A categorical rule without one cannot gate a
+	// dependent evaluator at all.
+	CleanValue       *string   `json:"cleanValue,omitempty"`
 	CreatedAt        string    `json:"createdAt"`
 	DatasetId        *string   `json:"datasetId,omitempty"`
 	DependsOnRuleIds *[]string `json:"dependsOnRuleIds,omitempty"`
@@ -760,17 +880,34 @@ type EvaluationRuleResponse struct {
 
 	// EvaluatorType EvaluatorType is "llm", "code" or "output_comparer", and
 	// is empty when the referenced template no longer exists.
-	EvaluatorType         *string     `json:"evaluatorType,omitempty"`
-	Filters               interface{} `json:"filters"`
+	EvaluatorType *string     `json:"evaluatorType,omitempty"`
+	Filters       interface{} `json:"filters"`
+
+	// GenerationSpansOnly GenerationSpansOnly limits the rule to leaf model
+	// calls. True for an LLM judge, which has nothing to
+	// grade on an agent or tool span; a code evaluator often
+	// wants the opposite, since a tool failure is a span it
+	// alone can read.
+	GenerationSpansOnly bool `json:"generationSpansOnly"`
+
+	// HigherIsBetter HigherIsBetter says which way is good for this rule's
+	// score. Served on the rule so a client can say when a
+	// dependent evaluator will run without fetching every
+	// template.
+	HigherIsBetter        bool        `json:"higherIsBetter"`
 	Id                    string      `json:"id"`
 	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
 	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
 	ModelParams           interface{} `json:"modelParams"`
 	Name                  string      `json:"name"`
 	SamplingRate          float32     `json:"samplingRate"`
-	TargetType            string      `json:"targetType"`
-	UpdatedAt             string      `json:"updatedAt"`
-	VariableMapping       interface{} `json:"variableMapping"`
+
+	// ScoreType ScoreType is numeric, boolean or categorical. Empty when
+	// the template never declared one.
+	ScoreType       *string     `json:"scoreType,omitempty"`
+	TargetType      string      `json:"targetType"`
+	UpdatedAt       string      `json:"updatedAt"`
+	VariableMapping interface{} `json:"variableMapping"`
 }
 
 // Folder Folder represents a Grafana folder
@@ -923,8 +1060,8 @@ type Integration struct {
 	UpdatedAt                    *time.Time                    `json:"updatedAt,omitempty"`
 }
 
-// IntegrationTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type IntegrationTypeSpecificData2 map[string]interface{}
+// IntegrationTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type IntegrationTypeSpecificData3 map[string]interface{}
 
 // Integration_TypeSpecificData defines model for Integration.TypeSpecificData.
 type Integration_TypeSpecificData struct {
@@ -1456,6 +1593,12 @@ type Notifier struct {
 	WebhookConfig *WebhookConfig `json:"webhook_config,omitempty"`
 }
 
+// NotifierTestResult NotifierTestResult reports the outcome of a notifier test.
+type NotifierTestResult struct {
+	// Message Message tells the user where the test alert went.
+	Message string `json:"message"`
+}
+
 // NotifiersByCondition NotifiersByCondition represents notifiers for each severity level.
 type NotifiersByCondition struct {
 	Any      *[]openapi_types.UUID `json:"any,omitempty"`
@@ -1572,8 +1715,8 @@ type PatchIntegration struct {
 	TypeSpecificData *PatchIntegration_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// PatchIntegrationTypeSpecificData2 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type PatchIntegrationTypeSpecificData2 map[string]interface{}
+// PatchIntegrationTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type PatchIntegrationTypeSpecificData3 map[string]interface{}
 
 // PatchIntegration_TypeSpecificData defines model for PatchIntegration.TypeSpecificData.
 type PatchIntegration_TypeSpecificData struct {
@@ -1630,6 +1773,72 @@ type PromptResponse struct {
 	Type            string                `json:"type"`
 	UpdatedAt       *string               `json:"updatedAt,omitempty"`
 	Version         int                   `json:"version"`
+}
+
+// RenameDatasetFolderRequest RenameDatasetFolderRequest moves every dataset under one folder
+// path to another.
+//
+// A folder is not a stored object: it is the part of a name
+// before a "/", so this rewrites names and stores nothing.
+type RenameDatasetFolderRequest struct {
+	// DryRun DryRun reports what would move and what stands in the way,
+	// and writes nothing. The status and the body are the same
+	// either way, so a preview cannot describe a different move
+	// from the one it previews.
+	DryRun  *bool  `json:"dryRun,omitempty"`
+	NewPath string `json:"newPath"`
+	OldPath string `json:"oldPath"`
+}
+
+// RenameDatasetFolderResponse RenameDatasetFolderResponse describes a move, whether it was
+// applied or only previewed.
+//
+// It carries `message` and `error` so a refusal still reads as
+// this package's error body to a client that expects one.
+type RenameDatasetFolderResponse struct {
+	// Collisions Collisions are destination names already held by a dataset
+	// that is not itself moving.
+	Collisions *[]string                  `json:"collisions,omitempty"`
+	DryRun     bool                       `json:"dryRun"`
+	Error      *string                    `json:"error,omitempty"`
+	Message    string                     `json:"message"`
+	Moves      *[]DatasetFolderRenameMove `json:"moves"`
+	NewPath    string                     `json:"newPath"`
+	OldPath    string                     `json:"oldPath"`
+}
+
+// RenameDatasetRequest RenameDatasetRequest changes a dataset's name and nothing else.
+//
+// The name is a display key only: items, runs, run items and the
+// schedule all point at the dataset's id, so a rename has no
+// downstream fan-out. A prompt name is the opposite, which is why
+// there is no prompt rename.
+type RenameDatasetRequest struct {
+	Name string `json:"name"`
+}
+
+// RunScoreAggregate RunScoreAggregate is every score of one name over one
+// dataset run, collapsed to what a table cell can hold.
+//
+// A run holds up to one row per dataset item, so the run list
+// cannot carry the scores themselves: the reader wants "how
+// did this run do", which is the average for a number and the
+// spread of answers for a label.
+type RunScoreAggregate struct {
+	// Average Average is absent when no score of this name carried a
+	// number, which is what a purely categorical score is.
+	Average *float32 `json:"average,omitempty"`
+
+	// Count Count is how many scores of this name the run has, over
+	// every data type. It is the denominator the average and
+	// the value counts are read against.
+	Count    int    `json:"count"`
+	DataType string `json:"dataType"`
+	Name     string `json:"name"`
+
+	// Values Values counts each distinct label of a categorical
+	// score. Absent when the name has no labelled scores.
+	Values *map[string]int `json:"values,omitempty"`
 }
 
 // SaveDashboardRequest defines model for SaveDashboardRequest.
@@ -1710,14 +1919,27 @@ type ScoreResponse struct {
 	ErrorMessage  *string `json:"errorMessage,omitempty"`
 	ErrorType     *string `json:"errorType,omitempty"`
 	EvaluatorName *string `json:"evaluatorName,omitempty"`
-	Id            string  `json:"id"`
-	InputTokens   *int    `json:"inputTokens,omitempty"`
-	Model         *string `json:"model,omitempty"`
-	Name          string  `json:"name"`
-	ObservationId *string `json:"observationId,omitempty"`
-	OutputTokens  *int    `json:"outputTokens,omitempty"`
-	Permanent     *bool   `json:"permanent,omitempty"`
-	Source        string  `json:"source"`
+
+	// HigherIsBetter HigherIsBetter is which way is good for this score,
+	// stamped on the score span when it was written rather
+	// than joined from the template at read time. A
+	// historical score therefore keeps the meaning it was
+	// written with even if the template is later flipped.
+	//
+	// A pointer because absent is meaningful: scores written
+	// before the column existed, and templates that never
+	// declared a direction, have none. The UI renders those
+	// neutral instead of assuming higher is better -- which
+	// is what used to make a toxicity score of 0.9 green.
+	HigherIsBetter *bool   `json:"higherIsBetter,omitempty"`
+	Id             string  `json:"id"`
+	InputTokens    *int    `json:"inputTokens,omitempty"`
+	Model          *string `json:"model,omitempty"`
+	Name           string  `json:"name"`
+	ObservationId  *string `json:"observationId,omitempty"`
+	OutputTokens   *int    `json:"outputTokens,omitempty"`
+	Permanent      *bool   `json:"permanent,omitempty"`
+	Source         string  `json:"source"`
 
 	// Status Failure fields. Status is "error" on a run that
 	// produced no score and empty otherwise, so callers
@@ -2200,7 +2422,24 @@ type TracesResponse struct {
 	Errors *string  `json:"errors,omitempty"`
 	Limit  int      `json:"limit"`
 	Offset int      `json:"offset"`
-	Total  int      `json:"total"`
+
+	// RowLimit RowLimit is the limit that stopped the query,
+	// in the same units as RowsRead.
+	RowLimit *int `json:"rowLimit,omitempty"`
+
+	// RowsRead RowsRead is how much of the trace the query read
+	// before it reached the limit. A span contributes
+	// one row per span event, so this is larger than the
+	// number of spans returned.
+	RowsRead *int `json:"rowsRead,omitempty"`
+	Total    int  `json:"total"`
+
+	// Truncated Truncated reports that the trace is incomplete
+	// because the query reached its size limit. Spans
+	// are missing, and the response is otherwise
+	// well-formed. Narrow the time range to read the
+	// rest.
+	Truncated *bool `json:"truncated,omitempty"`
 }
 
 // URL URL is a custom URL type that allows validation at configuration load time.
@@ -2253,10 +2492,21 @@ type UpdateDropRuleRequest struct {
 // are left untouched. Oodle-managed evaluators cannot be
 // updated.
 type UpdateEvalTemplateRequest struct {
+	// CleanValue CleanValue is the categorical value meaning nothing was
+	// found. See CreateEvalTemplateRequest. Omit it to leave
+	// the current value alone; send an empty string to clear
+	// it, which stops anything depending on this evaluator.
+	CleanValue *string `json:"cleanValue,omitempty"`
+
+	// HigherIsBetter HigherIsBetter changes which end of the score range is
+	// the good one. Omit it to leave the current setting
+	// alone; send false to mark the evaluator lower-is-better.
+	HigherIsBetter     *bool       `json:"higherIsBetter,omitempty"`
 	ModelParams        interface{} `json:"modelParams,omitempty"`
 	Name               *string     `json:"name,omitempty"`
 	OutputSchema       interface{} `json:"outputSchema,omitempty"`
 	Prompt             *string     `json:"prompt,omitempty"`
+	ScoreType          *string     `json:"scoreType,omitempty"`
 	SourceCode         *string     `json:"sourceCode,omitempty"`
 	SourceCodeLanguage *string     `json:"sourceCodeLanguage,omitempty"`
 	Vars               *[]string   `json:"vars,omitempty"`
@@ -2268,6 +2518,7 @@ type UpdateEvaluationRuleRequest struct {
 	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
 	Enabled               *bool       `json:"enabled,omitempty"`
 	Filters               interface{} `json:"filters,omitempty"`
+	GenerationSpansOnly   *bool       `json:"generationSpansOnly,omitempty"`
 	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
 	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
 	ModelParams           interface{} `json:"modelParams,omitempty"`
@@ -2415,8 +2666,11 @@ type WebhookConfig struct {
 	// MaxAlerts MaxAlerts is the maximum number of alerts to be sent per webhook message.
 	// Alerts exceeding this threshold will be truncated. Setting this to 0
 	// allows an unlimited number of alerts.
-	MaxAlerts    int  `json:"max_alerts"`
-	SendResolved bool `json:"send_resolved"`
+	MaxAlerts int `json:"max_alerts"`
+
+	// Payload Replaces the default webhook body with a fully custom one. Every string key and value in this (arbitrarily nested) object is rendered as a Go template against the alert notification data, e.g. `{"text": "{{ .CommonLabels.alertname }}"}`. Use the `toJson` template function to embed structured data such as `{{ .CommonLabels | toJson }}`. The rendered payload is posted verbatim; Oodle does not validate that it matches what the receiving endpoint expects.
+	Payload      *map[string]interface{} `json:"payload,omitempty"`
+	SendResolved bool                    `json:"send_resolved"`
 
 	// Url URL to send POST request to.
 	Url string `json:"url"`
@@ -2745,6 +2999,9 @@ type PatchIntegrationsByIdJSONRequestBody = PatchIntegration
 // UpdateIntegrationsByIdJSONRequestBody defines body for UpdateIntegrationsById for application/json ContentType.
 type UpdateIntegrationsByIdJSONRequestBody = PatchIntegration
 
+// RenameGenaiDatasetFolderJSONRequestBody defines body for RenameGenaiDatasetFolder for application/json ContentType.
+type RenameGenaiDatasetFolderJSONRequestBody = RenameDatasetFolderRequest
+
 // CreateGenaiDatasetItemJSONRequestBody defines body for CreateGenaiDatasetItem for application/json ContentType.
 type CreateGenaiDatasetItemJSONRequestBody = CreateDatasetItemRequest
 
@@ -2756,6 +3013,9 @@ type CreateGenaiExperimentItemJSONRequestBody = CreateDatasetRunItemRequest
 
 // CreateGenaiDatasetJSONRequestBody defines body for CreateGenaiDataset for application/json ContentType.
 type CreateGenaiDatasetJSONRequestBody = CreateDatasetRequest
+
+// RenameGenaiDatasetJSONRequestBody defines body for RenameGenaiDataset for application/json ContentType.
+type RenameGenaiDatasetJSONRequestBody = RenameDatasetRequest
 
 // SetGenaiDatasetScheduleJSONRequestBody defines body for SetGenaiDatasetSchedule for application/json ContentType.
 type SetGenaiDatasetScheduleJSONRequestBody = UpsertDatasetScheduleRequest
@@ -2896,22 +3156,48 @@ func (t *CreateIntegrationRequest_TypeSpecificData) MergeConfluentCloudIntegrati
 	return err
 }
 
-// AsCreateIntegrationRequestTypeSpecificData2 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData2
-func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData2() (CreateIntegrationRequestTypeSpecificData2, error) {
-	var body CreateIntegrationRequestTypeSpecificData2
+// AsAzureMetricsIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a AzureMetricsIntegrationWrapper
+func (t CreateIntegrationRequest_TypeSpecificData) AsAzureMetricsIntegrationWrapper() (AzureMetricsIntegrationWrapper, error) {
+	var body AzureMetricsIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIntegrationRequestTypeSpecificData2 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData2
-func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData2(v CreateIntegrationRequestTypeSpecificData2) error {
+// FromAzureMetricsIntegrationWrapper overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided AzureMetricsIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) FromAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIntegrationRequestTypeSpecificData2 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData2
-func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData2(v CreateIntegrationRequestTypeSpecificData2) error {
+// MergeAzureMetricsIntegrationWrapper performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided AzureMetricsIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIntegrationRequestTypeSpecificData3 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData3
+func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData3() (CreateIntegrationRequestTypeSpecificData3, error) {
+	var body CreateIntegrationRequestTypeSpecificData3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIntegrationRequestTypeSpecificData3 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData3
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData3(v CreateIntegrationRequestTypeSpecificData3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIntegrationRequestTypeSpecificData3 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData3
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData3(v CreateIntegrationRequestTypeSpecificData3) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -2984,22 +3270,48 @@ func (t *Integration_TypeSpecificData) MergeConfluentCloudIntegrationWrapper(v C
 	return err
 }
 
-// AsIntegrationTypeSpecificData2 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData2
-func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData2() (IntegrationTypeSpecificData2, error) {
-	var body IntegrationTypeSpecificData2
+// AsAzureMetricsIntegrationWrapper returns the union data inside the Integration_TypeSpecificData as a AzureMetricsIntegrationWrapper
+func (t Integration_TypeSpecificData) AsAzureMetricsIntegrationWrapper() (AzureMetricsIntegrationWrapper, error) {
+	var body AzureMetricsIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromIntegrationTypeSpecificData2 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData2
-func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData2(v IntegrationTypeSpecificData2) error {
+// FromAzureMetricsIntegrationWrapper overwrites any union data inside the Integration_TypeSpecificData as the provided AzureMetricsIntegrationWrapper
+func (t *Integration_TypeSpecificData) FromAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeIntegrationTypeSpecificData2 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData2
-func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData2(v IntegrationTypeSpecificData2) error {
+// MergeAzureMetricsIntegrationWrapper performs a merge with any union data inside the Integration_TypeSpecificData, using the provided AzureMetricsIntegrationWrapper
+func (t *Integration_TypeSpecificData) MergeAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIntegrationTypeSpecificData3 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData3
+func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData3() (IntegrationTypeSpecificData3, error) {
+	var body IntegrationTypeSpecificData3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIntegrationTypeSpecificData3 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData3
+func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData3(v IntegrationTypeSpecificData3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIntegrationTypeSpecificData3 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData3
+func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData3(v IntegrationTypeSpecificData3) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3072,22 +3384,48 @@ func (t *PatchIntegration_TypeSpecificData) MergeConfluentCloudIntegrationWrappe
 	return err
 }
 
-// AsPatchIntegrationTypeSpecificData2 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData2
-func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData2() (PatchIntegrationTypeSpecificData2, error) {
-	var body PatchIntegrationTypeSpecificData2
+// AsAzureMetricsIntegrationWrapper returns the union data inside the PatchIntegration_TypeSpecificData as a AzureMetricsIntegrationWrapper
+func (t PatchIntegration_TypeSpecificData) AsAzureMetricsIntegrationWrapper() (AzureMetricsIntegrationWrapper, error) {
+	var body AzureMetricsIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromPatchIntegrationTypeSpecificData2 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData2
-func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData2(v PatchIntegrationTypeSpecificData2) error {
+// FromAzureMetricsIntegrationWrapper overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided AzureMetricsIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) FromAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergePatchIntegrationTypeSpecificData2 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData2
-func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData2(v PatchIntegrationTypeSpecificData2) error {
+// MergeAzureMetricsIntegrationWrapper performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided AzureMetricsIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) MergeAzureMetricsIntegrationWrapper(v AzureMetricsIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPatchIntegrationTypeSpecificData3 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData3
+func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData3() (PatchIntegrationTypeSpecificData3, error) {
+	var body PatchIntegrationTypeSpecificData3
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPatchIntegrationTypeSpecificData3 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData3
+func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData3(v PatchIntegrationTypeSpecificData3) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePatchIntegrationTypeSpecificData3 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData3
+func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData3(v PatchIntegrationTypeSpecificData3) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
