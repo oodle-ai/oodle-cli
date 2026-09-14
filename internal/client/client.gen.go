@@ -188,6 +188,11 @@ type ClientInterface interface {
 
 	UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RenameGenaiDatasetFolderWithBody request with any body
+	RenameGenaiDatasetFolderWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RenameGenaiDatasetFolder(ctx context.Context, instance string, body RenameGenaiDatasetFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateGenaiDatasetItemWithBody request with any body
 	CreateGenaiDatasetItemWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -225,6 +230,11 @@ type ClientInterface interface {
 
 	// GetGenaiDataset request
 	GetGenaiDataset(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenameGenaiDatasetWithBody request with any body
+	RenameGenaiDatasetWithBody(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RenameGenaiDataset(ctx context.Context, instance string, datasetName string, body RenameGenaiDatasetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGenaiDatasetItems request
 	ListGenaiDatasetItems(ctx context.Context, instance string, datasetName string, params *ListGenaiDatasetItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -460,6 +470,9 @@ type ClientInterface interface {
 	UpdateNotifiersByIdWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// TestNotifier request
+	TestNotifier(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListRolesOp request
 	ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -975,6 +988,30 @@ func (c *Client) UpdateIntegrationsById(ctx context.Context, instance string, in
 	return c.Client.Do(req)
 }
 
+func (c *Client) RenameGenaiDatasetFolderWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGenaiDatasetFolderRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameGenaiDatasetFolder(ctx context.Context, instance string, body RenameGenaiDatasetFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGenaiDatasetFolderRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) CreateGenaiDatasetItemWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateGenaiDatasetItemRequestWithBody(c.Server, instance, contentType, body)
 	if err != nil {
@@ -1133,6 +1170,30 @@ func (c *Client) DeleteGenaiDataset(ctx context.Context, instance string, datase
 
 func (c *Client) GetGenaiDataset(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetGenaiDatasetRequest(c.Server, instance, datasetName)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameGenaiDatasetWithBody(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGenaiDatasetRequestWithBody(c.Server, instance, datasetName, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) RenameGenaiDataset(ctx context.Context, instance string, datasetName string, body RenameGenaiDatasetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenameGenaiDatasetRequest(c.Server, instance, datasetName, body)
 	if err != nil {
 		return nil, err
 	}
@@ -2165,6 +2226,18 @@ func (c *Client) UpdateNotifiersByIdWithBody(ctx context.Context, instance strin
 
 func (c *Client) UpdateNotifiersById(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateNotifiersByIdRequest(c.Server, instance, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestNotifier(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestNotifierRequest(c.Server, instance, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3752,6 +3825,53 @@ func NewUpdateIntegrationsByIdRequestWithBody(server string, instance string, in
 	return req, nil
 }
 
+// NewRenameGenaiDatasetFolderRequest calls the generic RenameGenaiDatasetFolder builder with application/json body
+func NewRenameGenaiDatasetFolderRequest(server string, instance string, body RenameGenaiDatasetFolderJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenameGenaiDatasetFolderRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewRenameGenaiDatasetFolderRequestWithBody generates requests for RenameGenaiDatasetFolder with any type of body
+func NewRenameGenaiDatasetFolderRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/dataset-folders/rename", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewCreateGenaiDatasetItemRequest calls the generic CreateGenaiDatasetItem builder with application/json body
 func NewCreateGenaiDatasetItemRequest(server string, instance string, body CreateGenaiDatasetItemJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -4263,6 +4383,60 @@ func NewGetGenaiDatasetRequest(server string, instance string, datasetName strin
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewRenameGenaiDatasetRequest calls the generic RenameGenaiDataset builder with application/json body
+func NewRenameGenaiDatasetRequest(server string, instance string, datasetName string, body RenameGenaiDatasetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenameGenaiDatasetRequestWithBody(server, instance, datasetName, "application/json", bodyReader)
+}
+
+// NewRenameGenaiDatasetRequestWithBody generates requests for RenameGenaiDataset with any type of body
+func NewRenameGenaiDatasetRequestWithBody(server string, instance string, datasetName string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "datasetName", datasetName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/datasets/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -7587,6 +7761,47 @@ func NewUpdateNotifiersByIdRequestWithBody(server string, instance string, id st
 	return req, nil
 }
 
+// NewTestNotifierRequest generates requests for TestNotifier
+func NewTestNotifierRequest(server string, instance string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/notifiers/%s/test", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListRolesOpRequest generates requests for ListRolesOp
 func NewListRolesOpRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -8901,6 +9116,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
 
+	// RenameGenaiDatasetFolderWithBodyWithResponse request with any body
+	RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error)
+
+	RenameGenaiDatasetFolderWithResponse(ctx context.Context, instance string, body RenameGenaiDatasetFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error)
+
 	// CreateGenaiDatasetItemWithBodyWithResponse request with any body
 	CreateGenaiDatasetItemWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiDatasetItemResponse, error)
 
@@ -8938,6 +9158,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetGenaiDatasetWithResponse request
 	GetGenaiDatasetWithResponse(ctx context.Context, instance string, datasetName string, reqEditors ...RequestEditorFn) (*GetGenaiDatasetResponse, error)
+
+	// RenameGenaiDatasetWithBodyWithResponse request with any body
+	RenameGenaiDatasetWithBodyWithResponse(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetResponse, error)
+
+	RenameGenaiDatasetWithResponse(ctx context.Context, instance string, datasetName string, body RenameGenaiDatasetJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetResponse, error)
 
 	// ListGenaiDatasetItemsWithResponse request
 	ListGenaiDatasetItemsWithResponse(ctx context.Context, instance string, datasetName string, params *ListGenaiDatasetItemsParams, reqEditors ...RequestEditorFn) (*ListGenaiDatasetItemsResponse, error)
@@ -9173,6 +9398,9 @@ type ClientWithResponsesInterface interface {
 	UpdateNotifiersByIdWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
 
 	UpdateNotifiersByIdWithResponse(ctx context.Context, instance string, id string, body UpdateNotifiersByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateNotifiersByIdResponse, error)
+
+	// TestNotifierWithResponse request
+	TestNotifierWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*TestNotifierResponse, error)
 
 	// ListRolesOpWithResponse request
 	ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error)
@@ -9941,6 +10169,34 @@ func (r UpdateIntegrationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+type RenameGenaiDatasetFolderResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RenameDatasetFolderResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r RenameGenaiDatasetFolderResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenameGenaiDatasetFolderResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type CreateGenaiDatasetItemResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10197,6 +10453,34 @@ func (r GetGenaiDatasetResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetGenaiDatasetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RenameGenaiDatasetResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Dataset
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r RenameGenaiDatasetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenameGenaiDatasetResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11838,6 +12122,34 @@ func (r UpdateNotifiersByIdResponse) StatusCode() int {
 	return 0
 }
 
+type TestNotifierResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *NotifierTestResult
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r TestNotifierResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestNotifierResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListRolesOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -12748,6 +13060,23 @@ func (c *ClientWithResponses) UpdateIntegrationsByIdWithResponse(ctx context.Con
 	return ParseUpdateIntegrationsByIdResponse(rsp)
 }
 
+// RenameGenaiDatasetFolderWithBodyWithResponse request with arbitrary body returning *RenameGenaiDatasetFolderResponse
+func (c *ClientWithResponses) RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error) {
+	rsp, err := c.RenameGenaiDatasetFolderWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGenaiDatasetFolderResponse(rsp)
+}
+
+func (c *ClientWithResponses) RenameGenaiDatasetFolderWithResponse(ctx context.Context, instance string, body RenameGenaiDatasetFolderJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error) {
+	rsp, err := c.RenameGenaiDatasetFolder(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGenaiDatasetFolderResponse(rsp)
+}
+
 // CreateGenaiDatasetItemWithBodyWithResponse request with arbitrary body returning *CreateGenaiDatasetItemResponse
 func (c *ClientWithResponses) CreateGenaiDatasetItemWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiDatasetItemResponse, error) {
 	rsp, err := c.CreateGenaiDatasetItemWithBody(ctx, instance, contentType, body, reqEditors...)
@@ -12868,6 +13197,23 @@ func (c *ClientWithResponses) GetGenaiDatasetWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseGetGenaiDatasetResponse(rsp)
+}
+
+// RenameGenaiDatasetWithBodyWithResponse request with arbitrary body returning *RenameGenaiDatasetResponse
+func (c *ClientWithResponses) RenameGenaiDatasetWithBodyWithResponse(ctx context.Context, instance string, datasetName string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetResponse, error) {
+	rsp, err := c.RenameGenaiDatasetWithBody(ctx, instance, datasetName, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGenaiDatasetResponse(rsp)
+}
+
+func (c *ClientWithResponses) RenameGenaiDatasetWithResponse(ctx context.Context, instance string, datasetName string, body RenameGenaiDatasetJSONRequestBody, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetResponse, error) {
+	rsp, err := c.RenameGenaiDataset(ctx, instance, datasetName, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenameGenaiDatasetResponse(rsp)
 }
 
 // ListGenaiDatasetItemsWithResponse request returning *ListGenaiDatasetItemsResponse
@@ -13619,6 +13965,15 @@ func (c *ClientWithResponses) UpdateNotifiersByIdWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseUpdateNotifiersByIdResponse(rsp)
+}
+
+// TestNotifierWithResponse request returning *TestNotifierResponse
+func (c *ClientWithResponses) TestNotifierWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*TestNotifierResponse, error) {
+	rsp, err := c.TestNotifier(ctx, instance, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestNotifierResponse(rsp)
 }
 
 // ListRolesOpWithResponse request returning *ListRolesOpResponse
@@ -15215,6 +15570,74 @@ func ParseUpdateIntegrationsByIdResponse(rsp *http.Response) (*UpdateIntegration
 	return response, nil
 }
 
+// ParseRenameGenaiDatasetFolderResponse parses an HTTP response from a RenameGenaiDatasetFolderWithResponse call
+func ParseRenameGenaiDatasetFolderResponse(rsp *http.Response) (*RenameGenaiDatasetFolderResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenameGenaiDatasetFolderResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RenameDatasetFolderResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateGenaiDatasetItemResponse parses an HTTP response from a CreateGenaiDatasetItemWithResponse call
 func ParseCreateGenaiDatasetItemResponse(rsp *http.Response) (*CreateGenaiDatasetItemResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -15749,6 +16172,74 @@ func ParseGetGenaiDatasetResponse(rsp *http.Response) (*GetGenaiDatasetResponse,
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRenameGenaiDatasetResponse parses an HTTP response from a RenameGenaiDatasetWithResponse call
+func ParseRenameGenaiDatasetResponse(rsp *http.Response) (*RenameGenaiDatasetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenameGenaiDatasetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Dataset
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
@@ -19137,6 +19628,74 @@ func ParseUpdateNotifiersByIdResponse(rsp *http.Response) (*UpdateNotifiersByIdR
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestNotifierResponse parses an HTTP response from a TestNotifierWithResponse call
+func ParseTestNotifierResponse(rsp *http.Response) (*TestNotifierResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestNotifierResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotifierTestResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors

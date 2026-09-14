@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/oodle-ai/oodle-cli/internal/client"
 )
 
 type sample struct {
@@ -65,11 +67,11 @@ func TestReadInputFile_UnknownExtensionFallback(t *testing.T) {
 type timeFlagVariant struct {
 	name      string
 	parse     func(string) (int64, error)
-	now       func() int64                                  // current epoch in the variant's unit
-	epochLit  string                                        // a sample integer literal
-	epochInt  int64                                         // the same literal, parsed
-	tolerance int64                                         // ±tolerance for relative-time checks
-	durToUnit func(d time.Duration) int64                   // convert a duration to the variant's unit
+	now       func() int64                // current epoch in the variant's unit
+	epochLit  string                      // a sample integer literal
+	epochInt  int64                       // the same literal, parsed
+	tolerance int64                       // ±tolerance for relative-time checks
+	durToUnit func(d time.Duration) int64 // convert a duration to the variant's unit
 }
 
 func timeFlagVariants() []timeFlagVariant {
@@ -316,5 +318,45 @@ func TestParseTimeFlagSec(t *testing.T) {
 func TestConfirmAction_Force(t *testing.T) {
 	if !confirmAction("delete?", true) {
 		t.Error("force=true should return true")
+	}
+}
+
+// TestReadInputFile_YAMLPopulatesOneOfUnion pins the transcode in
+// unmarshalYAMLAsJSON. Decoded by gopkg.in/yaml.v3 directly, typeSpecificData
+// comes back nil — yaml.v3 honours neither the `json` tags nor the union's
+// custom UnmarshalJSON — and the CLI would send a create request with its
+// entire type-specific body silently missing.
+func TestReadInputFile_YAMLPopulatesOneOfUnion(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "integration.yaml")
+	body := "" +
+		"type: AZURE_METRICS\n" +
+		"typeSpecificData:\n" +
+		"  azureMetricsIntegration:\n" +
+		"    subscriptionName: from-yaml\n" +
+		"    tenantId: tenant-abc\n"
+	if err := os.WriteFile(path, []byte(body), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var req client.CreateIntegrationsJSONRequestBody
+	if err := readInputFile(path, &req); err != nil {
+		t.Fatalf("readInputFile: %v", err)
+	}
+	if req.Type != "AZURE_METRICS" {
+		t.Errorf("Type = %q, want AZURE_METRICS", req.Type)
+	}
+	if req.TypeSpecificData == nil {
+		t.Fatal("TypeSpecificData is nil: YAML dropped the union payload")
+	}
+	wrapper, err := req.TypeSpecificData.AsAzureMetricsIntegrationWrapper()
+	if err != nil {
+		t.Fatalf("decoding union: %v", err)
+	}
+	if wrapper.AzureMetricsIntegration == nil {
+		t.Fatal("azureMetricsIntegration is nil")
+	}
+	if got := wrapper.AzureMetricsIntegration.SubscriptionName; got == nil || *got != "from-yaml" {
+		t.Errorf("SubscriptionName = %v, want from-yaml", got)
 	}
 }
