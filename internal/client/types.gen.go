@@ -284,6 +284,25 @@ type CloudWatchSearchTag struct {
 	Value *string `json:"value,omitempty"`
 }
 
+// CockroachDBCloudIntegration CockroachDBCloudIntegration is the API-facing config for a CockroachDB Cloud
+// integration. ApiKey is write-only: it is accepted on create/update but never
+// returned in plaintext (a mask is returned instead).
+type CockroachDBCloudIntegration struct {
+	// AccountName AccountName is the human-readable identifier for this set of credentials,
+	// shown in the UI list of configured accounts. Required.
+	AccountName *string   `json:"accountName,omitempty"`
+	ApiKey      *string   `json:"apiKey,omitempty"`
+	ClusterIds  *[]string `json:"clusterIds,omitempty"`
+}
+
+// CockroachDBCloudIntegrationWrapper defines model for CockroachDBCloudIntegrationWrapper.
+type CockroachDBCloudIntegrationWrapper struct {
+	// CrdbCloudIntegration CockroachDBCloudIntegration is the API-facing config for a CockroachDB Cloud
+	// integration. ApiKey is write-only: it is accepted on create/update but never
+	// returned in plaintext (a mask is returned instead).
+	CrdbCloudIntegration *CockroachDBCloudIntegration `json:"crdbCloudIntegration,omitempty"`
+}
+
 // Condition Condition is a model for a condition to be evaluated in monitors.
 type Condition struct {
 	// AlertOnNoData Deprecated: use ConditionBySeverity#NoData instead
@@ -485,8 +504,8 @@ type CreateIntegrationRequest struct {
 	TypeSpecificData *CreateIntegrationRequest_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// CreateIntegrationRequestTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type CreateIntegrationRequestTypeSpecificData3 map[string]interface{}
+// CreateIntegrationRequestTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type CreateIntegrationRequestTypeSpecificData4 map[string]interface{}
 
 // CreateIntegrationRequest_TypeSpecificData defines model for CreateIntegrationRequest.TypeSpecificData.
 type CreateIntegrationRequest_TypeSpecificData struct {
@@ -498,12 +517,17 @@ type CreateIntegrationRequest_TypeSpecificData struct {
 // backfills evaluators over existing traces.
 type CreateJobRequest struct {
 	// Config Config is job-type specific. For llm-experiment:
-	// datasetId, llmConnectionId, model, and either
-	// promptName (+ optional promptVersion / promptLabel) or a
-	// literal promptTemplate; plus optional evaluatorIds,
-	// outputComparerIds, evaluatorRules, outputComparerRules,
-	// and evalConnectionId. runName is assigned automatically
-	// when omitted.
+	// datasetId and one target: either llmConnectionId (+
+	// optional model, and either promptName with promptVersion /
+	// promptLabel, or a literal promptTemplate), or webhookId to
+	// post each item to a webhook you host instead. Plus
+	// optional evaluatorIds, outputComparerIds, evaluatorRules,
+	// outputComparerRules, and evalConnectionId. runName is
+	// assigned automatically when omitted.
+	//
+	// With webhookId, evalConnectionId is required whenever an
+	// evaluator or comparer runs on an LLM: there is no
+	// generation connection to fall back to.
 	//
 	// evaluatorIds and outputComparerIds are both lists of
 	// evaluator template ids; an id has to sit in the list
@@ -572,6 +596,39 @@ type CreateScoreRequest struct {
 	// Value Value carries NUMERIC and BOOLEAN scores; StringValue
 	// carries CATEGORICAL ones.
 	Value *float32 `json:"value,omitempty"`
+}
+
+// CreateWebhookRequest CreateWebhookRequest stores an experiment target the
+// customer hosts. An experiment run against it posts every
+// dataset item to the URL and scores the reply. Headers are
+// encrypted at rest and never returned by the list endpoint.
+type CreateWebhookRequest struct {
+	Description *string `json:"description,omitempty"`
+
+	// Headers Headers are sent on every request, on top of the ones
+	// Oodle sets (Content-Type, traceparent, X-Oodle-*). Put
+	// the endpoint's credential here.
+	Headers *map[string]string `json:"headers,omitempty"`
+	Name    string             `json:"name"`
+
+	// OutputPath OutputPath picks the output out of the reply, such as
+	// `output`, `result.answer` or `choices[0].message.content`.
+	// Empty stores the whole body.
+	OutputPath *string `json:"outputPath,omitempty"`
+
+	// RequestTemplate RequestTemplate is the JSON body sent per item, with
+	// {{path}} placeholders read from the item (input,
+	// input.question, metadata.locale, id) and inserted as JSON.
+	// Empty sends the item's input as the body.
+	RequestTemplate *string `json:"requestTemplate,omitempty"`
+
+	// TimeoutSeconds TimeoutSeconds is how long one item may take, 1 to 600.
+	// Defaults to 60.
+	TimeoutSeconds *int `json:"timeoutSeconds,omitempty"`
+
+	// Url URL must be absolute http(s) and reachable from the
+	// internet; private and cluster-local hosts are refused.
+	Url string `json:"url"`
 }
 
 // CustomerOrg defines model for CustomerOrg.
@@ -1060,8 +1117,8 @@ type Integration struct {
 	UpdatedAt                    *time.Time                    `json:"updatedAt,omitempty"`
 }
 
-// IntegrationTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type IntegrationTypeSpecificData3 map[string]interface{}
+// IntegrationTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type IntegrationTypeSpecificData4 map[string]interface{}
 
 // Integration_TypeSpecificData defines model for Integration.TypeSpecificData.
 type Integration_TypeSpecificData struct {
@@ -1264,6 +1321,12 @@ type ListSyntheticMonitorsResponse struct {
 // ListUsersResponse ListUsersResponse is the response for listing users.
 type ListUsersResponse struct {
 	Users *[]User `json:"users"`
+}
+
+// ListWebhooksResponse ListWebhooksResponse is the webhook list. Stored headers are
+// never included; `headerNames` says which are set.
+type ListWebhooksResponse struct {
+	Data *[]Webhook `json:"data"`
 }
 
 // LogFilter LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.
@@ -1715,8 +1778,8 @@ type PatchIntegration struct {
 	TypeSpecificData *PatchIntegration_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// PatchIntegrationTypeSpecificData3 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type PatchIntegrationTypeSpecificData3 map[string]interface{}
+// PatchIntegrationTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type PatchIntegrationTypeSpecificData4 map[string]interface{}
 
 // PatchIntegration_TypeSpecificData defines model for PatchIntegration.TypeSpecificData.
 type PatchIntegration_TypeSpecificData struct {
@@ -2323,6 +2386,28 @@ type TLSConfig struct {
 	ServerName *string `json:"server_name,omitempty"`
 }
 
+// TestWebhookRequest TestWebhookRequest sends one request the way an experiment
+// would and reports the exchange, so an endpoint can be checked
+// before a run is queued.
+//
+// Name either a saved webhook by id, or an unsaved definition
+// by url (+ headers, timeoutSeconds). With both, the fields
+// given override the saved ones, which is what the edit form
+// needs to try a change before saving it.
+type TestWebhookRequest struct {
+	// DatasetItemId DatasetItemID renders the template from a real item.
+	// Otherwise `input` (any JSON) stands in for the item's
+	// input, or a placeholder when that is absent too.
+	DatasetItemId   *string            `json:"datasetItemId,omitempty"`
+	Headers         *map[string]string `json:"headers,omitempty"`
+	Input           interface{}        `json:"input,omitempty"`
+	OutputPath      *string            `json:"outputPath,omitempty"`
+	RequestTemplate *string            `json:"requestTemplate,omitempty"`
+	TimeoutSeconds  *int               `json:"timeoutSeconds,omitempty"`
+	Url             *string            `json:"url,omitempty"`
+	WebhookId       *string            `json:"webhookId,omitempty"`
+}
+
 // Trace defines model for Trace.
 type Trace struct {
 	Processes *map[string]TraceProcess `json:"processes"`
@@ -2570,6 +2655,20 @@ type UpdateUserRequest struct {
 	UserId string    `json:"user_id"`
 }
 
+// UpdateWebhookRequest UpdateWebhookRequest patches a webhook. A nil headers map
+// keeps the stored headers; an empty one clears them. Nil
+// requestTemplate / outputPath keep the stored values; an empty
+// string resets them to the default.
+type UpdateWebhookRequest struct {
+	Description     *string            `json:"description,omitempty"`
+	Headers         *map[string]string `json:"headers,omitempty"`
+	Name            *string            `json:"name,omitempty"`
+	OutputPath      *string            `json:"outputPath,omitempty"`
+	RequestTemplate *string            `json:"requestTemplate,omitempty"`
+	TimeoutSeconds  *int               `json:"timeoutSeconds,omitempty"`
+	Url             *string            `json:"url,omitempty"`
+}
+
 // UpsertDatasetScheduleRequest UpsertDatasetScheduleRequest sets the one schedule a dataset
 // may carry, replacing any existing one.
 //
@@ -2656,6 +2755,68 @@ type ValueExtractor struct {
 	// https://rustexp.lpil.uk/ for trying out the pattern.
 	// If not set, the entire field value is used as the label value.
 	Regex *string `json:"regex,omitempty"`
+}
+
+// Webhook Webhook is an experiment target the customer hosts. An
+// experiment run against one posts every dataset item to its
+// URL and scores the reply, instead of calling an LLM
+// connection with a prompt.
+//
+// It is read and written through raw SQL for the same reason
+// `DatasetSchedule` is: the sqlboiler models predate the table.
+// `webhookColumns` is the one place the column list lives.
+type Webhook struct {
+	CreatedAt   string  `json:"createdAt"`
+	CreatedBy   *string `json:"createdBy,omitempty"`
+	Description *string `json:"description,omitempty"`
+
+	// HeaderNames HeaderNames lists the headers the webhook sends, so a
+	// reader can tell an authenticated webhook from a bare one
+	// without decrypting anything.
+	HeaderNames *[]string `json:"headerNames"`
+	Id          string    `json:"id"`
+	Name        string    `json:"name"`
+	OutputPath  string    `json:"outputPath"`
+
+	// RequestTemplate RequestTemplate is the body sent per item, JSON text with
+	// `{{path}}` placeholders; empty means the item's input as
+	// the body. OutputPath reads the output out of the reply;
+	// empty means the whole body. See experiments/webhook.go.
+	RequestTemplate string `json:"requestTemplate"`
+	TimeoutSeconds  int    `json:"timeoutSeconds"`
+	UpdatedAt       string `json:"updatedAt"`
+	Url             string `json:"url"`
+}
+
+// WebhookCall WebhookCall is one request to a webhook and what came back,
+// as the test endpoint reports it.
+type WebhookCall struct {
+	DurationMs *int `json:"durationMs,omitempty"`
+
+	// Error Error is why the call did not produce an output: a
+	// transport failure, a timeout, or a non-2xx status.
+	Error *string `json:"error,omitempty"`
+
+	// Ok OK is whether a run would have marked the item completed.
+	Ok bool `json:"ok"`
+
+	// Output Output is what a run would have stored for the item.
+	Output         *string            `json:"output,omitempty"`
+	RequestBody    interface{}        `json:"requestBody,omitempty"`
+	RequestHeaders *map[string]string `json:"requestHeaders,omitempty"`
+
+	// RequestUrl Request, as sent. Header values other than the trace
+	// headers are masked, because the caller reading this may
+	// not be the one who set the credential.
+	RequestUrl string `json:"requestUrl"`
+
+	// ResponseBody ResponseBody is the raw reply, cut to what a preview can
+	// show.
+	ResponseBody          *string            `json:"responseBody,omitempty"`
+	ResponseBodyTruncated *bool              `json:"responseBodyTruncated,omitempty"`
+	ResponseHeaders       *map[string]string `json:"responseHeaders,omitempty"`
+	StatusCode            *int               `json:"statusCode,omitempty"`
+	TraceId               string             `json:"traceId"`
 }
 
 // WebhookConfig WebhookConfig configures notifications via a generic webhook.
@@ -3056,6 +3217,15 @@ type UpdateGenaiPromptLabelsJSONRequestBody = UpdatePromptLabelsRequest
 // UpdateGenaiPromptVersionLabelsJSONRequestBody defines body for UpdateGenaiPromptVersionLabels for application/json ContentType.
 type UpdateGenaiPromptVersionLabelsJSONRequestBody = UpdatePromptVersionLabelsRequest
 
+// CreateGenaiWebhookJSONRequestBody defines body for CreateGenaiWebhook for application/json ContentType.
+type CreateGenaiWebhookJSONRequestBody = CreateWebhookRequest
+
+// TestGenaiWebhookJSONRequestBody defines body for TestGenaiWebhook for application/json ContentType.
+type TestGenaiWebhookJSONRequestBody = TestWebhookRequest
+
+// UpdateGenaiWebhookJSONRequestBody defines body for UpdateGenaiWebhook for application/json ContentType.
+type UpdateGenaiWebhookJSONRequestBody = UpdateWebhookRequest
+
 // CreateLogmetricsJSONRequestBody defines body for CreateLogmetrics for application/json ContentType.
 type CreateLogmetricsJSONRequestBody = LogMetrics
 
@@ -3182,22 +3352,48 @@ func (t *CreateIntegrationRequest_TypeSpecificData) MergeAzureMetricsIntegration
 	return err
 }
 
-// AsCreateIntegrationRequestTypeSpecificData3 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData3
-func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData3() (CreateIntegrationRequestTypeSpecificData3, error) {
-	var body CreateIntegrationRequestTypeSpecificData3
+// AsCockroachDBCloudIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CockroachDBCloudIntegrationWrapper
+func (t CreateIntegrationRequest_TypeSpecificData) AsCockroachDBCloudIntegrationWrapper() (CockroachDBCloudIntegrationWrapper, error) {
+	var body CockroachDBCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIntegrationRequestTypeSpecificData3 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData3
-func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData3(v CreateIntegrationRequestTypeSpecificData3) error {
+// FromCockroachDBCloudIntegrationWrapper overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CockroachDBCloudIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIntegrationRequestTypeSpecificData3 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData3
-func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData3(v CreateIntegrationRequestTypeSpecificData3) error {
+// MergeCockroachDBCloudIntegrationWrapper performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CockroachDBCloudIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIntegrationRequestTypeSpecificData4 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData4
+func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData4() (CreateIntegrationRequestTypeSpecificData4, error) {
+	var body CreateIntegrationRequestTypeSpecificData4
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIntegrationRequestTypeSpecificData4 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData4
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData4(v CreateIntegrationRequestTypeSpecificData4) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIntegrationRequestTypeSpecificData4 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData4
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData4(v CreateIntegrationRequestTypeSpecificData4) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3296,22 +3492,48 @@ func (t *Integration_TypeSpecificData) MergeAzureMetricsIntegrationWrapper(v Azu
 	return err
 }
 
-// AsIntegrationTypeSpecificData3 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData3
-func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData3() (IntegrationTypeSpecificData3, error) {
-	var body IntegrationTypeSpecificData3
+// AsCockroachDBCloudIntegrationWrapper returns the union data inside the Integration_TypeSpecificData as a CockroachDBCloudIntegrationWrapper
+func (t Integration_TypeSpecificData) AsCockroachDBCloudIntegrationWrapper() (CockroachDBCloudIntegrationWrapper, error) {
+	var body CockroachDBCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromIntegrationTypeSpecificData3 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData3
-func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData3(v IntegrationTypeSpecificData3) error {
+// FromCockroachDBCloudIntegrationWrapper overwrites any union data inside the Integration_TypeSpecificData as the provided CockroachDBCloudIntegrationWrapper
+func (t *Integration_TypeSpecificData) FromCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeIntegrationTypeSpecificData3 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData3
-func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData3(v IntegrationTypeSpecificData3) error {
+// MergeCockroachDBCloudIntegrationWrapper performs a merge with any union data inside the Integration_TypeSpecificData, using the provided CockroachDBCloudIntegrationWrapper
+func (t *Integration_TypeSpecificData) MergeCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIntegrationTypeSpecificData4 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData4
+func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData4() (IntegrationTypeSpecificData4, error) {
+	var body IntegrationTypeSpecificData4
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIntegrationTypeSpecificData4 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData4
+func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData4(v IntegrationTypeSpecificData4) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIntegrationTypeSpecificData4 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData4
+func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData4(v IntegrationTypeSpecificData4) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -3410,22 +3632,48 @@ func (t *PatchIntegration_TypeSpecificData) MergeAzureMetricsIntegrationWrapper(
 	return err
 }
 
-// AsPatchIntegrationTypeSpecificData3 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData3
-func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData3() (PatchIntegrationTypeSpecificData3, error) {
-	var body PatchIntegrationTypeSpecificData3
+// AsCockroachDBCloudIntegrationWrapper returns the union data inside the PatchIntegration_TypeSpecificData as a CockroachDBCloudIntegrationWrapper
+func (t PatchIntegration_TypeSpecificData) AsCockroachDBCloudIntegrationWrapper() (CockroachDBCloudIntegrationWrapper, error) {
+	var body CockroachDBCloudIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromPatchIntegrationTypeSpecificData3 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData3
-func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData3(v PatchIntegrationTypeSpecificData3) error {
+// FromCockroachDBCloudIntegrationWrapper overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided CockroachDBCloudIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) FromCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergePatchIntegrationTypeSpecificData3 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData3
-func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData3(v PatchIntegrationTypeSpecificData3) error {
+// MergeCockroachDBCloudIntegrationWrapper performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided CockroachDBCloudIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) MergeCockroachDBCloudIntegrationWrapper(v CockroachDBCloudIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPatchIntegrationTypeSpecificData4 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData4
+func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData4() (PatchIntegrationTypeSpecificData4, error) {
+	var body PatchIntegrationTypeSpecificData4
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPatchIntegrationTypeSpecificData4 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData4
+func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData4(v PatchIntegrationTypeSpecificData4) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePatchIntegrationTypeSpecificData4 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData4
+func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData4(v PatchIntegrationTypeSpecificData4) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

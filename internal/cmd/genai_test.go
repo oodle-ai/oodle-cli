@@ -50,6 +50,12 @@ func TestGenAICommandTree(t *testing.T) {
 		{"genai", "connections", "create"},
 		{"genai", "connections", "update"},
 		{"genai", "connections", "delete"},
+		{"genai", "webhooks", "list"},
+		{"genai", "webhooks", "get"},
+		{"genai", "webhooks", "create"},
+		{"genai", "webhooks", "update"},
+		{"genai", "webhooks", "delete"},
+		{"genai", "webhooks", "test"},
 	}
 
 	root := NewRootCmd()

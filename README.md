@@ -589,6 +589,18 @@ oodle genai experiments run --dataset-id "$DS" --connection-id "$CONN" \
   --evaluator-model gpt-4o-mini
 ```
 
+To test your own agent rather than a model, run against a
+webhook instead of a connection. No prompt or model is read
+then; the endpoint owns both. LLM judges still need a
+connection of their own (`--eval-connection-id`), since there
+is no generation connection to fall back to.
+
+```bash
+oodle genai experiments run --dataset-id "$DS" --webhook-id "$WH" \
+  --output-comparer-id oodle-managed-output-match-v1 \
+  --eval-connection-id "$CONN"
+```
+
 #### Connections — `oodle genai connections`
 
 Aliases: `connection`, `conn`. Provider credentials that
@@ -602,6 +614,41 @@ encrypted at rest and never returned, so an update that omits
 | `create`           | Create an LLM connection|
 | `update <id> -f`   | Update an LLM connection|
 | `delete <id>`      | Delete an LLM connection|
+
+#### Webhooks — `oodle genai webhooks`
+
+Alias: `webhook`. Endpoints you host that run your own agent
+or workflow. An experiment run against one POSTs every dataset
+item to it, using the webhook's request template, reads the
+output out of the reply at its output path, and scores it. The
+request carries a W3C `traceparent` header, so a service with
+OpenTelemetry HTTP instrumentation links its trace to each
+result. Headers are encrypted at rest and never returned.
+
+| Subcommand         | Description                                    |
+|--------------------|------------------------------------------------|
+| `list`             | List webhooks                                  |
+| `get <id>`         | Get a webhook                                  |
+| `create`           | Create a webhook                               |
+| `update <id> -f`   | Update a webhook from a file                   |
+| `delete <id>`      | Delete a webhook                               |
+| `test <id>`        | Send one request the way a run would           |
+
+The request template is JSON with `{{path}}` placeholders read
+from the item (`{{input}}`, `{{input.<field>}}`,
+`{{metadata.<field>}}`, `{{id}}`), inserted as JSON; the
+default `{{input}}` sends the item's input as the body. The
+output path is a dot path over the reply, such as `answer` or
+`choices[0].message.content`; empty stores the whole reply.
+
+```bash
+oodle genai webhooks create --name "Support agent" \
+  --url https://agent.example.com/run \
+  --header "Authorization=Bearer $AGENT_TOKEN" \
+  --request-template '{"query": {{input.question}}}' \
+  --output-path answer --timeout 120
+oodle genai webhooks test "$WH" --input '{"question": "Is checkout slow?"}'
+```
 
 ### API Keys — `oodle api-keys`
 
