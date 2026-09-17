@@ -36,10 +36,12 @@ OpenTelemetry HTTP instrumentation links its trace to each
 result.
 
 The request template is JSON with {{path}} placeholders read
-from the item: {{input}}, {{input.<field>}},
-{{metadata.<field>}}, {{id}}. A placeholder is inserted as
-JSON. The default, {{input}}, sends the item's input as the
-body. The output path is a dot path over the reply, such as
+from the item ({{input}}, {{input.<field>}},
+{{metadata.<field>}}, {{id}}) and the run ({{run.id}},
+{{run.name}}, {{dataset.id}}, {{dataset.name}}). A placeholder
+is inserted as JSON. The default, {{input}}, sends the item's
+input as the body. Every request carries a W3C traceparent
+header and X-Oodle-Experiment with the run id. The output path is a dot path over the reply, such as
 answer or choices[0].message.content; empty stores the whole
 reply.
 

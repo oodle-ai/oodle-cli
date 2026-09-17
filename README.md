@@ -636,8 +636,11 @@ result. Headers are encrypted at rest and never returned.
 
 The request template is JSON with `{{path}}` placeholders read
 from the item (`{{input}}`, `{{input.<field>}}`,
-`{{metadata.<field>}}`, `{{id}}`), inserted as JSON; the
-default `{{input}}` sends the item's input as the body. The
+`{{metadata.<field>}}`, `{{id}}`) and the run (`{{run.id}}`,
+`{{run.name}}`, `{{dataset.id}}`, `{{dataset.name}}`),
+inserted as JSON; the default `{{input}}` sends the item's
+input as the body. Every request carries a W3C `traceparent`
+header and `X-Oodle-Experiment` with the run id. The
 output path is a dot path over the reply, such as `answer` or
 `choices[0].message.content`; empty stores the whole reply.
 
