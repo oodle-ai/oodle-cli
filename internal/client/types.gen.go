@@ -2656,9 +2656,10 @@ type UpdateUserRequest struct {
 }
 
 // UpdateWebhookRequest UpdateWebhookRequest patches a webhook. A nil headers map
-// keeps the stored headers; an empty one clears them. Nil
-// requestTemplate / outputPath keep the stored values; an empty
-// string resets them to the default.
+// keeps the stored headers; an empty one clears them; a value
+// equal to WebhookSecretMask keeps that one header's stored
+// value. Nil requestTemplate / outputPath keep the stored
+// values; an empty string resets them to the default.
 type UpdateWebhookRequest struct {
 	Description     *string            `json:"description,omitempty"`
 	Headers         *map[string]string `json:"headers,omitempty"`
@@ -3217,11 +3218,11 @@ type UpdateGenaiPromptLabelsJSONRequestBody = UpdatePromptLabelsRequest
 // UpdateGenaiPromptVersionLabelsJSONRequestBody defines body for UpdateGenaiPromptVersionLabels for application/json ContentType.
 type UpdateGenaiPromptVersionLabelsJSONRequestBody = UpdatePromptVersionLabelsRequest
 
-// CreateGenaiWebhookJSONRequestBody defines body for CreateGenaiWebhook for application/json ContentType.
-type CreateGenaiWebhookJSONRequestBody = CreateWebhookRequest
-
 // TestGenaiWebhookJSONRequestBody defines body for TestGenaiWebhook for application/json ContentType.
 type TestGenaiWebhookJSONRequestBody = TestWebhookRequest
+
+// CreateGenaiWebhookJSONRequestBody defines body for CreateGenaiWebhook for application/json ContentType.
+type CreateGenaiWebhookJSONRequestBody = CreateWebhookRequest
 
 // UpdateGenaiWebhookJSONRequestBody defines body for UpdateGenaiWebhook for application/json ContentType.
 type UpdateGenaiWebhookJSONRequestBody = UpdateWebhookRequest

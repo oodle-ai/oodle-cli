@@ -4388,9 +4388,10 @@ components:
       type: object
       description: |-
         UpdateWebhookRequest patches a webhook. A nil headers map
-        keeps the stored headers; an empty one clears them. Nil
-        requestTemplate / outputPath keep the stored values; an empty
-        string resets them to the default.
+        keeps the stored headers; an empty one clears them; a value
+        equal to WebhookSecretMask keeps that one header's stored
+        value. Nil requestTemplate / outputPath keep the stored
+        values; an empty string resets them to the default.
       properties:
         description:
           type: string
@@ -8576,6 +8577,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/webhook-tests:
+    post:
+      tags:
+        - GenAI Webhooks
+      summary: Send a test request to a webhook
+      operationId: testGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestWebhookRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookCall'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/langfuse/api/public/webhooks:
     get:
       tags:
@@ -8806,61 +8862,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "409":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "500":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        default:
-          description: Unexpected error
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/langfuse/api/public/webhooks/test:
-    post:
-      tags:
-        - GenAI Webhooks
-      summary: Send a test request to a webhook
-      operationId: testGenaiWebhook
-      parameters:
-        - name: instance
-          in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TestWebhookRequest'
-      responses:
-        "200":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WebhookCall'
-        "400":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "401":
-          description: ""
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "404":
           description: ""
           content:
             application/json:
