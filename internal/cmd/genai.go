@@ -48,6 +48,7 @@ A first run, end to end:
 	cmd.AddCommand(newGenAIScoresCmd())
 	cmd.AddCommand(newGenAIExperimentsCmd())
 	cmd.AddCommand(newGenAIConnectionsCmd())
+	cmd.AddCommand(newGenAIWebhooksCmd())
 
 	return cmd
 }

@@ -268,6 +268,30 @@ components:
         value:
           type: string
           description: Value can be regex.
+    CockroachDBCloudIntegration:
+      type: object
+      description: |-
+        CockroachDBCloudIntegration is the API-facing config for a CockroachDB Cloud
+        integration. ApiKey is write-only: it is accepted on create/update but never
+        returned in plaintext (a mask is returned instead).
+      properties:
+        accountName:
+          type: string
+          description: |-
+            AccountName is the human-readable identifier for this set of credentials,
+            shown in the UI list of configured accounts. Required.
+        apiKey:
+          type: string
+        clusterIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+    CockroachDBCloudIntegrationWrapper:
+      type: object
+      properties:
+        crdbCloudIntegration:
+          $ref: '#/components/schemas/CockroachDBCloudIntegration'
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -581,6 +605,7 @@ components:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
+            - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -597,12 +622,17 @@ components:
         config:
           description: |-
             Config is job-type specific. For llm-experiment:
-            datasetId, llmConnectionId, model, and either
-            promptName (+ optional promptVersion / promptLabel) or a
-            literal promptTemplate; plus optional evaluatorIds,
-            outputComparerIds, evaluatorRules, outputComparerRules,
-            and evalConnectionId. runName is assigned automatically
-            when omitted.
+            datasetId and one target: either llmConnectionId (+
+            optional model, and either promptName with promptVersion /
+            promptLabel, or a literal promptTemplate), or webhookId to
+            post each item to a webhook you host instead. Plus
+            optional evaluatorIds, outputComparerIds, evaluatorRules,
+            outputComparerRules, and evalConnectionId. runName is
+            assigned automatically when omitted.
+
+            With webhookId, evalConnectionId is required whenever an
+            evaluator or comparer runs on an LLM: there is no
+            generation connection to fall back to.
 
             evaluatorIds and outputComparerIds are both lists of
             evaluator template ids; an id has to sit in the list
@@ -720,6 +750,53 @@ components:
             Value carries NUMERIC and BOOLEAN scores; StringValue
             carries CATEGORICAL ones.
           nullable: true
+    CreateWebhookRequest:
+      type: object
+      description: |-
+        CreateWebhookRequest stores an experiment target the
+        customer hosts. An experiment run against it posts every
+        dataset item to the URL and scores the reply. Headers are
+        encrypted at rest and never returned by the list endpoint.
+      required:
+        - name
+        - url
+      properties:
+        description:
+          type: string
+        headers:
+          type: object
+          description: |-
+            Headers are sent on every request, on top of the ones
+            Oodle sets (Content-Type, traceparent, X-Oodle-*). Put
+            the endpoint's credential here.
+          nullable: true
+          additionalProperties:
+            type: string
+        name:
+          type: string
+        outputPath:
+          type: string
+          description: |-
+            OutputPath picks the output out of the reply, such as
+            `output`, `result.answer` or `choices[0].message.content`.
+            Empty stores the whole body.
+        requestTemplate:
+          type: string
+          description: |-
+            RequestTemplate is the JSON body sent per item, with
+            {{path}} placeholders read from the item (input,
+            input.question, metadata.locale, id) and inserted as JSON.
+            Empty sends the item's input as the body.
+        timeoutSeconds:
+          type: integer
+          description: |-
+            TimeoutSeconds is how long one item may take, 1 to 600.
+            Defaults to 60.
+        url:
+          type: string
+          description: |-
+            URL must be absolute http(s) and reachable from the
+            internet; private and cluster-local hosts are refused.
     CustomerOrg:
       type: object
       required:
@@ -1629,6 +1706,7 @@ components:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
+            - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -1980,6 +2058,19 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/User'
+    ListWebhooksResponse:
+      type: object
+      description: |-
+        ListWebhooksResponse is the webhook list. Stored headers are
+        never included; `headerNames` says which are set.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Webhook'
     LogFilter:
       type: object
       description: 'LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.'
@@ -2710,6 +2801,7 @@ components:
             - $ref: '#/components/schemas/CloudWatchMetricPullIntegrationWrapper'
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
+            - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -3805,6 +3897,42 @@ components:
         server_name:
           type: string
           description: Used to verify the hostname for the targets.
+    TestWebhookRequest:
+      type: object
+      description: |-
+        TestWebhookRequest sends one request the way an experiment
+        would and reports the exchange, so an endpoint can be checked
+        before a run is queued.
+
+        Name either a saved webhook by id, or an unsaved definition
+        by url (+ headers, timeoutSeconds). With both, the fields
+        given override the saved ones, which is what the edit form
+        needs to try a change before saving it.
+      properties:
+        datasetItemId:
+          type: string
+          description: |-
+            DatasetItemID renders the template from a real item.
+            Otherwise `input` (any JSON) stands in for the item's
+            input, or a placeholder when that is absent too.
+        headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        input: {}
+        outputPath:
+          type: string
+          nullable: true
+        requestTemplate:
+          type: string
+          nullable: true
+        timeoutSeconds:
+          type: integer
+        url:
+          type: string
+        webhookId:
+          type: string
     Trace:
       type: object
       required:
@@ -4256,6 +4384,35 @@ components:
             type: string
         user_id:
           type: string
+    UpdateWebhookRequest:
+      type: object
+      description: |-
+        UpdateWebhookRequest patches a webhook. A nil headers map
+        keeps the stored headers; an empty one clears them; a value
+        equal to WebhookSecretMask keeps that one header's stored
+        value. Nil requestTemplate / outputPath keep the stored
+        values; an empty string resets them to the default.
+      properties:
+        description:
+          type: string
+          nullable: true
+        headers:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        name:
+          type: string
+        outputPath:
+          type: string
+          nullable: true
+        requestTemplate:
+          type: string
+          nullable: true
+        timeoutSeconds:
+          type: integer
+        url:
+          type: string
     UpsertDatasetScheduleRequest:
       type: object
       description: |-
@@ -4396,6 +4553,113 @@ components:
             https://rustexp.lpil.uk/ for trying out the pattern.
             If not set, the entire field value is used as the label value.
           nullable: true
+    Webhook:
+      type: object
+      description: |-
+        Webhook is an experiment target the customer hosts. An
+        experiment run against one posts every dataset item to its
+        URL and scores the reply, instead of calling an LLM
+        connection with a prompt.
+
+        It is read and written through raw SQL for the same reason
+        `DatasetSchedule` is: the sqlboiler models predate the table.
+        `webhookColumns` is the one place the column list lives.
+      required:
+        - id
+        - name
+        - url
+        - headerNames
+        - timeoutSeconds
+        - requestTemplate
+        - outputPath
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        description:
+          type: string
+        headerNames:
+          type: array
+          description: |-
+            HeaderNames lists the headers the webhook sends, so a
+            reader can tell an authenticated webhook from a bare one
+            without decrypting anything.
+          nullable: true
+          items:
+            type: string
+        id:
+          type: string
+        name:
+          type: string
+        outputPath:
+          type: string
+        requestTemplate:
+          type: string
+          description: |-
+            RequestTemplate is the body sent per item, JSON text with
+            `{{path}}` placeholders; empty means the item's input as
+            the body. OutputPath reads the output out of the reply;
+            empty means the whole body. See experiments/webhook.go.
+        timeoutSeconds:
+          type: integer
+        updatedAt:
+          type: string
+        url:
+          type: string
+    WebhookCall:
+      type: object
+      description: |-
+        WebhookCall is one request to a webhook and what came back,
+        as the test endpoint reports it.
+      required:
+        - requestUrl
+        - traceId
+        - ok
+      properties:
+        durationMs:
+          type: integer
+        error:
+          type: string
+          description: |-
+            Error is why the call did not produce an output: a
+            transport failure, a timeout, or a non-2xx status.
+        ok:
+          type: boolean
+          description: OK is whether a run would have marked the item completed.
+        output:
+          type: string
+          description: Output is what a run would have stored for the item.
+        requestBody: {}
+        requestHeaders:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        requestUrl:
+          type: string
+          description: |-
+            Request, as sent. Header values other than the trace
+            headers are masked, because the caller reading this may
+            not be the one who set the credential.
+        responseBody:
+          type: string
+          description: |-
+            ResponseBody is the raw reply, cut to what a preview can
+            show.
+        responseBodyTruncated:
+          type: boolean
+        responseHeaders:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        statusCode:
+          type: integer
+        traceId:
+          type: string
     WebhookConfig:
       type: object
       description: WebhookConfig configures notifications via a generic webhook.
@@ -8313,6 +8577,308 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/webhook-tests:
+    post:
+      tags:
+        - GenAI Webhooks
+      summary: Send a test request to a webhook
+      operationId: testGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TestWebhookRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookCall'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/webhooks:
+    get:
+      tags:
+        - GenAI Webhooks
+      summary: List webhooks
+      operationId: listGenaiWebhooks
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhooksResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Webhooks
+      summary: Create a webhook
+      operationId: createGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWebhookRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/webhooks/{webhookId}:
+    delete:
+      tags:
+        - GenAI Webhooks
+      summary: Delete a webhook
+      operationId: deleteGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: webhookId
+          in: path
+          description: Webhook ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Webhooks
+      summary: Get a webhook
+      operationId: getGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: webhookId
+          in: path
+          description: Webhook ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - GenAI Webhooks
+      summary: Update a webhook
+      operationId: updateGenaiWebhook
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: webhookId
+          in: path
+          description: Webhook ID.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWebhookRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Webhook'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/logmetrics:
     get:
       tags:
@@ -11318,3 +11884,5 @@ tags:
     description: Run a prompt over a dataset, score the result, and compare runs.
   - name: GenAI LLM Connections
     description: Provider credentials that evaluators and experiments run against. Stored keys are encrypted and never returned.
+  - name: GenAI Webhooks
+    description: HTTP endpoints you host that run your own agent or workflow. An experiment run against one posts each dataset item to it and scores the reply; the `traceparent` header it sends is how the run item joins to the trace your workflow emits. Stored headers are encrypted and never returned.

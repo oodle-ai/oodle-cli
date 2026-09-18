@@ -23,6 +23,11 @@ const (
 	cfgKeyEvaluatorRules    = "evaluatorRules"
 	cfgKeyComparerRules     = "outputComparerRules"
 	cfgKeyEvalConnectionID  = "evalConnectionId"
+	// cfgKeyWebhookID names a webhook as the run's target
+	// instead of an LLM connection: each item is POSTed to it
+	// and the reply is the output. No connection, model or
+	// prompt is read then.
+	cfgKeyWebhookID = "webhookId"
 )
 
 // ruleTemplateIDKey and ruleModelKey are the fields of a rule entry
@@ -48,6 +53,7 @@ type experimentConfigFlags struct {
 	promptLabel       string
 	promptTemplate    string
 	connectionID      string
+	webhookID         string
 	model             string
 	evaluatorIDs      []string
 	outputComparerIDs []string
@@ -94,6 +100,11 @@ func (f *experimentConfigFlags) addTo(
 		"LLM connection to generate with",
 	)
 	cmd.Flags().StringVar(
+		&f.webhookID, "webhook-id", "",
+		"Webhook to run against instead of an LLM connection "+
+			"(see `oodle genai webhooks`)",
+	)
+	cmd.Flags().StringVar(
 		&f.model, "model", "",
 		"Model override for this run",
 	)
@@ -133,6 +144,7 @@ func (f *experimentConfigFlags) applyTo(config map[string]any) {
 	setStr(cfgKeyPromptLabel, f.promptLabel)
 	setStr(cfgKeyPromptTemplate, f.promptTemplate)
 	setStr(cfgKeyConnectionID, f.connectionID)
+	setStr(cfgKeyWebhookID, f.webhookID)
 	setStr(cfgKeyModel, f.model)
 	setStr(cfgKeyEvalConnectionID, f.evalConnectionID)
 	if f.promptVersion > 0 {
@@ -211,10 +223,16 @@ func validateExperimentConfig(config map[string]any) error {
 			cfgKeyDatasetID,
 		)
 	}
+	// A webhook run has no connection, model or prompt: the
+	// endpoint owns all three.
+	if _, ok := config[cfgKeyWebhookID]; ok {
+		return nil
+	}
 	if _, ok := config[cfgKeyConnectionID]; !ok {
 		return fmt.Errorf(
-			"--connection-id is required (or %s in --file)",
-			cfgKeyConnectionID,
+			"--connection-id or --webhook-id is required "+
+				"(or %s / %s in --file)",
+			cfgKeyConnectionID, cfgKeyWebhookID,
 		)
 	}
 	// A run with no prompt has nothing to send. The server

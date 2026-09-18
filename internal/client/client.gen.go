@@ -361,6 +361,30 @@ type ClientInterface interface {
 	// ListGenaiScores request
 	ListGenaiScores(ctx context.Context, instance string, params *ListGenaiScoresParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TestGenaiWebhookWithBody request with any body
+	TestGenaiWebhookWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TestGenaiWebhook(ctx context.Context, instance string, body TestGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiWebhooks request
+	ListGenaiWebhooks(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGenaiWebhookWithBody request with any body
+	CreateGenaiWebhookWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGenaiWebhook(ctx context.Context, instance string, body CreateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGenaiWebhook request
+	DeleteGenaiWebhook(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiWebhook request
+	GetGenaiWebhook(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGenaiWebhookWithBody request with any body
+	UpdateGenaiWebhookWithBody(ctx context.Context, instance string, webhookId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateGenaiWebhook(ctx context.Context, instance string, webhookId string, body UpdateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLogmetrics request
 	ListLogmetrics(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1746,6 +1770,114 @@ func (c *Client) UpdateGenaiPromptVersionLabels(ctx context.Context, instance st
 
 func (c *Client) ListGenaiScores(ctx context.Context, instance string, params *ListGenaiScoresParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGenaiScoresRequest(c.Server, instance, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestGenaiWebhookWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestGenaiWebhookRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestGenaiWebhook(ctx context.Context, instance string, body TestGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestGenaiWebhookRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiWebhooks(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiWebhooksRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiWebhookWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiWebhookRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiWebhook(ctx context.Context, instance string, body CreateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiWebhookRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGenaiWebhook(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGenaiWebhookRequest(c.Server, instance, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiWebhook(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiWebhookRequest(c.Server, instance, webhookId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGenaiWebhookWithBody(ctx context.Context, instance string, webhookId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGenaiWebhookRequestWithBody(c.Server, instance, webhookId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGenaiWebhook(ctx context.Context, instance string, webhookId string, body UpdateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGenaiWebhookRequest(c.Server, instance, webhookId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -6325,6 +6457,270 @@ func NewListGenaiScoresRequest(server string, instance string, params *ListGenai
 	return req, nil
 }
 
+// NewTestGenaiWebhookRequest calls the generic TestGenaiWebhook builder with application/json body
+func NewTestGenaiWebhookRequest(server string, instance string, body TestGenaiWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTestGenaiWebhookRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewTestGenaiWebhookRequestWithBody generates requests for TestGenaiWebhook with any type of body
+func NewTestGenaiWebhookRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhook-tests", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGenaiWebhooksRequest generates requests for ListGenaiWebhooks
+func NewListGenaiWebhooksRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGenaiWebhookRequest calls the generic CreateGenaiWebhook builder with application/json body
+func NewCreateGenaiWebhookRequest(server string, instance string, body CreateGenaiWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGenaiWebhookRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewCreateGenaiWebhookRequestWithBody generates requests for CreateGenaiWebhook with any type of body
+func NewCreateGenaiWebhookRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhooks", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGenaiWebhookRequest generates requests for DeleteGenaiWebhook
+func NewDeleteGenaiWebhookRequest(server string, instance string, webhookId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiWebhookRequest generates requests for GetGenaiWebhook
+func NewGetGenaiWebhookRequest(server string, instance string, webhookId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateGenaiWebhookRequest calls the generic UpdateGenaiWebhook builder with application/json body
+func NewUpdateGenaiWebhookRequest(server string, instance string, webhookId string, body UpdateGenaiWebhookJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateGenaiWebhookRequestWithBody(server, instance, webhookId, "application/json", bodyReader)
+}
+
+// NewUpdateGenaiWebhookRequestWithBody generates requests for UpdateGenaiWebhook with any type of body
+func NewUpdateGenaiWebhookRequestWithBody(server string, instance string, webhookId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "webhookId", webhookId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/webhooks/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListLogmetricsRequest generates requests for ListLogmetrics
 func NewListLogmetricsRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -9289,6 +9685,30 @@ type ClientWithResponsesInterface interface {
 	// ListGenaiScoresWithResponse request
 	ListGenaiScoresWithResponse(ctx context.Context, instance string, params *ListGenaiScoresParams, reqEditors ...RequestEditorFn) (*ListGenaiScoresResponse, error)
 
+	// TestGenaiWebhookWithBodyWithResponse request with any body
+	TestGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestGenaiWebhookResponse, error)
+
+	TestGenaiWebhookWithResponse(ctx context.Context, instance string, body TestGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*TestGenaiWebhookResponse, error)
+
+	// ListGenaiWebhooksWithResponse request
+	ListGenaiWebhooksWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiWebhooksResponse, error)
+
+	// CreateGenaiWebhookWithBodyWithResponse request with any body
+	CreateGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiWebhookResponse, error)
+
+	CreateGenaiWebhookWithResponse(ctx context.Context, instance string, body CreateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiWebhookResponse, error)
+
+	// DeleteGenaiWebhookWithResponse request
+	DeleteGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*DeleteGenaiWebhookResponse, error)
+
+	// GetGenaiWebhookWithResponse request
+	GetGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*GetGenaiWebhookResponse, error)
+
+	// UpdateGenaiWebhookWithBodyWithResponse request with any body
+	UpdateGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, webhookId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGenaiWebhookResponse, error)
+
+	UpdateGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, body UpdateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiWebhookResponse, error)
+
 	// ListLogmetricsWithResponse request
 	ListLogmetricsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListLogmetricsResponse, error)
 
@@ -11334,6 +11754,163 @@ func (r ListGenaiScoresResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListGenaiScoresResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type TestGenaiWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *WebhookCall
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r TestGenaiWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestGenaiWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiWebhooksResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListWebhooksResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiWebhooksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiWebhooksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGenaiWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *Webhook
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGenaiWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGenaiWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGenaiWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGenaiWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGenaiWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Webhook
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiWebhookResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateGenaiWebhookResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Webhook
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateGenaiWebhookResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateGenaiWebhookResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13615,6 +14192,84 @@ func (c *ClientWithResponses) ListGenaiScoresWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseListGenaiScoresResponse(rsp)
+}
+
+// TestGenaiWebhookWithBodyWithResponse request with arbitrary body returning *TestGenaiWebhookResponse
+func (c *ClientWithResponses) TestGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestGenaiWebhookResponse, error) {
+	rsp, err := c.TestGenaiWebhookWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestGenaiWebhookResponse(rsp)
+}
+
+func (c *ClientWithResponses) TestGenaiWebhookWithResponse(ctx context.Context, instance string, body TestGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*TestGenaiWebhookResponse, error) {
+	rsp, err := c.TestGenaiWebhook(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestGenaiWebhookResponse(rsp)
+}
+
+// ListGenaiWebhooksWithResponse request returning *ListGenaiWebhooksResponse
+func (c *ClientWithResponses) ListGenaiWebhooksWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiWebhooksResponse, error) {
+	rsp, err := c.ListGenaiWebhooks(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiWebhooksResponse(rsp)
+}
+
+// CreateGenaiWebhookWithBodyWithResponse request with arbitrary body returning *CreateGenaiWebhookResponse
+func (c *ClientWithResponses) CreateGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiWebhookResponse, error) {
+	rsp, err := c.CreateGenaiWebhookWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiWebhookResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGenaiWebhookWithResponse(ctx context.Context, instance string, body CreateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiWebhookResponse, error) {
+	rsp, err := c.CreateGenaiWebhook(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiWebhookResponse(rsp)
+}
+
+// DeleteGenaiWebhookWithResponse request returning *DeleteGenaiWebhookResponse
+func (c *ClientWithResponses) DeleteGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*DeleteGenaiWebhookResponse, error) {
+	rsp, err := c.DeleteGenaiWebhook(ctx, instance, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGenaiWebhookResponse(rsp)
+}
+
+// GetGenaiWebhookWithResponse request returning *GetGenaiWebhookResponse
+func (c *ClientWithResponses) GetGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, reqEditors ...RequestEditorFn) (*GetGenaiWebhookResponse, error) {
+	rsp, err := c.GetGenaiWebhook(ctx, instance, webhookId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiWebhookResponse(rsp)
+}
+
+// UpdateGenaiWebhookWithBodyWithResponse request with arbitrary body returning *UpdateGenaiWebhookResponse
+func (c *ClientWithResponses) UpdateGenaiWebhookWithBodyWithResponse(ctx context.Context, instance string, webhookId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGenaiWebhookResponse, error) {
+	rsp, err := c.UpdateGenaiWebhookWithBody(ctx, instance, webhookId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGenaiWebhookResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateGenaiWebhookWithResponse(ctx context.Context, instance string, webhookId string, body UpdateGenaiWebhookJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiWebhookResponse, error) {
+	rsp, err := c.UpdateGenaiWebhook(ctx, instance, webhookId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGenaiWebhookResponse(rsp)
 }
 
 // ListLogmetricsWithResponse request returning *ListLogmetricsResponse
@@ -17987,6 +18642,337 @@ func ParseListGenaiScoresResponse(rsp *http.Response) (*ListGenaiScoresResponse,
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseTestGenaiWebhookResponse parses an HTTP response from a TestGenaiWebhookWithResponse call
+func ParseTestGenaiWebhookResponse(rsp *http.Response) (*TestGenaiWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestGenaiWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest WebhookCall
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiWebhooksResponse parses an HTTP response from a ListGenaiWebhooksWithResponse call
+func ParseListGenaiWebhooksResponse(rsp *http.Response) (*ListGenaiWebhooksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiWebhooksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListWebhooksResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGenaiWebhookResponse parses an HTTP response from a CreateGenaiWebhookWithResponse call
+func ParseCreateGenaiWebhookResponse(rsp *http.Response) (*CreateGenaiWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGenaiWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest Webhook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGenaiWebhookResponse parses an HTTP response from a DeleteGenaiWebhookWithResponse call
+func ParseDeleteGenaiWebhookResponse(rsp *http.Response) (*DeleteGenaiWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGenaiWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiWebhookResponse parses an HTTP response from a GetGenaiWebhookWithResponse call
+func ParseGetGenaiWebhookResponse(rsp *http.Response) (*GetGenaiWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Webhook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateGenaiWebhookResponse parses an HTTP response from a UpdateGenaiWebhookWithResponse call
+func ParseUpdateGenaiWebhookResponse(rsp *http.Response) (*UpdateGenaiWebhookResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateGenaiWebhookResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Webhook
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors

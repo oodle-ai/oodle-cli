@@ -213,8 +213,9 @@ func TestScheduleSetSharesExperimentFlags(t *testing.T) {
 
 	shared := []string{
 		"dataset-id", "prompt-name", "prompt-version", "prompt-label",
-		"prompt-template", "connection-id", "model", "evaluator-id",
-		"output-comparer-id", "evaluator-model", "eval-connection-id",
+		"prompt-template", "connection-id", "webhook-id", "model",
+		"evaluator-id", "output-comparer-id", "evaluator-model",
+		"eval-connection-id",
 	}
 	for _, name := range shared {
 		if run.Flags().Lookup(name) == nil {
@@ -348,7 +349,14 @@ func TestValidateExperimentConfig(t *testing.T) {
 		{
 			name:   "no connection",
 			config: map[string]any{"datasetId": "ds"},
-			want:   "--connection-id is required",
+			want:   "--connection-id or --webhook-id is required",
+		},
+		{
+			// The endpoint owns the model and the prompt.
+			name: "webhook needs neither connection nor prompt",
+			config: map[string]any{
+				"datasetId": "ds", "webhookId": "wh",
+			},
 		},
 		{
 			name: "no prompt",
