@@ -101,10 +101,8 @@ func newDashboardsCreateCmd() *cobra.Command {
 			if err := readInputFile(file, &body); err != nil {
 				return err
 			}
-			for _, title := range nonASCIITitles(body.Dashboard) {
-				fmt.Fprintf(cmd.ErrOrStderr(),
-					"Warning: title %q has a non-ASCII character; Grafana sends titles as HTTP headers with every panel query and the edge proxy blocks them, so the panel shows no data. Use printable ASCII.\n",
-					title)
+			if bad := nonASCIITitles(body.Dashboard); len(bad) > 0 {
+				return fmt.Errorf("titles must be printable ASCII: %q; Grafana sends titles as HTTP headers with every panel query and the edge proxy blocks them, so the panel shows no data", bad)
 			}
 			resp, err := c.Inner.CreateDashboardsWithResponse(cmd.Context(), instance, body)
 			if err != nil {
@@ -156,7 +154,8 @@ func newDashboardsDeleteCmd() *cobra.Command {
 // and their collapsed panels included, that hold a character outside
 // printable ASCII. Grafana sends these titles as the X-Dashboard-Title
 // and X-Panel-Title headers on each panel query; a non-ASCII byte in a
-// header makes the edge proxy block the query, while the save succeeds.
+// header makes the edge proxy block the query, while the save succeeds,
+// so create refuses the dashboard instead.
 func nonASCIITitles(dashboard map[string]interface{}) []string {
 	var found []string
 	var walk func(obj map[string]interface{})

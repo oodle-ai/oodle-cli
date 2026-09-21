@@ -332,7 +332,7 @@ oodle dashboards create -f dashboard.json
 
 Keep the dashboard title and panel titles in printable ASCII. Grafana
 sends them as HTTP headers with every panel query, and the edge proxy
-blocks a header with non-ASCII bytes. `create` warns about such a title.
+blocks a header with non-ASCII bytes. `create` refuses such a title.
 
 ### Folders — `oodle folders`
 
