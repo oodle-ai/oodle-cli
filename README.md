@@ -510,6 +510,17 @@ an experiment, so it never runs against live traffic.
 | `create -f <file>` | Create an evaluator            |
 | `update <id> -f`   | Update an evaluator            |
 | `delete <id>`      | Delete an evaluator            |
+| `starters [id]`    | List code starters, or print one as a template file |
+
+A starter is a ready-made code check (JSON validity, tone, PII
+leak, conversation degeneration and others) with its settings in
+UPPER_CASE names at the top of the source. Print one, edit the
+settings, then create the template:
+
+```bash
+oodle genai templates starters pii-leak > pii.yaml
+oodle genai templates create -f pii.yaml
+```
 
 #### Evaluators — `oodle genai evaluators`
 
@@ -520,6 +531,8 @@ requires an `llmConnectionId`; the server rejects an evaluator
 with no model to call. Set `samplingRate` and
 `maxInvocationsPerHour` before enabling one on a busy service —
 an unsampled, uncapped rule is one model call per matching span.
+The cap applies to code evaluators too, where each item is one
+sandbox run; 0 means no limit.
 
 | Subcommand         | Description                        |
 |--------------------|------------------------------------|
