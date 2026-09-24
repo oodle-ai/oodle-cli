@@ -303,6 +303,17 @@ type CockroachDBCloudIntegrationWrapper struct {
 	CrdbCloudIntegration *CockroachDBCloudIntegration `json:"crdbCloudIntegration,omitempty"`
 }
 
+// CodeEvalStarter CodeEvalStarter is one code evaluator starting point.
+type CodeEvalStarter struct {
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+
+	// SourceCode SourceCode is the Python to copy into a new code template.
+	SourceCode string `json:"sourceCode"`
+}
+
 // Condition Condition is a model for a condition to be evaluated in monitors.
 type Condition struct {
 	// AlertOnNoData Deprecated: use ConditionBySeverity#NoData instead
@@ -1190,6 +1201,14 @@ type LabelMatcherNotifications struct {
 
 	// Notifiers NotifiersByCondition represents notifiers for each severity level.
 	Notifiers *NotifiersByCondition `json:"notifiers,omitempty"`
+}
+
+// ListCodeStartersResponse ListCodeStartersResponse lists the starting points for a code
+// evaluator. A starter is not a template: a client copies its
+// source into a new `type: code` template and edits the
+// settings at the top.
+type ListCodeStartersResponse struct {
+	Data *[]CodeEvalStarter `json:"data"`
 }
 
 // ListDatasetItemsResponse ListDatasetItemsResponse is the dataset item list envelope.
@@ -2423,6 +2442,12 @@ type TraceLabelsResponse struct {
 	Limit  int       `json:"limit"`
 	Offset int       `json:"offset"`
 	Total  int       `json:"total"`
+
+	// TraceFiltersTruncated TraceFiltersTruncated reports that the traceFilters
+	// intersection was taken over the newest traces only,
+	// so a value carried only by an older trace can be
+	// missing.
+	TraceFiltersTruncated *bool `json:"trace_filters_truncated,omitempty"`
 }
 
 // TraceProcess defines model for TraceProcess.
@@ -2518,6 +2543,13 @@ type TracesResponse struct {
 	// number of spans returned.
 	RowsRead *int `json:"rowsRead,omitempty"`
 	Total    int  `json:"total"`
+
+	// TraceFiltersTruncated TraceFiltersTruncated reports that the traceFilters
+	// intersection was taken over the newest traces only,
+	// so an older trace that satisfies every conjunct can
+	// be missing. Narrow the time range to check every
+	// trace.
+	TraceFiltersTruncated *bool `json:"trace_filters_truncated,omitempty"`
 
 	// Truncated Truncated reports that the trace is incomplete
 	// because the query reached its size limit. Spans
@@ -2873,6 +2905,36 @@ type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
 }
 
+// ImportPrometheusMetricsTextBody defines parameters for ImportPrometheusMetrics.
+type ImportPrometheusMetricsTextBody = string
+
+// ImportPrometheusMetricsParams defines parameters for ImportPrometheusMetrics.
+type ImportPrometheusMetricsParams struct {
+	// ExtraLabel A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+	ExtraLabel *string `form:"extra_label,omitempty" json:"extra_label,omitempty"`
+
+	// Timestamp Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+	Timestamp *int64 `form:"timestamp,omitempty" json:"timestamp,omitempty"`
+
+	// XOODLEINSTANCE Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
+}
+
+// ImportPrometheusMetricsForJobTextBody defines parameters for ImportPrometheusMetricsForJob.
+type ImportPrometheusMetricsForJobTextBody = string
+
+// ImportPrometheusMetricsForJobParams defines parameters for ImportPrometheusMetricsForJob.
+type ImportPrometheusMetricsForJobParams struct {
+	// ExtraLabel A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+	ExtraLabel *string `form:"extra_label,omitempty" json:"extra_label,omitempty"`
+
+	// Timestamp Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+	Timestamp *int64 `form:"timestamp,omitempty" json:"timestamp,omitempty"`
+
+	// XOODLEINSTANCE Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
+}
+
 // QueryMetricsInstantParams defines parameters for QueryMetricsInstant.
 type QueryMetricsInstantParams struct {
 	// Query PromQL expression (e.g. sum(up))
@@ -3133,6 +3195,12 @@ type ListUsersOpParams struct {
 	// Query Search query to filter users
 	Query *string `form:"query,omitempty" json:"query,omitempty"`
 }
+
+// ImportPrometheusMetricsTextRequestBody defines body for ImportPrometheusMetrics for text/plain ContentType.
+type ImportPrometheusMetricsTextRequestBody = ImportPrometheusMetricsTextBody
+
+// ImportPrometheusMetricsForJobTextRequestBody defines body for ImportPrometheusMetricsForJob for text/plain ContentType.
+type ImportPrometheusMetricsForJobTextRequestBody = ImportPrometheusMetricsForJobTextBody
 
 // CreateApiKeysJSONRequestBody defines body for CreateApiKeys for application/json ContentType.
 type CreateApiKeysJSONRequestBody = CreateApiKeyRequest

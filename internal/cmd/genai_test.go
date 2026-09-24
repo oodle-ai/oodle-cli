@@ -34,6 +34,7 @@ func TestGenAICommandTree(t *testing.T) {
 		{"genai", "templates", "create"},
 		{"genai", "templates", "update"},
 		{"genai", "templates", "delete"},
+		{"genai", "templates", "starters"},
 		{"genai", "evaluators", "list"},
 		{"genai", "evaluators", "create"},
 		{"genai", "evaluators", "update"},

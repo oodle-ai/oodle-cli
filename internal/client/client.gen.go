@@ -89,6 +89,16 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ImportPrometheusMetricsWithBody request with any body
+	ImportPrometheusMetricsWithBody(ctx context.Context, params *ImportPrometheusMetricsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ImportPrometheusMetricsWithTextBody(ctx context.Context, params *ImportPrometheusMetricsParams, body ImportPrometheusMetricsTextRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ImportPrometheusMetricsForJobWithBody request with any body
+	ImportPrometheusMetricsForJobWithBody(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ImportPrometheusMetricsForJobWithTextBody(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, body ImportPrometheusMetricsForJobTextRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListLogIndexPatterns request
 	ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -187,6 +197,9 @@ type ClientInterface interface {
 	UpdateIntegrationsByIdWithBody(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiCodeEvalStarters request
+	ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RenameGenaiDatasetFolderWithBody request with any body
 	RenameGenaiDatasetFolderWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -578,6 +591,54 @@ type ClientInterface interface {
 
 	// GetOrg request
 	GetOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *Client) ImportPrometheusMetricsWithBody(ctx context.Context, params *ImportPrometheusMetricsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportPrometheusMetricsRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ImportPrometheusMetricsWithTextBody(ctx context.Context, params *ImportPrometheusMetricsParams, body ImportPrometheusMetricsTextRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportPrometheusMetricsRequestWithTextBody(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ImportPrometheusMetricsForJobWithBody(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportPrometheusMetricsForJobRequestWithBody(c.Server, job, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ImportPrometheusMetricsForJobWithTextBody(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, body ImportPrometheusMetricsForJobTextRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewImportPrometheusMetricsForJobRequestWithTextBody(c.Server, job, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *Client) ListLogIndexPatterns(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -1002,6 +1063,18 @@ func (c *Client) UpdateIntegrationsByIdWithBody(ctx context.Context, instance st
 
 func (c *Client) UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateIntegrationsByIdRequest(c.Server, instance, integrationId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiCodeEvalStartersRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -2728,6 +2801,187 @@ func (c *Client) GetOrg(ctx context.Context, reqEditors ...RequestEditorFn) (*ht
 	return c.Client.Do(req)
 }
 
+// NewImportPrometheusMetricsRequestWithTextBody calls the generic ImportPrometheusMetrics builder with text/plain body
+func NewImportPrometheusMetricsRequestWithTextBody(server string, params *ImportPrometheusMetricsParams, body ImportPrometheusMetricsTextRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyReader = strings.NewReader(string(body))
+	return NewImportPrometheusMetricsRequestWithBody(server, params, "text/plain", bodyReader)
+}
+
+// NewImportPrometheusMetricsRequestWithBody generates requests for ImportPrometheusMetrics with any type of body
+func NewImportPrometheusMetricsRequestWithBody(server string, params *ImportPrometheusMetricsParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/import/prometheus")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.ExtraLabel != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "extra_label", *params.ExtraLabel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Timestamp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "timestamp", *params.Timestamp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-OODLE-INSTANCE", params.XOODLEINSTANCE, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-OODLE-INSTANCE", headerParam0)
+
+	}
+
+	return req, nil
+}
+
+// NewImportPrometheusMetricsForJobRequestWithTextBody calls the generic ImportPrometheusMetricsForJob builder with text/plain body
+func NewImportPrometheusMetricsForJobRequestWithTextBody(server string, job string, params *ImportPrometheusMetricsForJobParams, body ImportPrometheusMetricsForJobTextRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	bodyReader = strings.NewReader(string(body))
+	return NewImportPrometheusMetricsForJobRequestWithBody(server, job, params, "text/plain", bodyReader)
+}
+
+// NewImportPrometheusMetricsForJobRequestWithBody generates requests for ImportPrometheusMetricsForJob with any type of body
+func NewImportPrometheusMetricsForJobRequestWithBody(server string, job string, params *ImportPrometheusMetricsForJobParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "job", job, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/v1/import/prometheus/metrics/job/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.ExtraLabel != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "extra_label", *params.ExtraLabel, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Timestamp != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "timestamp", *params.Timestamp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		var headerParam0 string
+
+		headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-OODLE-INSTANCE", params.XOODLEINSTANCE, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+		if err != nil {
+			return nil, err
+		}
+
+		req.Header.Set("X-OODLE-INSTANCE", headerParam0)
+
+	}
+
+	return req, nil
+}
+
 // NewListLogIndexPatternsRequest generates requests for ListLogIndexPatterns
 func NewListLogIndexPatternsRequest(server string) (*http.Request, error) {
 	var err error
@@ -3953,6 +4207,40 @@ func NewUpdateIntegrationsByIdRequestWithBody(server string, instance string, in
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGenaiCodeEvalStartersRequest generates requests for ListGenaiCodeEvalStarters
+func NewListGenaiCodeEvalStartersRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-starters", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9413,6 +9701,16 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ImportPrometheusMetricsWithBodyWithResponse request with any body
+	ImportPrometheusMetricsWithBodyWithResponse(ctx context.Context, params *ImportPrometheusMetricsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsResponse, error)
+
+	ImportPrometheusMetricsWithTextBodyWithResponse(ctx context.Context, params *ImportPrometheusMetricsParams, body ImportPrometheusMetricsTextRequestBody, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsResponse, error)
+
+	// ImportPrometheusMetricsForJobWithBodyWithResponse request with any body
+	ImportPrometheusMetricsForJobWithBodyWithResponse(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsForJobResponse, error)
+
+	ImportPrometheusMetricsForJobWithTextBodyWithResponse(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, body ImportPrometheusMetricsForJobTextRequestBody, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsForJobResponse, error)
+
 	// ListLogIndexPatternsWithResponse request
 	ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error)
 
@@ -9511,6 +9809,9 @@ type ClientWithResponsesInterface interface {
 	UpdateIntegrationsByIdWithBodyWithResponse(ctx context.Context, instance string, integrationId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
 
 	UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
+
+	// ListGenaiCodeEvalStartersWithResponse request
+	ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error)
 
 	// RenameGenaiDatasetFolderWithBodyWithResponse request with any body
 	RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error)
@@ -9902,6 +10203,48 @@ type ClientWithResponsesInterface interface {
 
 	// GetOrgWithResponse request
 	GetOrgWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetOrgResponse, error)
+}
+
+type ImportPrometheusMetricsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportPrometheusMetricsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportPrometheusMetricsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ImportPrometheusMetricsForJobResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r ImportPrometheusMetricsForJobResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ImportPrometheusMetricsForJobResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ListLogIndexPatternsResponse struct {
@@ -10583,6 +10926,30 @@ func (r UpdateIntegrationsByIdResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateIntegrationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiCodeEvalStartersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListCodeStartersResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiCodeEvalStartersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiCodeEvalStartersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13322,6 +13689,40 @@ func (r GetOrgResponse) StatusCode() int {
 	return 0
 }
 
+// ImportPrometheusMetricsWithBodyWithResponse request with arbitrary body returning *ImportPrometheusMetricsResponse
+func (c *ClientWithResponses) ImportPrometheusMetricsWithBodyWithResponse(ctx context.Context, params *ImportPrometheusMetricsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsResponse, error) {
+	rsp, err := c.ImportPrometheusMetricsWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportPrometheusMetricsResponse(rsp)
+}
+
+func (c *ClientWithResponses) ImportPrometheusMetricsWithTextBodyWithResponse(ctx context.Context, params *ImportPrometheusMetricsParams, body ImportPrometheusMetricsTextRequestBody, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsResponse, error) {
+	rsp, err := c.ImportPrometheusMetricsWithTextBody(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportPrometheusMetricsResponse(rsp)
+}
+
+// ImportPrometheusMetricsForJobWithBodyWithResponse request with arbitrary body returning *ImportPrometheusMetricsForJobResponse
+func (c *ClientWithResponses) ImportPrometheusMetricsForJobWithBodyWithResponse(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsForJobResponse, error) {
+	rsp, err := c.ImportPrometheusMetricsForJobWithBody(ctx, job, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportPrometheusMetricsForJobResponse(rsp)
+}
+
+func (c *ClientWithResponses) ImportPrometheusMetricsForJobWithTextBodyWithResponse(ctx context.Context, job string, params *ImportPrometheusMetricsForJobParams, body ImportPrometheusMetricsForJobTextRequestBody, reqEditors ...RequestEditorFn) (*ImportPrometheusMetricsForJobResponse, error) {
+	rsp, err := c.ImportPrometheusMetricsForJobWithTextBody(ctx, job, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseImportPrometheusMetricsForJobResponse(rsp)
+}
+
 // ListLogIndexPatternsWithResponse request returning *ListLogIndexPatternsResponse
 func (c *ClientWithResponses) ListLogIndexPatternsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ListLogIndexPatternsResponse, error) {
 	rsp, err := c.ListLogIndexPatterns(ctx, reqEditors...)
@@ -13635,6 +14036,15 @@ func (c *ClientWithResponses) UpdateIntegrationsByIdWithResponse(ctx context.Con
 		return nil, err
 	}
 	return ParseUpdateIntegrationsByIdResponse(rsp)
+}
+
+// ListGenaiCodeEvalStartersWithResponse request returning *ListGenaiCodeEvalStartersResponse
+func (c *ClientWithResponses) ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error) {
+	rsp, err := c.ListGenaiCodeEvalStarters(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiCodeEvalStartersResponse(rsp)
 }
 
 // RenameGenaiDatasetFolderWithBodyWithResponse request with arbitrary body returning *RenameGenaiDatasetFolderResponse
@@ -14884,6 +15294,38 @@ func (c *ClientWithResponses) GetOrgWithResponse(ctx context.Context, reqEditors
 		return nil, err
 	}
 	return ParseGetOrgResponse(rsp)
+}
+
+// ParseImportPrometheusMetricsResponse parses an HTTP response from a ImportPrometheusMetricsWithResponse call
+func ParseImportPrometheusMetricsResponse(rsp *http.Response) (*ImportPrometheusMetricsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportPrometheusMetricsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
+// ParseImportPrometheusMetricsForJobResponse parses an HTTP response from a ImportPrometheusMetricsForJobWithResponse call
+func ParseImportPrometheusMetricsForJobResponse(rsp *http.Response) (*ImportPrometheusMetricsForJobResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ImportPrometheusMetricsForJobResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
 }
 
 // ParseListLogIndexPatternsResponse parses an HTTP response from a ListLogIndexPatternsWithResponse call
@@ -16212,6 +16654,46 @@ func ParseUpdateIntegrationsByIdResponse(rsp *http.Response) (*UpdateIntegration
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiCodeEvalStartersResponse parses an HTTP response from a ListGenaiCodeEvalStartersWithResponse call
+func ParseListGenaiCodeEvalStartersResponse(rsp *http.Response) (*ListGenaiCodeEvalStartersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiCodeEvalStartersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListCodeStartersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors

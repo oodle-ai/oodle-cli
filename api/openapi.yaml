@@ -292,6 +292,27 @@ components:
       properties:
         crdbCloudIntegration:
           $ref: '#/components/schemas/CockroachDBCloudIntegration'
+    CodeEvalStarter:
+      type: object
+      description: CodeEvalStarter is one code evaluator starting point.
+      required:
+        - id
+        - name
+        - category
+        - description
+        - sourceCode
+      properties:
+        category:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        sourceCode:
+          type: string
+          description: SourceCode is the Python to copy into a new code template.
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -1826,6 +1847,21 @@ components:
           description: NotificationPolicyID references the notification policy to use when labels match
         notifiers:
           $ref: '#/components/schemas/NotifiersByCondition'
+    ListCodeStartersResponse:
+      type: object
+      description: |-
+        ListCodeStartersResponse lists the starting points for a code
+        evaluator. A starter is not a template: a client copies its
+        source into a new `type: code` template and edits the
+        settings at the top.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalStarter'
     ListDatasetItemsResponse:
       type: object
       description: ListDatasetItemsResponse is the dataset item list envelope.
@@ -3976,6 +4012,13 @@ components:
           type: integer
         total:
           type: integer
+        trace_filters_truncated:
+          type: boolean
+          description: |-
+            TraceFiltersTruncated reports that the traceFilters
+            intersection was taken over the newest traces only,
+            so a value carried only by an older trace can be
+            missing.
     TraceProcess:
       type: object
       required:
@@ -4133,6 +4176,14 @@ components:
             number of spans returned.
         total:
           type: integer
+        trace_filters_truncated:
+          type: boolean
+          description: |-
+            TraceFiltersTruncated reports that the traceFilters
+            intersection was taken over the newest traces only,
+            so an older trace that satisfies every conjunct can
+            be missing. Narrow the time range to check every
+            trace.
         truncated:
           type: boolean
           description: |-
@@ -4823,6 +4874,157 @@ info:
     - **Oodle CLI** (OAuth users): run `oodle auth status` after `oodle auth login`.
   version: 1.0.0
 paths:
+  /api/v1/import/prometheus:
+    post:
+      tags:
+        - Metrics Ingest
+      summary: Import metrics in Prometheus text format
+      description: |-
+        Write metrics in the Prometheus text exposition format.
+
+        This endpoint matches the VictoriaMetrics API of the same path, so a client that writes to VictoriaMetrics can send to Oodle after a change of base URL.
+
+        Send the request to the collector domain of your integration, not to the API domain. The path carries no tenant, so name the instance in the `X-OODLE-INSTANCE` header.
+
+        Example body:
+
+        ```
+        # TYPE http_requests_total counter
+        http_requests_total{method="GET",code="200"} 1234
+        ```
+
+        **Required role:** Admin or Data Ingestion
+      operationId: importPrometheusMetrics
+      parameters:
+        - name: X-OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: extra_label
+          in: query
+          description: A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+          schema:
+            type: string
+        - name: timestamp
+          in: query
+          description: Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: |-
+          Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+          The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: |-
+                Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+                The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+      responses:
+        "204":
+          description: Metrics accepted
+        "400":
+          description: Missing instance header, or malformed body, query argument, or Content-Encoding
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: The API key does not carry an ingestion role
+        "429":
+          description: Ingestion rate limit exceeded
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+      servers:
+        - url: https://{collectorDomain}
+          description: Metrics collector for the instance. Ingest does not run on the API host.
+          variables:
+            collectorDomain:
+              default: collector.oodle.ai
+              description: The `collectorDomain` field of your integration. Read it from the Integrations page or from the integration API.
+  /api/v1/import/prometheus/metrics/job/{job}:
+    post:
+      tags:
+        - Metrics Ingest
+      summary: Import metrics for a job in Prometheus text format
+      description: |-
+        Write metrics in the Prometheus text exposition format, with grouping labels in the path.
+
+        This is the Pushgateway form of `/api/v1/import/prometheus`, and it takes the same body and the same query arguments. Every label pair in the path is added to every series in the body.
+
+        Append further pairs to add further labels, as in `/api/v1/import/prometheus/metrics/job/{job}/instance/host-1`. To send a label value that holds a `/`, suffix the label name with `@base64` and encode the value as base64url, as in `/metrics/job@base64/bXlqb2I`.
+
+        A label given by `extra_label` replaces a path label of the same name.
+
+        **Required role:** Admin or Data Ingestion
+      operationId: importPrometheusMetricsForJob
+      parameters:
+        - name: job
+          in: path
+          description: Value for the `job` label, added to every series in the body.
+          required: true
+          schema:
+            type: string
+        - name: X-OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: extra_label
+          in: query
+          description: A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+          schema:
+            type: string
+        - name: timestamp
+          in: query
+          description: Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: |-
+          Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+          The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: |-
+                Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+                The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+      responses:
+        "204":
+          description: Metrics accepted
+        "400":
+          description: Missing instance header, or malformed body, query argument, or Content-Encoding
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: The API key does not carry an ingestion role
+        "429":
+          description: Ingestion rate limit exceeded
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+      servers:
+        - url: https://{collectorDomain}
+          description: Metrics collector for the instance. Ingest does not run on the API host.
+          variables:
+            collectorDomain:
+              default: collector.oodle.ai
+              description: The `collectorDomain` field of your integration. Read it from the Integrations page or from the integration API.
   /api/v1/log_index_patterns:
     get:
       tags:
@@ -6169,6 +6371,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-eval-starters:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: List code evaluator starters
+      operationId: listGenaiCodeEvalStarters
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCodeStartersResponse'
+        "401":
           description: ""
           content:
             application/json:
@@ -11864,6 +12098,8 @@ tags:
     description: Query distributed traces, labels, and label values.
   - name: Metrics
     description: Query metric names, labels, label values, and execute PromQL queries (Prometheus-compatible).
+  - name: Metrics Ingest
+    description: Write metrics to Oodle. These endpoints run on the collector domain, not on the API domain.
   - name: Logs
     description: Search and query log data, and discover log index patterns.
   - name: OAuth
