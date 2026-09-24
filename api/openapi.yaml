@@ -292,6 +292,27 @@ components:
       properties:
         crdbCloudIntegration:
           $ref: '#/components/schemas/CockroachDBCloudIntegration'
+    CodeEvalStarter:
+      type: object
+      description: CodeEvalStarter is one code evaluator starting point.
+      required:
+        - id
+        - name
+        - category
+        - description
+        - sourceCode
+      properties:
+        category:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        sourceCode:
+          type: string
+          description: SourceCode is the Python to copy into a new code template.
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -1833,6 +1854,21 @@ components:
           description: NotificationPolicyID references the notification policy to use when labels match
         notifiers:
           $ref: '#/components/schemas/NotifiersByCondition'
+    ListCodeStartersResponse:
+      type: object
+      description: |-
+        ListCodeStartersResponse lists the starting points for a code
+        evaluator. A starter is not a template: a client copies its
+        source into a new `type: code` template and edits the
+        settings at the top.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalStarter'
     ListDatasetItemsResponse:
       type: object
       description: ListDatasetItemsResponse is the dataset item list envelope.
@@ -6357,6 +6393,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-eval-starters:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: List code evaluator starters
+      operationId: listGenaiCodeEvalStarters
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCodeStartersResponse'
+        "401":
           description: ""
           content:
             application/json:

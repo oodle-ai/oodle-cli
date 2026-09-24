@@ -198,6 +198,9 @@ type ClientInterface interface {
 
 	UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListGenaiCodeEvalStarters request
+	ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// RenameGenaiDatasetFolderWithBody request with any body
 	RenameGenaiDatasetFolderWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -1060,6 +1063,18 @@ func (c *Client) UpdateIntegrationsByIdWithBody(ctx context.Context, instance st
 
 func (c *Client) UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateIntegrationsByIdRequest(c.Server, instance, integrationId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiCodeEvalStartersRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -4192,6 +4207,40 @@ func NewUpdateIntegrationsByIdRequestWithBody(server string, instance string, in
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGenaiCodeEvalStartersRequest generates requests for ListGenaiCodeEvalStarters
+func NewListGenaiCodeEvalStartersRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-starters", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -9761,6 +9810,9 @@ type ClientWithResponsesInterface interface {
 
 	UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
 
+	// ListGenaiCodeEvalStartersWithResponse request
+	ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error)
+
 	// RenameGenaiDatasetFolderWithBodyWithResponse request with any body
 	RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error)
 
@@ -10874,6 +10926,30 @@ func (r UpdateIntegrationsByIdResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateIntegrationsByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiCodeEvalStartersResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListCodeStartersResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiCodeEvalStartersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiCodeEvalStartersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -13962,6 +14038,15 @@ func (c *ClientWithResponses) UpdateIntegrationsByIdWithResponse(ctx context.Con
 	return ParseUpdateIntegrationsByIdResponse(rsp)
 }
 
+// ListGenaiCodeEvalStartersWithResponse request returning *ListGenaiCodeEvalStartersResponse
+func (c *ClientWithResponses) ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error) {
+	rsp, err := c.ListGenaiCodeEvalStarters(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiCodeEvalStartersResponse(rsp)
+}
+
 // RenameGenaiDatasetFolderWithBodyWithResponse request with arbitrary body returning *RenameGenaiDatasetFolderResponse
 func (c *ClientWithResponses) RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error) {
 	rsp, err := c.RenameGenaiDatasetFolderWithBody(ctx, instance, contentType, body, reqEditors...)
@@ -16569,6 +16654,46 @@ func ParseUpdateIntegrationsByIdResponse(rsp *http.Response) (*UpdateIntegration
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiCodeEvalStartersResponse parses an HTTP response from a ListGenaiCodeEvalStartersWithResponse call
+func ParseListGenaiCodeEvalStartersResponse(rsp *http.Response) (*ListGenaiCodeEvalStartersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiCodeEvalStartersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListCodeStartersResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors

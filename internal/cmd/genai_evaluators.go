@@ -67,6 +67,7 @@ evaluator, but update and delete are refused.`,
 	cmd.AddCommand(newGenAITemplatesCreateCmd())
 	cmd.AddCommand(newGenAITemplatesUpdateCmd())
 	cmd.AddCommand(newGenAITemplatesDeleteCmd())
+	cmd.AddCommand(newGenAITemplatesStartersCmd())
 
 	return cmd
 }

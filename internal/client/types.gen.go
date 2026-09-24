@@ -303,6 +303,17 @@ type CockroachDBCloudIntegrationWrapper struct {
 	CrdbCloudIntegration *CockroachDBCloudIntegration `json:"crdbCloudIntegration,omitempty"`
 }
 
+// CodeEvalStarter CodeEvalStarter is one code evaluator starting point.
+type CodeEvalStarter struct {
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+
+	// SourceCode SourceCode is the Python to copy into a new code template.
+	SourceCode string `json:"sourceCode"`
+}
+
 // Condition Condition is a model for a condition to be evaluated in monitors.
 type Condition struct {
 	// AlertOnNoData Deprecated: use ConditionBySeverity#NoData instead
@@ -1195,6 +1206,14 @@ type LabelMatcherNotifications struct {
 
 	// Notifiers NotifiersByCondition represents notifiers for each severity level.
 	Notifiers *NotifiersByCondition `json:"notifiers,omitempty"`
+}
+
+// ListCodeStartersResponse ListCodeStartersResponse lists the starting points for a code
+// evaluator. A starter is not a template: a client copies its
+// source into a new `type: code` template and edits the
+// settings at the top.
+type ListCodeStartersResponse struct {
+	Data *[]CodeEvalStarter `json:"data"`
 }
 
 // ListDatasetItemsResponse ListDatasetItemsResponse is the dataset item list envelope.
