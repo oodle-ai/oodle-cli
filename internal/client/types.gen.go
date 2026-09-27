@@ -579,19 +579,24 @@ type CreatePromptRequest struct {
 // CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
 // observation within it.
 type CreateScoreRequest struct {
-	Comment       *string `json:"comment,omitempty"`
-	ConfigId      *string `json:"configId,omitempty"`
-	DataType      *string `json:"dataType,omitempty"`
-	Environment   *string `json:"environment,omitempty"`
-	Id            *string `json:"id,omitempty"`
-	InputTokens   *int    `json:"inputTokens,omitempty"`
-	Model         *string `json:"model,omitempty"`
-	Name          string  `json:"name"`
-	ObservationId *string `json:"observationId,omitempty"`
-	OutputTokens  *int    `json:"outputTokens,omitempty"`
-	Source        *string `json:"source,omitempty"`
-	StringValue   *string `json:"stringValue,omitempty"`
-	TraceId       string  `json:"traceId"`
+	Comment     *string `json:"comment,omitempty"`
+	ConfigId    *string `json:"configId,omitempty"`
+	DataType    *string `json:"dataType,omitempty"`
+	Environment *string `json:"environment,omitempty"`
+
+	// HigherIsBetter HigherIsBetter says which way is good for this score.
+	// Omit it to leave the direction undeclared, which reads as
+	// higher-is-better.
+	HigherIsBetter *bool   `json:"higherIsBetter,omitempty"`
+	Id             *string `json:"id,omitempty"`
+	InputTokens    *int    `json:"inputTokens,omitempty"`
+	Model          *string `json:"model,omitempty"`
+	Name           string  `json:"name"`
+	ObservationId  *string `json:"observationId,omitempty"`
+	OutputTokens   *int    `json:"outputTokens,omitempty"`
+	Source         *string `json:"source,omitempty"`
+	StringValue    *string `json:"stringValue,omitempty"`
+	TraceId        string  `json:"traceId"`
 
 	// Value Value carries NUMERIC and BOOLEAN scores; StringValue
 	// carries CATEGORICAL ones.
@@ -1897,7 +1902,13 @@ type RunScoreAggregate struct {
 	// the value counts are read against.
 	Count    int    `json:"count"`
 	DataType string `json:"dataType"`
-	Name     string `json:"name"`
+
+	// HigherIsBetter HigherIsBetter is the direction the scores under the
+	// name declared. Absent when none declared one, or when
+	// they disagree: an average over two evaluators that read
+	// in opposite directions has no direction.
+	HigherIsBetter *bool  `json:"higherIsBetter,omitempty"`
+	Name           string `json:"name"`
 
 	// Values Values counts each distinct label of a categorical
 	// score. Absent when the name has no labelled scores.
@@ -1953,22 +1964,27 @@ type ScheduleTimeRange struct {
 
 // Score defines model for Score.
 type Score struct {
-	Comment       *string  `json:"comment,omitempty"`
-	ConfigId      *string  `json:"configId,omitempty"`
-	CreatedAt     string   `json:"createdAt"`
-	DataType      string   `json:"dataType"`
-	Environment   *string  `json:"environment,omitempty"`
-	Id            string   `json:"id"`
-	InputTokens   *int     `json:"inputTokens,omitempty"`
-	Model         *string  `json:"model,omitempty"`
-	Name          string   `json:"name"`
-	ObservationId *string  `json:"observationId,omitempty"`
-	OutputTokens  *int     `json:"outputTokens,omitempty"`
-	Source        string   `json:"source"`
-	StringValue   *string  `json:"stringValue,omitempty"`
-	TraceId       string   `json:"traceId"`
-	UpdatedAt     string   `json:"updatedAt"`
-	Value         *float32 `json:"value,omitempty"`
+	Comment     *string `json:"comment,omitempty"`
+	ConfigId    *string `json:"configId,omitempty"`
+	CreatedAt   string  `json:"createdAt"`
+	DataType    string  `json:"dataType"`
+	Environment *string `json:"environment,omitempty"`
+
+	// HigherIsBetter HigherIsBetter is the direction the writer declared. Nil
+	// is undeclared, which every renderer reads as
+	// higher-is-better.
+	HigherIsBetter *bool    `json:"higherIsBetter,omitempty"`
+	Id             string   `json:"id"`
+	InputTokens    *int     `json:"inputTokens,omitempty"`
+	Model          *string  `json:"model,omitempty"`
+	Name           string   `json:"name"`
+	ObservationId  *string  `json:"observationId,omitempty"`
+	OutputTokens   *int     `json:"outputTokens,omitempty"`
+	Source         string   `json:"source"`
+	StringValue    *string  `json:"stringValue,omitempty"`
+	TraceId        string   `json:"traceId"`
+	UpdatedAt      string   `json:"updatedAt"`
+	Value          *float32 `json:"value,omitempty"`
 }
 
 // ScoreResponse ScoreResponse is one recorded score.
@@ -2423,6 +2439,12 @@ type TraceLabelsResponse struct {
 	Limit  int       `json:"limit"`
 	Offset int       `json:"offset"`
 	Total  int       `json:"total"`
+
+	// TraceFiltersTruncated TraceFiltersTruncated reports that the traceFilters
+	// intersection was taken over the newest traces only,
+	// so a value carried only by an older trace can be
+	// missing.
+	TraceFiltersTruncated *bool `json:"trace_filters_truncated,omitempty"`
 }
 
 // TraceProcess defines model for TraceProcess.
@@ -2518,6 +2540,13 @@ type TracesResponse struct {
 	// number of spans returned.
 	RowsRead *int `json:"rowsRead,omitempty"`
 	Total    int  `json:"total"`
+
+	// TraceFiltersTruncated TraceFiltersTruncated reports that the traceFilters
+	// intersection was taken over the newest traces only,
+	// so an older trace that satisfies every conjunct can
+	// be missing. Narrow the time range to check every
+	// trace.
+	TraceFiltersTruncated *bool `json:"trace_filters_truncated,omitempty"`
 
 	// Truncated Truncated reports that the trace is incomplete
 	// because the query reached its size limit. Spans
@@ -2873,6 +2902,36 @@ type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
 }
 
+// ImportPrometheusMetricsTextBody defines parameters for ImportPrometheusMetrics.
+type ImportPrometheusMetricsTextBody = string
+
+// ImportPrometheusMetricsParams defines parameters for ImportPrometheusMetrics.
+type ImportPrometheusMetricsParams struct {
+	// ExtraLabel A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+	ExtraLabel *string `form:"extra_label,omitempty" json:"extra_label,omitempty"`
+
+	// Timestamp Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+	Timestamp *int64 `form:"timestamp,omitempty" json:"timestamp,omitempty"`
+
+	// XOODLEINSTANCE Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
+}
+
+// ImportPrometheusMetricsForJobTextBody defines parameters for ImportPrometheusMetricsForJob.
+type ImportPrometheusMetricsForJobTextBody = string
+
+// ImportPrometheusMetricsForJobParams defines parameters for ImportPrometheusMetricsForJob.
+type ImportPrometheusMetricsForJobParams struct {
+	// ExtraLabel A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+	ExtraLabel *string `form:"extra_label,omitempty" json:"extra_label,omitempty"`
+
+	// Timestamp Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+	Timestamp *int64 `form:"timestamp,omitempty" json:"timestamp,omitempty"`
+
+	// XOODLEINSTANCE Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+	XOODLEINSTANCE string `json:"X-OODLE-INSTANCE"`
+}
+
 // QueryMetricsInstantParams defines parameters for QueryMetricsInstant.
 type QueryMetricsInstantParams struct {
 	// Query PromQL expression (e.g. sum(up))
@@ -3133,6 +3192,12 @@ type ListUsersOpParams struct {
 	// Query Search query to filter users
 	Query *string `form:"query,omitempty" json:"query,omitempty"`
 }
+
+// ImportPrometheusMetricsTextRequestBody defines body for ImportPrometheusMetrics for text/plain ContentType.
+type ImportPrometheusMetricsTextRequestBody = ImportPrometheusMetricsTextBody
+
+// ImportPrometheusMetricsForJobTextRequestBody defines body for ImportPrometheusMetricsForJob for text/plain ContentType.
+type ImportPrometheusMetricsForJobTextRequestBody = ImportPrometheusMetricsForJobTextBody
 
 // CreateApiKeysJSONRequestBody defines body for CreateApiKeys for application/json ContentType.
 type CreateApiKeysJSONRequestBody = CreateApiKeyRequest
