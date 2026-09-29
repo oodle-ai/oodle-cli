@@ -726,6 +726,13 @@ components:
           type: string
         environment:
           type: string
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter says which way is good for this score.
+            Omit it to leave the direction undeclared, which reads as
+            higher-is-better.
+          nullable: true
         id:
           type: string
         inputTokens:
@@ -3028,6 +3035,14 @@ components:
             the value counts are read against.
         dataType:
           type: string
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter is the direction the scores under the
+            name declared. Absent when none declared one, or when
+            they disagree: an average over two evaluators that read
+            in opposite directions has no direction.
+          nullable: true
         name:
           type: string
         values:
@@ -3168,6 +3183,13 @@ components:
           type: string
         environment:
           type: string
+        higherIsBetter:
+          type: boolean
+          description: |-
+            HigherIsBetter is the direction the writer declared. Nil
+            is undeclared, which every renderer reads as
+            higher-is-better.
+          nullable: true
         id:
           type: string
         inputTokens:
@@ -3976,6 +3998,13 @@ components:
           type: integer
         total:
           type: integer
+        trace_filters_truncated:
+          type: boolean
+          description: |-
+            TraceFiltersTruncated reports that the traceFilters
+            intersection was taken over the newest traces only,
+            so a value carried only by an older trace can be
+            missing.
     TraceProcess:
       type: object
       required:
@@ -4133,6 +4162,14 @@ components:
             number of spans returned.
         total:
           type: integer
+        trace_filters_truncated:
+          type: boolean
+          description: |-
+            TraceFiltersTruncated reports that the traceFilters
+            intersection was taken over the newest traces only,
+            so an older trace that satisfies every conjunct can
+            be missing. Narrow the time range to check every
+            trace.
         truncated:
           type: boolean
           description: |-
@@ -4823,6 +4860,157 @@ info:
     - **Oodle CLI** (OAuth users): run `oodle auth status` after `oodle auth login`.
   version: 1.0.0
 paths:
+  /api/v1/import/prometheus:
+    post:
+      tags:
+        - Metrics Ingest
+      summary: Import metrics in Prometheus text format
+      description: |-
+        Write metrics in the Prometheus text exposition format.
+
+        This endpoint matches the VictoriaMetrics API of the same path, so a client that writes to VictoriaMetrics can send to Oodle after a change of base URL.
+
+        Send the request to the collector domain of your integration, not to the API domain. The path carries no tenant, so name the instance in the `X-OODLE-INSTANCE` header.
+
+        Example body:
+
+        ```
+        # TYPE http_requests_total counter
+        http_requests_total{method="GET",code="200"} 1234
+        ```
+
+        **Required role:** Admin or Data Ingestion
+      operationId: importPrometheusMetrics
+      parameters:
+        - name: X-OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: extra_label
+          in: query
+          description: A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+          schema:
+            type: string
+        - name: timestamp
+          in: query
+          description: Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: |-
+          Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+          The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: |-
+                Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+                The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+      responses:
+        "204":
+          description: Metrics accepted
+        "400":
+          description: Missing instance header, or malformed body, query argument, or Content-Encoding
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: The API key does not carry an ingestion role
+        "429":
+          description: Ingestion rate limit exceeded
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+      servers:
+        - url: https://{collectorDomain}
+          description: Metrics collector for the instance. Ingest does not run on the API host.
+          variables:
+            collectorDomain:
+              default: collector.oodle.ai
+              description: The `collectorDomain` field of your integration. Read it from the Integrations page or from the integration API.
+  /api/v1/import/prometheus/metrics/job/{job}:
+    post:
+      tags:
+        - Metrics Ingest
+      summary: Import metrics for a job in Prometheus text format
+      description: |-
+        Write metrics in the Prometheus text exposition format, with grouping labels in the path.
+
+        This is the Pushgateway form of `/api/v1/import/prometheus`, and it takes the same body and the same query arguments. Every label pair in the path is added to every series in the body.
+
+        Append further pairs to add further labels, as in `/api/v1/import/prometheus/metrics/job/{job}/instance/host-1`. To send a label value that holds a `/`, suffix the label name with `@base64` and encode the value as base64url, as in `/metrics/job@base64/bXlqb2I`.
+
+        A label given by `extra_label` replaces a path label of the same name.
+
+        **Required role:** Admin or Data Ingestion
+      operationId: importPrometheusMetricsForJob
+      parameters:
+        - name: job
+          in: path
+          description: Value for the `job` label, added to every series in the body.
+          required: true
+          schema:
+            type: string
+        - name: X-OODLE-INSTANCE
+          in: header
+          description: Oodle instance ID that receives the metrics. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: extra_label
+          in: query
+          description: A label to add to every series in the body, as `name=value`. Repeat the argument to add more than one. A label given here replaces a label of the same name in the body.
+          schema:
+            type: string
+        - name: timestamp
+          in: query
+          description: Unix timestamp in milliseconds for the samples that carry no timestamp of their own. Samples that carry one keep it.
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        description: |-
+          Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+          The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: |-
+                Metrics in the Prometheus text exposition format. Each line is `<metric_name>{<labels>} <value> [<timestamp>]`. Lines that start with `#` are comments and are skipped. The timestamp is optional: a line without one takes the `timestamp` query argument, or the time of arrival. Oodle reads a timestamp that fits in a signed 32-bit integer as seconds, and a larger timestamp as milliseconds.
+
+                The body can be compressed. Set `Content-Encoding` to `gzip`, `zstd`, or `deflate` to do so.
+      responses:
+        "204":
+          description: Metrics accepted
+        "400":
+          description: Missing instance header, or malformed body, query argument, or Content-Encoding
+        "401":
+          description: Missing or invalid API key
+        "403":
+          description: The API key does not carry an ingestion role
+        "429":
+          description: Ingestion rate limit exceeded
+        "500":
+          description: Internal server error
+        default:
+          description: ""
+      servers:
+        - url: https://{collectorDomain}
+          description: Metrics collector for the instance. Ingest does not run on the API host.
+          variables:
+            collectorDomain:
+              default: collector.oodle.ai
+              description: The `collectorDomain` field of your integration. Read it from the Integrations page or from the integration API.
   /api/v1/log_index_patterns:
     get:
       tags:
@@ -11864,6 +12052,8 @@ tags:
     description: Query distributed traces, labels, and label values.
   - name: Metrics
     description: Query metric names, labels, label values, and execute PromQL queries (Prometheus-compatible).
+  - name: Metrics Ingest
+    description: Write metrics to Oodle. These endpoints run on the collector domain, not on the API domain.
   - name: Logs
     description: Search and query log data, and discover log index patterns.
   - name: OAuth
