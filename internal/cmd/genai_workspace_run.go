@@ -138,8 +138,8 @@ days). The command exits with an error when the code fails.`,
 
 			switch {
 			case span != "":
-				traceID, spanID, ok := strings.Cut(span, ":")
-				if !ok || traceID == "" || spanID == "" {
+				traceID, spanID, ok := splitSpanRef(span)
+				if !ok {
 					return fmt.Errorf("--span must be <trace-id>:<span-id>")
 				}
 				body["traceId"], body["spanId"] = traceID, spanID
@@ -315,4 +315,16 @@ func writeTestRun(cmd *cobra.Command, result map[string]any) error {
 		fmt.Fprintf(w, "Logs:\n%s", withNewline(logs))
 	}
 	return nil
+}
+
+// splitSpanRef splits "<trace-id>:<span-id>" at the last colon. A
+// trace id can itself contain a colon; a span id never does, so the
+// first colon would cut the trace id short and the span would not be
+// found.
+func splitSpanRef(ref string) (traceID, spanID string, ok bool) {
+	i := strings.LastIndex(ref, ":")
+	if i <= 0 || i == len(ref)-1 {
+		return "", "", false
+	}
+	return ref[:i], ref[i+1:], true
 }
