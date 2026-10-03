@@ -1,7 +1,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -13,6 +17,7 @@ var templateColumns = []output.Column{
 	{Header: "NAME", Field: "Name"},
 	{Header: "ID", Field: "Id"},
 	{Header: "TYPE", Field: "Type"},
+	{Header: "CATEGORY", Field: "Category"},
 	{Header: "VERSION", Field: "Version"},
 	{Header: "VARS", Field: "Vars"},
 	{Header: "CREATED", Field: "CreatedAt"},
@@ -32,8 +37,8 @@ var evaluatorColumns = []output.Column{
 func newGenAITemplatesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "templates",
-		Aliases: []string{"template", "library"},
-		Short:   "Manage evaluator templates (the Library)",
+		Aliases: []string{"template"},
+		Short:   "Manage evaluator templates (Evaluations > Library in the UI)",
 		Long: `Manage evaluator templates — the judges that produce scores.
 
 These are what the Oodle UI lists under Evaluations > Library,
@@ -59,7 +64,10 @@ expected output is skipped rather than scored zero.
 
 The list also includes Oodle-managed templates (ids beginning
 "oodle-managed-"). Those are read-only: reference them from an
-evaluator, but update and delete are refused.`,
+evaluator, but update and delete are refused. The built-in code
+checks are managed code templates (ids beginning
+"oodle-managed-code-"): they run with no code, and each
+evaluator sets their settings in its "params".`,
 	}
 
 	cmd.AddCommand(newGenAITemplatesListCmd())
@@ -68,6 +76,10 @@ evaluator, but update and delete are refused.`,
 	cmd.AddCommand(newGenAITemplatesUpdateCmd())
 	cmd.AddCommand(newGenAITemplatesDeleteCmd())
 	cmd.AddCommand(newGenAITemplatesStartersCmd())
+	cmd.AddCommand(newGenAITemplatesValidateCmd())
+	cmd.AddCommand(newGenAITemplatesPullCmd())
+	cmd.AddCommand(newGenAITemplatesPushCmd())
+	cmd.AddCommand(newGenAITemplatesTestCmd())
 
 	return cmd
 }
@@ -100,7 +112,7 @@ func newGenAITemplatesListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, deref(resp.JSON200.Data), templateColumns,
 			)
 		},
@@ -131,7 +143,7 @@ func newGenAITemplatesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, resp.JSON200, templateColumns,
 			)
 		},
@@ -167,6 +179,31 @@ plan, on create and update alike — 400 means the flag is off,
     "sourceCode": "def evaluate(span):\n    ..."
   }
 
+A code template can declare settings in "params". Each
+evaluator made from the template sets its own values, and the
+code reads them as ctx.params. "libraryPins" sets the version
+of a shared library that the code runs; a library with no pin
+runs at its latest version:
+
+  name: Mentions refund
+  type: code
+  sourceCodeLanguage: python
+  params:
+    - name: required
+      type: string_list
+      default: [refund]
+  libraryPins:
+    acme_text: 3
+  sourceCode: |
+    from oodle_eval.v1 import metrics
+
+    def evaluate(ctx):
+        return EvaluationResult(
+            scores=metrics.keyword_check(ctx, **ctx.params))
+
+A setting type is one of string, text, number, integer,
+boolean, string_list, enum (with "options") or json.
+
 Only "code" is special-cased. Any other type is stored as given
 and runs as an LLM judge, so a typo in "type" fails quietly.`,
 		Args: cobra.NoArgs,
@@ -191,7 +228,7 @@ and runs as an LLM judge, so a typo in "type" fails quietly.`,
 			if resp.JSON201 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, resp.JSON201, templateColumns,
 			)
 		},
@@ -215,7 +252,12 @@ Round-tripping is the safe way to edit one:
 
   oodle genai templates get <id> -o yaml > eval.yaml
   $EDITOR eval.yaml
-  oodle genai templates update <id> -f eval.yaml`,
+  oodle genai templates update <id> -f eval.yaml
+
+A change of a code template's params that makes the settings
+of an existing evaluator not valid is refused (409). The error
+names those evaluators. Change their params first, or keep the
+setting compatible.`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -238,7 +280,7 @@ Round-tripping is the safe way to edit one:
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, resp.JSON200, templateColumns,
 			)
 		},
@@ -286,6 +328,21 @@ func newGenAITemplatesDeleteCmd() *cobra.Command {
 
 // --- Evaluation rules ---
 
+// evaluatorDetailColumns add the fields of one rule that the
+// list leaves out for width.
+var evaluatorDetailColumns = append(
+	append([]output.Column{}, evaluatorColumns...),
+	output.Column{Header: "PARAMS", Field: "Params"},
+	output.Column{Header: "READS SCORES FROM", Field: "ReadsScoresFrom"},
+)
+
+// evaluatorDetailRow is the table form of one rule.
+type evaluatorDetailRow struct {
+	client.EvaluationRuleResponse
+	Params          string
+	ReadsScoresFrom string
+}
+
 func newGenAIEvaluatorsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "evaluators",
@@ -309,6 +366,7 @@ span, so set both before enabling one on a busy service.`,
 	}
 
 	cmd.AddCommand(newGenAIEvaluatorsListCmd())
+	cmd.AddCommand(newGenAIEvaluatorsGetCmd())
 	cmd.AddCommand(newGenAIEvaluatorsCreateCmd())
 	cmd.AddCommand(newGenAIEvaluatorsUpdateCmd())
 	cmd.AddCommand(newGenAIEvaluatorsDeleteCmd())
@@ -347,7 +405,7 @@ fetching the template. Narrow the list with --type.`,
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, deref(resp.JSON200.Data), evaluatorColumns,
 			)
 		},
@@ -358,6 +416,133 @@ fetching the template. Narrow the list with --type.`,
 			"llm, code or output_comparer",
 	)
 	return cmd
+}
+
+func newGenAIEvaluatorsGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <evaluator>",
+		Short: "Get an evaluator by id or name",
+		Long: `Get an evaluator by id or name, with its settings (params) and
+scoreInputRuleIds: the evaluators whose scores its code reads.
+
+To edit one, write it to a file, change it, then update:
+
+  oodle genai evaluators get "Refund mentioned" -o yaml > rule.yaml
+  $EDITOR rule.yaml
+  oodle genai evaluators update <id> -f rule.yaml`,
+		Args: exactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := getClient(cmd)
+
+			// An id goes straight to the single-rule route. Rule
+			// ids have no fixed format, so a 404 there means the
+			// argument can be a name, which only the list resolves.
+			one, err := c.Inner.GetGenaiEvaluationRuleWithResponse(
+				cmd.Context(), getInstance(cmd), args[0],
+			)
+			if err != nil {
+				return fmt.Errorf("API request failed: %w", err)
+			}
+			var found *client.EvaluationRuleResponse
+			switch {
+			case one.StatusCode() == http.StatusNotFound:
+			case one.StatusCode() >= 300:
+				return genaiCheck(one.StatusCode(), one.HTTPResponse, one.Body)
+			case one.JSON200 == nil:
+				return errEmptyResponse
+			default:
+				found = one.JSON200
+			}
+
+			// The list resolves a name, and gives the names of the
+			// rules whose scores this rule reads. It is not paged.
+			var rules []client.EvaluationRuleResponse
+			needList := found == nil || (isTabular(cmd) &&
+				len(deref(found.ScoreInputRuleIds)) > 0)
+			if needList {
+				resp, err := c.Inner.ListGenaiEvaluationRulesWithResponse(
+					cmd.Context(), getInstance(cmd),
+					&client.ListGenaiEvaluationRulesParams{},
+				)
+				if err != nil {
+					return fmt.Errorf("API request failed: %w", err)
+				}
+				if err := genaiCheck(
+					resp.StatusCode(), resp.HTTPResponse, resp.Body,
+				); err != nil {
+					return err
+				}
+				if resp.JSON200 == nil {
+					return errEmptyResponse
+				}
+				rules = deref(resp.JSON200.Data)
+			}
+			if found == nil {
+				for i := range rules {
+					if rules[i].Name == args[0] {
+						if found != nil {
+							return fmt.Errorf(
+								"more than one evaluator is named %q; "+
+									"use the id", args[0],
+							)
+						}
+						found = &rules[i]
+					}
+				}
+			}
+			if found == nil {
+				return fmt.Errorf(
+					"no evaluator %q; run `oodle genai evaluators list` "+
+						"to list them", args[0],
+				)
+			}
+			if !isTabular(cmd) {
+				return printPlain(cmd, found)
+			}
+			return printGenAI(cmd, evaluatorDetailRow{
+				EvaluationRuleResponse: *found,
+				Params:                 formatParams(deref(found.Params)),
+				ReadsScoresFrom:        ruleNames(rules, deref(found.ScoreInputRuleIds)),
+			}, evaluatorDetailColumns)
+		},
+	}
+}
+
+// formatParams writes settings as name=value pairs, with each
+// value in its JSON form, in name order.
+func formatParams(params map[string]any) string {
+	names := make([]string, 0, len(params))
+	for k := range params {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	parts := make([]string, len(names))
+	for i, k := range names {
+		v, err := json.Marshal(params[k])
+		if err != nil {
+			v = []byte(fmt.Sprint(params[k]))
+		}
+		parts[i] = k + "=" + string(v)
+	}
+	return strings.Join(parts, " ")
+}
+
+// ruleNames gives each id the name of its rule, because a list
+// of ids does not tell a reader which evaluators they are.
+func ruleNames(rules []client.EvaluationRuleResponse, ids []string) string {
+	byID := make(map[string]string, len(rules))
+	for _, r := range rules {
+		byID[r.Id] = r.Name
+	}
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		if name, ok := byID[id]; ok {
+			out[i] = name
+		} else {
+			out[i] = id
+		}
+	}
+	return strings.Join(out, ", ")
 }
 
 func newGenAIEvaluatorsCreateCmd() *cobra.Command {
@@ -383,7 +568,52 @@ func newGenAIEvaluatorsCreateCmd() *cobra.Command {
 
 dependsOnRuleIds gates this rule on other rules' scores. Cycles
 and self-references are rejected, and a rule cannot be deleted
-while another depends on it.`,
+while another depends on it.
+
+"filters" limits the spans that the evaluator scores. Each entry
+names a span field or attribute, an operator and a value:
+
+  "filters": [
+    {"name": "span::gen_ai.operation.name", "type": "eq", "value": "chat"},
+    {"name": "resource::service.name", "type": "re", "value": "support-.*"}
+  ]
+
+An attribute name has its kind as a prefix: "span::" for a span
+attribute, "resource::" for a resource attribute. A dotted name
+with no prefix, such as "gen_ai.operation.name", is refused with
+400, because the server cannot tell which kind it is.
+
+"type" is one of:
+
+  eq, neq, re, nre      (or =, !=, =~, !~)  stored as 0 to 3
+  oneof, not_oneof                          stored as 4 and 5
+  gt, gte, lt, lte                          stored as GT, GTE, LT, LTE
+
+oneof and not_oneof take a list in "multi_value" in place of
+"value":
+
+  {"name": "span::gen_ai.request.model", "type": "oneof",
+   "multi_value": ["gpt-4o", "claude-sonnet-4"]}
+
+The server stores the operator in the form that the trace store
+matches, so a get shows the stored form in place of the word. A
+number outside 0 to 5, or an unknown word, is refused with 400.
+
+For a code template that declares settings, "params" sets this
+evaluator's values. A setting left out takes the template's
+default. The server checks the values against the template:
+
+  {
+    "name": "Refund mentioned",
+    "evaluatorId": "oodle-managed-code-keyword-check-v1",
+    "params": {"required": ["refund", "return"], "mode": "any"},
+    "enabled": true
+  }
+
+A code evaluator that reads other evaluators' scores
+(ctx.scores["Helpfulness"]) runs after them. The server finds
+those evaluators in the code and shows them in
+scoreInputRuleIds; you do not set that field.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -406,7 +636,7 @@ while another depends on it.`,
 			if resp.JSON201 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, resp.JSON201, evaluatorColumns,
 			)
 		},
@@ -432,7 +662,14 @@ func newGenAIEvaluatorsUpdateCmd() *cobra.Command {
 
 --enable / --disable are the common case and need no file:
 
-  oodle genai evaluators update <id> --disable`,
+  oodle genai evaluators update <id> --disable
+
+"filters" in the file replaces the evaluator's filters. The
+format is the one that ` + "`evaluators create --help`" + ` shows: for
+example {"name": "span::gen_ai.operation.name", "type": "eq",
+"value": "chat"}, or a "multi_value" list for oneof and
+not_oneof. A dotted name with no "span::" or "resource::"
+prefix is refused with 400.`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
@@ -476,7 +713,7 @@ func newGenAIEvaluatorsUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
+			return printGenAIObject(
 				cmd, resp.JSON200, evaluatorColumns,
 			)
 		},
