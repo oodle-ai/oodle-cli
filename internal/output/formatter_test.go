@@ -189,3 +189,34 @@ func TestDetectFormat_NoTTYDefaultsJSON(t *testing.T) {
 		t.Errorf("DetectFormat(\"\") = %q, want %q (non-TTY default)", got, FormatJSON)
 	}
 }
+
+// A tab or a newline in a value must not move the columns.
+func TestTableReplacesControlCharacters(t *testing.T) {
+	type row struct{ A, B string }
+	var buf bytes.Buffer
+	err := Print(&buf, FormatTable,
+		[]row{{A: "one\ttwo\nthree", B: "x"}},
+		[]Column{{Header: "A", Field: "A"}, {Header: "B", Field: "B"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimRight(buf.String(), "\n"), "\n")
+	if len(lines) != 2 || !strings.Contains(lines[1], "one two three") {
+		t.Errorf("table = %q", buf.String())
+	}
+}
+
+// A float32 prints as the value that the API sent, not with the
+// error of its binary form.
+func TestTableFloat32(t *testing.T) {
+	type row struct{ Rate float32 }
+	var buf bytes.Buffer
+	err := Print(&buf, FormatTable, []row{{Rate: 0.01}},
+		[]Column{{Header: "RATE", Field: "Rate"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(buf.String(), "0.01\n") {
+		t.Errorf("table = %q", buf.String())
+	}
+}

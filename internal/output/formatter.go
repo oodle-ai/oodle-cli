@@ -7,11 +7,12 @@ import (
 	"io"
 	"os"
 	"reflect"
+	"strconv"
 	"strings"
 	"text/tabwriter"
+	"unicode"
 
 	"golang.org/x/term"
-	"gopkg.in/yaml.v3"
 )
 
 // Format identifies an output format.
@@ -76,7 +77,7 @@ func printJSON(w io.Writer, data any) error {
 }
 
 func printYAML(w io.Writer, data any) error {
-	out, err := yaml.Marshal(data)
+	out, err := MarshalYAML(data)
 	if err != nil {
 		return fmt.Errorf("encoding yaml: %w", err)
 	}
@@ -163,7 +164,12 @@ func formatScalar(v reflect.Value) string {
 		return fmt.Sprintf("%d", v.Int())
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return fmt.Sprintf("%d", v.Uint())
-	case reflect.Float32, reflect.Float64:
+	case reflect.Float32:
+		// A float32 widened to float64 prints its binary error
+		// (0.01 as 0.009999999776482582). The shortest form at
+		// 32 bits is the value that the API sent.
+		return strconv.FormatFloat(v.Float(), 'g', -1, 32)
+	case reflect.Float64:
 		return fmt.Sprintf("%g", v.Float())
 	default:
 		// Fall back to fmt for slices/maps/structs.
@@ -187,7 +193,7 @@ func printTable(w io.Writer, data any, columns []Column) error {
 	for _, row := range rows {
 		cells := make([]string, len(columns))
 		for i, c := range columns {
-			cells[i] = fieldValue(row, c.Field)
+			cells[i] = tableCell(fieldValue(row, c.Field))
 		}
 		if _, err := fmt.Fprintln(tw, strings.Join(cells, "\t")); err != nil {
 			return err
@@ -233,4 +239,16 @@ func DetectFormat(outputFlag string) Format {
 		return FormatTable
 	}
 	return FormatJSON
+}
+
+// tableCell replaces each control character with a space. A tab
+// is the column separator of the table writer and a newline ends
+// the row, so either one in a value moves the columns out of line.
+func tableCell(s string) string {
+	return strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, s)
 }

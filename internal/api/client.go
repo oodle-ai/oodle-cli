@@ -44,16 +44,35 @@ type APIError struct {
 	Cause      string
 	Remedy     string
 	TraceID    string
+	// Details is printed last, after all other parts. It holds
+	// lists such as the objects that block a delete, which read
+	// badly with other parts after them.
+	Details string
 }
 
-// Error implements the error interface.
+// Error implements the error interface. An empty code or trace
+// is left out, because "(code: , trace: )" tells the user
+// nothing.
 func (e *APIError) Error() string {
-	out := fmt.Sprintf("Error: %s (code: %s, trace: %s)", e.Message, e.Code, e.TraceID)
+	out := "Error: " + e.Message
+	var ids []string
+	if e.Code != "" {
+		ids = append(ids, "code: "+e.Code)
+	}
+	if e.TraceID != "" {
+		ids = append(ids, "trace: "+e.TraceID)
+	}
+	if len(ids) > 0 {
+		out += " (" + strings.Join(ids, ", ") + ")"
+	}
 	if e.Cause != "" {
 		out += "\nCause: " + e.Cause
 	}
 	if e.Remedy != "" {
 		out += "\nRemedy: " + e.Remedy
+	}
+	if e.Details != "" {
+		out += "\n" + e.Details
 	}
 	return out
 }
@@ -226,6 +245,13 @@ func (t *jsonFixTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		return resp, err
 	}
 	ct := resp.Header.Get("Content-Type")
+	// A 204 has no body. With a JSON content type the generated
+	// client tries to parse the empty body and turns a success,
+	// such as a delete, into an error.
+	if resp.StatusCode == http.StatusNoContent {
+		resp.Header.Del("Content-Type")
+		return resp, nil
+	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 && strings.HasPrefix(ct, "text/plain") {
 		resp.Header.Set("Content-Type", "application/json")
 	}
