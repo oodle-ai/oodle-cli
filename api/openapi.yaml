@@ -119,6 +119,108 @@ components:
           nullable: true
           additionalProperties:
             type: string
+    BackfillAlsoRun:
+      type: object
+      description: |-
+        AlsoRun is an evaluator a backfill runs because a chosen one
+        reads its scores. The run adds it the same way, so the
+        caller sees here what the run will write.
+      required:
+        - id
+        - name
+        - readBy
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        readBy:
+          type: array
+          description: |-
+            ReadBy names the evaluators of the run that read this
+            one's scores.
+          nullable: true
+          items:
+            type: string
+    BackfillRequest:
+      type: object
+      description: Request is what the caller asks for.
+      required:
+        - name
+        - startTime
+        - endTime
+        - evaluatorIds
+      properties:
+        bucketSeconds:
+          type: integer
+          description: |-
+            Bucket width in seconds. How often the run publishes
+            what it read, which is the denominator's unit. The
+            charts read each result's own time and pick their own
+            step, so this is not their resolution.
+        endTime:
+          type: integer
+        evaluatorIds:
+          type: array
+          description: |-
+            Evaluation rule ids. A signal authored through the
+            drafting flow is a rule like any other, so it needs no
+            separate list.
+          nullable: true
+          items:
+            type: string
+        filters:
+          description: |-
+            Extra span filters, in the same shape the trace APIs
+            take. Passed through untouched.
+        name:
+          type: string
+        sampleRate:
+          type: number
+          description: Fraction of spans to read, 0 < rate <= 1.
+        startTime:
+          type: integer
+          description: Microseconds, matching every other trace API here.
+    BackfillRun:
+      type: object
+      description: |-
+        BackfillRun is one backfill run, as the list, the detail page
+        and the create, cancel and get routes return it.
+      required:
+        - id
+        - status
+        - createdAt
+        - updatedAt
+        - config
+        - totalBuckets
+      properties:
+        alsoRuns:
+          type: array
+          description: |-
+            AlsoRuns are the evaluators the run adds because a chosen
+            one reads their scores. Only the create answer carries
+            them; the run works out the same set again.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/BackfillAlsoRun'
+        config:
+          $ref: '#/components/schemas/BackfillRequest'
+        createdAt:
+          type: string
+        error:
+          type: string
+        id:
+          type: string
+        status:
+          type: string
+        totalBuckets:
+          type: integer
+          description: |-
+            TotalBuckets is what the run has to get through, derived
+            from the window and the bucket width. The page pairs it
+            with the batch markers it can see to show progress.
+        updatedAt:
+          type: string
     BasicAuth:
       type: object
       description: BasicAuth contains basic HTTP authentication credentials.
@@ -292,6 +394,192 @@ components:
       properties:
         crdbCloudIntegration:
           $ref: '#/components/schemas/CockroachDBCloudIntegration'
+    CodeEvalLibContextField:
+      type: object
+      description: |-
+        CodeEvalLibContextField is one value the code reads from the
+        evaluation context.
+      required:
+        - path
+      properties:
+        doc:
+          type: string
+        path:
+          type: string
+    CodeEvalLibFunction:
+      type: object
+      description: CodeEvalLibFunction is one function of a module.
+      required:
+        - name
+        - signature
+      properties:
+        doc:
+          type: string
+        file:
+          type: string
+          description: |-
+            File and Line are where the function is defined, as a
+            path the `code-eval-library/files` route serves.
+        line:
+          type: integer
+        name:
+          type: string
+        params:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibParam'
+        scores:
+          type: array
+          description: Scores are the names of the scores the function returns.
+          nullable: true
+          items:
+            type: string
+        signature:
+          type: string
+        summary:
+          type: string
+    CodeEvalLibMethod:
+      type: object
+      description: CodeEvalLibMethod is one public method of a runtime class.
+      required:
+        - name
+        - signature
+      properties:
+        doc:
+          type: string
+        name:
+          type: string
+        signature:
+          type: string
+        summary:
+          type: string
+    CodeEvalLibModule:
+      type: object
+      description: CodeEvalLibModule is one module of the library.
+      required:
+        - name
+        - path
+        - functions
+      properties:
+        doc:
+          type: string
+        functions:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibFunction'
+        name:
+          type: string
+        path:
+          type: string
+    CodeEvalLibParam:
+      type: object
+      description: CodeEvalLibParam is one argument of a function.
+      required:
+        - name
+        - kind
+      properties:
+        default:
+          type: string
+        kind:
+          type: string
+        name:
+          type: string
+    CodeEvalLibSymbol:
+      type: object
+      description: CodeEvalLibSymbol is one runtime class or function.
+      required:
+        - name
+        - kind
+      properties:
+        doc:
+          type: string
+        file:
+          type: string
+          description: |-
+            File and Line are where the class is defined, as a path
+            the `code-eval-library/files` route serves.
+        kind:
+          type: string
+        line:
+          type: integer
+        methods:
+          type: array
+          description: Methods are the class's public methods.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibMethod'
+        name:
+          type: string
+        signature:
+          type: string
+    CodeEvalLibraryFileResponse:
+      type: object
+      description: CodeEvalLibraryFileResponse is one file of the library.
+      required:
+        - path
+        - source
+      properties:
+        path:
+          type: string
+        source:
+          type: string
+    CodeEvalLibraryFilesResponse:
+      type: object
+      description: |-
+        CodeEvalLibraryFilesResponse lists the Python files of the
+        `oodle_eval` library, so the editor can open the code behind a
+        function.
+      required:
+        - files
+      properties:
+        files:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LibraryFile'
+    CodeEvalLibraryResponse:
+      type: object
+      description: |-
+        CodeEvalLibraryResponse is the reference of the `oodle_eval`
+        library that code evaluators import. The handler serves the
+        generated `managed/codelib/manifest.json` as it is; these types
+        describe that file for the API spec and the clients built from
+        it.
+      required:
+        - package
+        - version
+        - modules
+        - runtime
+        - context
+      properties:
+        context:
+          type: array
+          description: Context lists what the code can read from `ctx`.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibContextField'
+        import:
+          type: string
+          description: Import is the import line a code evaluator starts with.
+        modules:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibModule'
+        package:
+          type: string
+        runtime:
+          type: array
+          description: |-
+            Runtime lists the classes the code builds its result
+            from, such as Score and EvaluationResult.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeEvalLibSymbol'
+        version:
+          type: string
     CodeEvalStarter:
       type: object
       description: CodeEvalStarter is one code evaluator starting point.
@@ -301,8 +589,219 @@ components:
         - category
         - description
         - sourceCode
+        - builtIn
       properties:
+        builtIn:
+          type: boolean
+          description: |-
+            BuiltIn is true when the entry is also served as a
+            managed code check that runs with no code.
         category:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        params:
+          type: array
+          description: |-
+            Params are the settings the source reads from ctx.params.
+            For a built-in check, each name is a keyword argument of
+            the library function it calls.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
+        primaryHigherIsBetter:
+          type: boolean
+        primaryScoreType:
+          type: string
+          description: |-
+            PrimaryScoreType ("BOOLEAN" or "NUMERIC") and
+            PrimaryHigherIsBetter describe the first score the source
+            returns. A managed check takes its template-level type and
+            direction from them, so a check whose verdict is bad when
+            true (refused, degenerated) is not coloured the wrong way.
+        sourceCode:
+          type: string
+          description: SourceCode is the Python to copy into a new code template.
+    CodeEvalTestRunRequest:
+      type: object
+      description: |-
+        CodeEvalTestRunRequest runs an evaluator's Python source, or a
+        judge prompt, against one span without persisting a score.
+
+        The path's template id names a stored template to fill what
+        the draft leaves out: its source, settings and pins. Use `test`
+        for a draft with no stored template.
+      properties:
+        connectionId:
+          type: string
+        endTimeUs:
+          type: integer
+        experiment:
+          description: |-
+            Experiment is a simulated experiment item, read by the
+            code as `ctx.experiment` (for example
+            `{"expected_output": ...}`).
+        libraries:
+          type: object
+          description: |-
+            Libraries are draft shared libraries, name to source.
+            Each one replaces the stored library of that name for
+            this run only, so a library edit can be tried before it
+            is saved.
+          nullable: true
+          additionalProperties:
+            type: string
+        libraryPins:
+          type: object
+          description: |-
+            LibraryPins are the pins of a draft. Omitted, the stored
+            template's pins apply.
+          nullable: true
+          additionalProperties:
+            type: integer
+        model:
+          type: string
+        modelParams:
+          description: |-
+            ModelParams is the rule's, so a judge is tried as it will
+            run: a TypeSafe rule's decision (question type, criteria,
+            threshold, confidence) rides here.
+        paramSpecs:
+          type: array
+          description: |-
+            ParamSpecs are the settings of a draft that is not
+            saved yet, so the form can test the settings it shows.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
+        params:
+          type: object
+          description: |-
+            Params are the values to run with, by setting name.
+            They are resolved against ParamSpecs, or against the
+            stored template's settings when ParamSpecs is omitted.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
+        prompt:
+          type: string
+          description: |-
+            Prompt runs an LLM judge instead of code. It needs
+            ConnectionID: the provider that scores it is the
+            customer's, so a draft is reviewed against the model it
+            will actually run on.
+        scores:
+          type: object
+          description: |-
+            Scores are the scores of other evaluators, by evaluator
+            name, that the code reads through `ctx.scores`. A test
+            run has no other evaluators running, so the caller
+            supplies them.
+          nullable: true
+          additionalProperties:
+            type: array
+            nullable: true
+            items:
+              $ref: '#/components/schemas/InputScore'
+        sourceCode:
+          type: string
+          description: SourceCode overrides the stored template source.
+        spanData:
+          description: |-
+            SpanData is a span to run on instead of a stored one:
+            `{span_id, trace_id, tags: {attribute: value}}`, the shape
+            the evaluator reads. It lets a local draft run with no
+            traffic to pick a span from.
+        spanId:
+          type: string
+          description: |-
+            SpanID and TraceID name a real span to run on. SpanID is
+            required unless SpanData is sent.
+        startTimeUs:
+          type: integer
+          description: |-
+            StartTimeUs and EndTimeUs are the window to look for the
+            span in: the one the caller picked it from. Without them
+            the read defaults to the last 24 hours, so a span chosen
+            from an older window is not found at all and the run
+            fails with a 404 that says nothing about time.
+        traceId:
+          type: string
+        variableMapping:
+          description: |-
+            VariableMapping maps each prompt variable to where its
+            value is read from, as an evaluation rule's does.
+    CodeEvalTestRunResponse:
+      type: object
+      description: |-
+        CodeEvalTestRunResponse is what a test run returns. The
+        fields present depend on what ran:
+
+          - code: `scores`, `logs` and `duration_ms`, or `error`
+            as `{code, message}` (for example BLOCKED_IMPORT,
+            INVALID_PARAMS, LIBRARY_NOT_FOUND, TIMEOUT).
+          - a judge: `score`, `reasoning`, `raw_output` and the token
+            counts, or `error` as a string naming the provider failure.
+
+        A failed run is a 200 with `error` set: the person drafting the
+        code can act on it.
+      properties:
+        duration_ms:
+          type: number
+        error:
+          oneOf:
+            - type: string
+              description: A judge run's failure, such as a provider error.
+            - type: object
+              description: A code run's failure, such as INVALID_PARAMS or LIBRARY_NOT_FOUND.
+              required:
+                - code
+                - message
+              properties:
+                code:
+                  type: string
+                message:
+                  type: string
+          description: Error is `{code, message}` for code, a string for a judge.
+        input_tokens:
+          type: integer
+        logs:
+          type: string
+        output_tokens:
+          type: integer
+        raw_output:
+          type: string
+        reasoning:
+          type: string
+        score:
+          type: number
+          nullable: true
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/InputScore'
+    CodeLibrary:
+      type: object
+      description: |-
+        CodeLibrary is one Python module the customer writes once and
+        imports from many code evaluators as `shared.<name>`.
+      required:
+        - id
+        - name
+        - description
+        - sourceCode
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        createdBy:
           type: string
         description:
           type: string
@@ -312,7 +811,88 @@ components:
           type: string
         sourceCode:
           type: string
-          description: SourceCode is the Python to copy into a new code template.
+        updatedAt:
+          type: string
+        version:
+          type: integer
+          description: |-
+            Version is the latest version. Each change of the source
+            adds one.
+    CodeLibraryInUseResponse:
+      type: object
+      description: |-
+        CodeLibraryInUseResponse is the 409 answer to a delete of a
+        library that code templates still import.
+      required:
+        - message
+        - error
+        - usedBy
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        usedBy:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/NamedRef'
+    CodeLibraryResponse:
+      type: object
+      description: |-
+        CodeLibraryResponse is one shared library and the code
+        templates that import it.
+      required:
+        - id
+        - name
+        - description
+        - sourceCode
+        - version
+        - createdAt
+        - updatedAt
+        - usedBy
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        sourceCode:
+          type: string
+        updatedAt:
+          type: string
+        usedBy:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/NamedRef'
+        version:
+          type: integer
+          description: |-
+            Version is the latest version. Each change of the source
+            adds one.
+    CodeLibraryVersion:
+      type: object
+      description: |-
+        CodeLibraryVersion is one stored copy of a library's source.
+        The list omits the source; a single version carries it.
+      required:
+        - version
+        - createdAt
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        sourceCode:
+          type: string
+        version:
+          type: integer
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -401,6 +981,27 @@ components:
           nullable: true
           items:
             type: string
+    CreateCodeLibraryRequest:
+      type: object
+      description: |-
+        CreateCodeLibraryRequest adds a shared library. Code
+        evaluators import it as `shared.<name>`.
+      required:
+        - name
+        - sourceCode
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+          description: |-
+            Name is the module name: a lower-case Python identifier
+            of at most 64 characters that is not a Python keyword
+            and not `oodle_eval`. It cannot be changed later,
+            because the code that imports the library names it.
+        sourceCode:
+          type: string
+          description: SourceCode is the Python module, at most 256 KB.
     CreateDatasetItemRequest:
       type: object
       description: CreateDatasetItemRequest adds one row to a dataset.
@@ -513,10 +1114,29 @@ components:
             (A pointer so the handler can tell an explicit false
             from an omitted field.)
           nullable: true
+        libraryPins:
+          type: object
+          description: |-
+            LibraryPins maps a shared library name to the version
+            the code runs. A library the code imports with no pin
+            runs at its latest version. Only code templates may pin.
+          nullable: true
+          additionalProperties:
+            type: integer
         modelParams: {}
         name:
           type: string
         outputSchema: {}
+        params:
+          type: array
+          description: |-
+            Params declares the settings of a code evaluator. Each
+            evaluator made from the template sets its own values,
+            and the code reads them as `ctx.params`. Only code
+            templates may declare settings.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
         prompt:
           type: string
           description: |-
@@ -591,6 +1211,15 @@ components:
         modelParams: {}
         name:
           type: string
+        params:
+          type: object
+          description: |-
+            Params are this evaluator's values for the settings its
+            code template declares, by setting name. A setting left
+            out takes the template's default.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
         samplingRate:
           type: number
           description: SamplingRate is 0..1.
@@ -648,16 +1277,45 @@ components:
             promptLabel, or a literal promptTemplate), or webhookId to
             post each item to a webhook you host instead. Plus
             optional evaluatorIds, outputComparerIds, evaluatorRules,
-            outputComparerRules, and evalConnectionId. runName is
-            assigned automatically when omitted.
+            outputComparerRules, evalConnectionId and
+            honorDependencies. runName is assigned automatically when
+            omitted.
 
             With webhookId, evalConnectionId is required whenever an
-            evaluator or comparer runs on an LLM: there is no
-            generation connection to fall back to.
+            evaluator or comparer runs on an LLM and its rule names
+            no connection of its own: there is no generation
+            connection to fall back to.
+
+            An evaluatorRules entry names a rule's templateId,
+            ruleName, model, llmConnectionId and dependsOnRuleIds.
+            A rule with its own llmConnectionId judges on it, so
+            judges on different providers can share one run. With
+            honorDependencies true, a rule that depends on others in
+            the run scores an item only where every one of them
+            reported a finding; off, every selected rule scores every
+            item, which is what every run did before the flag.
+
+            When llmConnectionId is a TypeSafe (Jev) connection the
+            prompt is a question over the item's variables and
+            decision says the answer's shape: {"type": "noul"} for
+            yes/no (the default), {"type": "choice", "criteria":
+            {option: description, ...}} for one of a set, or
+            {"type": "score", "criteria": [level, ...]} for an
+            ordered scale, lowest first. A yes/no decision takes a
+            threshold, the P(yes) at or above which the answer is yes
+            (0.5 unless set). The output is the word the answer maps
+            to: yes/no, the chosen option, or the nearest level. A Jev
+            evaluation rule carries the same block as
+            modelParams.decision, plus confidence, the gate a
+            dependent rule runs under.
 
             evaluatorIds and outputComparerIds are both lists of
             evaluator template ids; an id has to sit in the list
             matching its template type or the request is rejected.
+
+            Each evaluatorRules and outputComparerRules entry names a
+            templateId and may carry the rule's params, which are
+            checked against that template's settings.
         datasetRunId:
           type: string
         type:
@@ -739,6 +1397,14 @@ components:
         - traceId
         - name
       properties:
+        agreesWithExpectedOutput:
+          type: boolean
+          description: |-
+            AgreesWithExpectedOutput is whether the score matched the
+            dataset item's expected output. Omit it where there was
+            nothing to compare: absent means the comparison could not
+            be made, not that the score disagreed.
+          nullable: true
         comment:
           type: string
         configId:
@@ -758,6 +1424,12 @@ components:
           type: string
         inputTokens:
           type: integer
+        latencyMs:
+          type: integer
+          description: |-
+            LatencyMs is how long the evaluator took, in
+            milliseconds.
+          nullable: true
         model:
           type: string
         name:
@@ -1160,6 +1832,14 @@ components:
           nullable: true
           items:
             type: string
+    DeleteBackfillResponse:
+      type: object
+      description: DeleteBackfillResponse names the run that was removed.
+      required:
+        - id
+      properties:
+        id:
+          type: string
     DeleteDashboardResponse:
       type: object
       description: |-
@@ -1244,6 +1924,34 @@ components:
         to:
           type: string
           description: Email address to notify.
+    EvalFailureSummary:
+      type: object
+      description: |-
+        EvalFailureSummary is one evaluator's failed evaluations in
+        the scores that a list read.
+      required:
+        - evaluatorName
+        - count
+        - permanent
+        - lastSeen
+        - errorClasses
+      properties:
+        count:
+          type: integer
+        errorClasses:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+        evaluatorName:
+          type: string
+        lastSeen:
+          type: string
+        permanent:
+          type: boolean
+          description: |-
+            Permanent is true when retrying cannot help, such as a
+            code error, as opposed to a provider timeout.
     EvalTemplate:
       type: object
       required:
@@ -1258,6 +1966,17 @@ components:
         - createdAt
         - higherIsBetter
       properties:
+        category:
+          type: string
+          description: |-
+            Category, Description and Model are set only on the
+            Oodle-managed templates, which `managed` serves from the
+            catalogue rather than from a row. They are declared here
+            so the API spec describes what those templates carry.
+            Category groups them in the picker ("Built-in checks"),
+            Description says what a built-in check scores, and Model
+            is the judge model of a managed judge (served by
+            `GET eval-templates/{id}` only).
         cleanValue:
           type: string
           description: |-
@@ -1276,6 +1995,8 @@ components:
             rather than run on everything.
         createdAt:
           type: string
+        description:
+          type: string
         higherIsBetter:
           type: boolean
           description: |-
@@ -1292,10 +2013,30 @@ components:
             numbers but cannot say which won.
         id:
           type: string
+        libraryPins:
+          type: object
+          description: |-
+            LibraryPins maps a shared library name to the version
+            this template runs. A library the code imports with no
+            pin runs at its latest version.
+          nullable: true
+          additionalProperties:
+            type: integer
+        model:
+          type: string
         modelParams: {}
         name:
           type: string
         outputSchema: {}
+        params:
+          type: array
+          description: |-
+            Params declares the settings of a code template. Each
+            evaluation rule sets its own values for them, and the
+            code reads the resolved values as `ctx.params`.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
         projectId:
           type: string
           nullable: true
@@ -1370,8 +2111,27 @@ components:
         modelParams: {}
         name:
           type: string
+        params:
+          type: object
+          description: |-
+            Params are this evaluator's values for the settings its
+            code template declares, by setting name. The handler
+            checks them against the template on write.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
         samplingRate:
           type: number
+        scoreInputRuleIds:
+          type: array
+          description: |-
+            ScoreInputRuleIDs are the rules whose scores this rule's
+            code reads through `ctx.scores`. The server derives them
+            from the code on each write; a client never sets them.
+            The rule runs after them, on the spans they scored.
+          nullable: true
+          items:
+            type: string
         targetType:
           type: string
         updatedAt:
@@ -1454,8 +2214,27 @@ components:
         modelParams: {}
         name:
           type: string
+        params:
+          type: object
+          description: |-
+            Params are this evaluator's values for the settings its
+            code template declares, by setting name. The handler
+            checks them against the template on write.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
         samplingRate:
           type: number
+        scoreInputRuleIds:
+          type: array
+          description: |-
+            ScoreInputRuleIDs are the rules whose scores this rule's
+            code reads through `ctx.scores`. The server derives them
+            from the code on each write; a client never sets them.
+            The rule runs after them, on the spans they scored.
+          nullable: true
+          items:
+            type: string
         scoreType:
           type: string
           description: |-
@@ -1678,6 +2457,29 @@ components:
           type: string
         type:
           type: string
+    InputScore:
+      type: object
+      description: |-
+        InputScore is one score in the sandbox's shape: a score of
+        another evaluator that a test run hands to the code, or a score
+        the code returned.
+      required:
+        - name
+        - value
+      properties:
+        comment:
+          type: string
+        data_type:
+          type: string
+        higher_is_better:
+          type: boolean
+          nullable: true
+        name:
+          type: string
+        value:
+          description: |-
+            Value is a number, true or false, a string for a
+            categorical score, or null.
     Instance:
       type: object
       properties:
@@ -1854,13 +2656,93 @@ components:
           description: NotificationPolicyID references the notification policy to use when labels match
         notifiers:
           $ref: '#/components/schemas/NotifiersByCondition'
+    LibraryFile:
+      type: object
+      description: |-
+        LibraryFile is one Python file of the library, by its path under the
+        package root (for example `oodle_eval/v1/metrics.py`).
+      required:
+        - path
+        - size
+      properties:
+        path:
+          type: string
+        size:
+          type: integer
+    LibraryVersionRef:
+      type: object
+      description: |-
+        LibraryVersionRef is a shared library the code would load, and
+        the version: the pin, else the latest.
+      required:
+        - name
+        - version
+      properties:
+        draft:
+          type: boolean
+          description: |-
+            Draft is true when the import resolves to a draft from the
+            request. Version is then 0.
+        name:
+          type: string
+        version:
+          type: integer
+    ListBackfillsResponse:
+      type: object
+      description: ListBackfillsResponse lists an instance's backfill runs.
+      required:
+        - data
+        - active
+        - maxConcurrent
+      properties:
+        active:
+          type: integer
+          description: |-
+            Active is how many runs are queued or running, and
+            MaxConcurrent how many may be. The form disables itself
+            with a reason when they are equal.
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/BackfillRun'
+        maxConcurrent:
+          type: integer
+    ListCodeLibrariesResponse:
+      type: object
+      description: |-
+        ListCodeLibrariesResponse lists the shared libraries of an
+        instance, each with its latest source.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeLibrary'
+    ListCodeLibraryVersionsResponse:
+      type: object
+      description: |-
+        ListCodeLibraryVersionsResponse lists a library's versions,
+        newest first, without their source.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CodeLibraryVersion'
     ListCodeStartersResponse:
       type: object
       description: |-
         ListCodeStartersResponse lists the starting points for a code
         evaluator. A starter is not a template: a client copies its
-        source into a new `type: code` template and edits the
-        settings at the top.
+        source and its settings (`params`) into a new `type: code`
+        template. A starter with `builtIn` set is also served as a
+        managed code template, `oodle-managed-code-<id>-v1`, that runs
+        with no copy.
       required:
         - data
       properties:
@@ -2060,11 +2942,36 @@ components:
           nullable: true
           items:
             type: string
+    ListScoresMeta:
+      type: object
+      description: |-
+        ListScoresMeta is the score list's pagination, and whether a
+        trace filter was applied to the newest traces only.
+      required:
+        - totalItems
+        - page
+        - limit
+      properties:
+        limit:
+          type: integer
+        page:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+        traceFiltersTruncated:
+          type: boolean
+          description: |-
+            TraceFiltersTruncated is true when the intersection of
+            the trace filters was taken over the newest traces only,
+            so the result may not reach every trace in the window.
     ListScoresResponse:
       type: object
       description: ListScoresResponse is the score list envelope.
       required:
         - data
+        - summary
         - meta
       properties:
         data:
@@ -2073,7 +2980,16 @@ components:
           items:
             $ref: '#/components/schemas/ScoreResponse'
         meta:
-          $ref: '#/components/schemas/ListMeta'
+          $ref: '#/components/schemas/ListScoresMeta'
+        summary:
+          type: array
+          description: |-
+            Summary counts the failed evaluations per evaluator over
+            everything the query read, not only this page, so the
+            evaluators list can flag failing rows from one request.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/EvalFailureSummary'
     ListSyntheticMonitorsResponse:
       type: object
       description: |-
@@ -2559,6 +3475,24 @@ components:
           type: string
           format: date-time
           description: UpdatedAt is the timestamp of the last update of the muting rule.
+    NamedRef:
+      type: object
+      description: |-
+        NamedRef names one template, library or rule, for an answer that
+        lists what depends on the thing being changed.
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          description: |-
+            Kind is "template" or "library" in a library's used-by
+            list, and empty elsewhere.
+        name:
+          type: string
     NotificationPolicy:
       type: object
       description: |-
@@ -2832,6 +3766,30 @@ components:
           type: string
         text:
           type: string
+    ParamSpec:
+      type: object
+      description: ParamSpec declares one setting of a code evaluator template.
+      required:
+        - name
+        - type
+      properties:
+        default: {}
+        description:
+          type: string
+        label:
+          type: string
+        name:
+          type: string
+        options:
+          type: array
+          description: Options are the allowed values of an `enum` setting.
+          nullable: true
+          items:
+            type: string
+        required:
+          type: boolean
+        type:
+          type: string
     PatchIntegration:
       type: object
       properties:
@@ -3042,6 +4000,26 @@ components:
       properties:
         name:
           type: string
+    RuleInUseResponse:
+      type: object
+      description: |-
+        RuleInUseResponse is the 409 answer to a rename or delete of
+        an evaluation rule that other rules depend on: they gate on
+        it, or their code reads its scores by name.
+      required:
+        - message
+        - error
+        - dependents
+      properties:
+        dependents:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/NamedRef'
+        error:
+          type: string
+        message:
+          type: string
     RunScoreAggregate:
       type: object
       description: |-
@@ -3057,11 +4035,30 @@ components:
         - dataType
         - count
       properties:
+        agreement:
+          type: number
+          description: |-
+            What the run cost and how it compared, per evaluator.
+            Every field here is absent when no score of this name
+            recorded it, which is what every score written before
+            the columns existed does: absence is "not recorded",
+            never zero.
+
+            Agreement is the share of comparable scores that
+            matched the dataset item's expected output, over
+            AgreementCount of them. Scores with nothing to compare
+            against are outside both numbers.
+          nullable: true
+        agreementCount:
+          type: integer
         average:
           type: number
           description: |-
             Average is absent when no score of this name carried a
             number, which is what a purely categorical score is.
+          nullable: true
+        costUsd:
+          type: number
           nullable: true
         count:
           type: integer
@@ -3079,8 +4076,25 @@ components:
             they disagree: an average over two evaluators that read
             in opposite directions has no direction.
           nullable: true
+        inputTokens:
+          type: integer
+          description: |-
+            Tokens and cost sum over every score of the name, so a
+            judge that ran on 300 items reports the bill for 300
+            calls. Cost prices each score by the model stamped on
+            it; a model the pricing table does not know adds zero
+            and the tokens still show, so the gap is visible.
+        latencyMsP50:
+          type: number
+          description: Latency, in milliseconds, at the median and the tail.
+          nullable: true
+        latencyMsP95:
+          type: number
+          nullable: true
         name:
           type: string
+        outputTokens:
+          type: integer
         values:
           type: object
           description: |-
@@ -3209,10 +4223,25 @@ components:
         - createdAt
         - updatedAt
       properties:
+        agreesWithExpectedOutput:
+          type: boolean
+          description: |-
+            AgreesWithExpectedOutput says whether the score matched
+            the dataset item's expected output. Nil when the two were
+            not comparable, which is a claim of nothing rather than a
+            disagreement.
+          nullable: true
         comment:
           type: string
         configId:
           type: string
+        costUsd:
+          type: number
+          description: |-
+            CostUSD is what the judge call cost at the default
+            pricing, derived on read from Model and the tokens; nil
+            when either is missing.
+          nullable: true
         createdAt:
           type: string
         dataType:
@@ -3230,6 +4259,12 @@ components:
           type: string
         inputTokens:
           type: integer
+        latencyMs:
+          type: integer
+          description: |-
+            LatencyMs is how long the evaluator took to produce this
+            score.
+          nullable: true
         model:
           type: string
         name:
@@ -4149,6 +5184,8 @@ components:
         - type
         - value
       properties:
+        contentRef:
+          $ref: '#/components/schemas/oodle_util_tracecontent_Ref'
         filterLabel:
           type: string
         key:
@@ -4173,6 +5210,8 @@ components:
         - limit
         - offset
       properties:
+        contents:
+          $ref: '#/components/schemas/oodle_util_tracecontent_Contents'
         data:
           type: array
           nullable: true
@@ -4269,6 +5308,18 @@ components:
           nullable: true
           items:
             type: string
+    UpdateCodeLibraryRequest:
+      type: object
+      description: |-
+        UpdateCodeLibraryRequest changes a shared library. Omitted
+        fields are left alone. A changed source adds a version.
+      properties:
+        description:
+          type: string
+          nullable: true
+        sourceCode:
+          type: string
+          nullable: true
     UpdateDatasetItemRequest:
       type: object
       description: |-
@@ -4322,10 +5373,29 @@ components:
             the good one. Omit it to leave the current setting
             alone; send false to mark the evaluator lower-is-better.
           nullable: true
+        libraryPins:
+          type: object
+          description: |-
+            LibraryPins replaces the shared library pins. Omit it
+            to leave them alone; send an empty object to remove
+            them all.
+          nullable: true
+          additionalProperties:
+            type: integer
         modelParams: {}
         name:
           type: string
         outputSchema: {}
+        params:
+          type: array
+          description: |-
+            Params replaces the settings of a code evaluator. Omit
+            it to leave them alone; send an empty list to remove
+            them all. The values each evaluator already set are not
+            checked again until that evaluator is next saved.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
         prompt:
           type: string
         scoreType:
@@ -4366,6 +5436,15 @@ components:
         modelParams: {}
         name:
           type: string
+        params:
+          type: object
+          description: |-
+            Params replaces this evaluator's setting values. Omit
+            it to leave them alone; send an empty object to go back
+            to the template's defaults.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
         samplingRate:
           type: number
           nullable: true
@@ -4602,6 +5681,113 @@ components:
           nullable: true
           items:
             type: string
+    ValidateEvalTemplateRequest:
+      type: object
+      description: |-
+        ValidateEvalTemplateRequest is a template to check without
+        saving it: every check a create or an update runs.
+      required:
+        - type
+      properties:
+        libraries:
+          type: object
+          description: |-
+            Libraries are draft shared libraries, name to source, with
+            the caps of a test run's drafts. An import resolves to a
+            draft first, then to a stored library, and a draft's own
+            imports are followed the same way.
+          nullable: true
+          additionalProperties:
+            type: string
+        libraryPins:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: integer
+        name:
+          type: string
+          description: |-
+            Name is the name of the evaluator (rule) that would run
+            the code. With it, the score reads are also checked for a
+            read of its own scores and for a cycle.
+        params:
+          type: array
+          description: Params are the template's settings.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ParamSpec'
+        ruleParams:
+          type: object
+          description: |-
+            RuleParams are an evaluator's values, resolved against
+            Params when sent.
+          nullable: true
+          additionalProperties:
+            description: Arbitrary JSON value.
+        sourceCode:
+          type: string
+        sourceCodeLanguage:
+          type: string
+        type:
+          type: string
+          description: Type is "llm", "code" or "output_comparer".
+    ValidateEvalTemplateResponse:
+      type: object
+      description: |-
+        ValidateEvalTemplateResponse is the answer to a check. It is
+        always a 200; Valid says whether a save would go through.
+      required:
+        - valid
+        - problems
+        - scoreInputs
+        - libraries
+        - notes
+      properties:
+        libraries:
+          type: array
+          description: |-
+            Libraries are the shared libraries the code imports,
+            directly or through other libraries.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/LibraryVersionRef'
+        notes:
+          type: array
+          description: |-
+            Notes say what the check does not cover, such as Python
+            syntax.
+          nullable: true
+          items:
+            type: string
+        problems:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ValidationProblem'
+        scoreInputs:
+          type: array
+          description: |-
+            ScoreInputs are the evaluators whose scores the code
+            reads, by the names it uses.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/NamedRef'
+        valid:
+          type: boolean
+    ValidationProblem:
+      type: object
+      description: |-
+        ValidationProblem is one thing a create or an update would
+        refuse.
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          description: Field is the request field the problem is about.
+        message:
+          type: string
     ValueExtractor:
       type: object
       description: ValueExtractor is used to extract label values from the log fields.
@@ -4819,6 +6005,100 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/oodle_util_httputils_models_Error'
+    oodle_util_tracecontent_Contents:
+      type: object
+      description: Contents is the table as a response carries it.
+      required:
+        - ids
+      properties:
+        bundleStarts:
+          type: array
+          description: |-
+            BundleStarts, Layout and KeyEpochUs name the cache
+            entries the contents were stored under: entry b holds
+            indexes BundleStarts[b] up to the next start. A reader
+            sends each id's entry back to fetch it. No starts means
+            the contents were not stored, and only Values has them.
+          nullable: true
+          items:
+            type: integer
+        derived:
+          type: array
+          description: |-
+            Derived are the values of the last len(Derived) ids: the
+            contents a reader of the trace made itself, which no cache
+            holds, so they travel with the response.
+          nullable: true
+          items:
+            type: string
+        ids:
+          type: array
+          description: |-
+            IDs are the ids of the contents, in the order a Ref's
+            indexes count.
+          nullable: true
+          items:
+            type: string
+        keyEpochUs:
+          type: integer
+        layout:
+          type: string
+        sizes:
+          type: array
+          description: |-
+            Sizes are the lengths of the contents in bytes,
+            index-aligned with IDs, so a reader can ask for a
+            bounded amount at a time.
+          nullable: true
+          items:
+            type: integer
+        values:
+          type: array
+          description: |-
+            Values, when present, are the contents themselves,
+            index-aligned with IDs.
+          nullable: true
+          items:
+            type: string
+    oodle_util_tracecontent_Ref:
+      type: object
+      description: Ref stands in a tag for a value that was moved to the table.
+      required:
+        - ids
+        - size
+      properties:
+        array:
+          type: boolean
+          description: |-
+            Array is true when the value was a JSON array and IDs
+            are its elements in order.
+        close:
+          type: string
+        ids:
+          type: array
+          description: |-
+            IDs are indexes into the table's ids. A value that was
+            not an array has one. JSON carries them as runs: an id,
+            then the negated count of the ids that follow it, so
+            [4,-3,9] is 4, 5, 6, 7 and 9.
+          nullable: true
+          items:
+            type: integer
+        open:
+          type: string
+          description: |-
+            Open, Sep and Close are the text of the array around
+            and between its elements, white space included, when it
+            is not "[", "," and "]". With them the array is rebuilt
+            byte for byte: a Python SDK writes ", " between elements.
+        sep:
+          type: string
+        size:
+          type: integer
+          description: Size is the length of the value in bytes.
+    oodle_util_tracecontent_Table:
+      type: object
+      description: Table holds each unique content once.
   securitySchemes:
     ApiKeyAuth:
       type: apiKey
@@ -6404,6 +7684,114 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-eval-library:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: Get the reference of the oodle_eval library
+      operationId: getGenaiCodeEvalLibrary
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeEvalLibraryResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-eval-library/files:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: List the files of the oodle_eval library
+      operationId: listGenaiCodeEvalLibraryFiles
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeEvalLibraryFilesResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-eval-library/files/{path}:
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: Get one file of the oodle_eval library
+      operationId: getGenaiCodeEvalLibraryFile
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: path
+          in: path
+          description: A path from the file list, such as `oodle_eval/v1/metrics.py`. Send the slashes as they are or encoded as `%2F`.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeEvalLibraryFileResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/langfuse/api/public/code-eval-starters:
     get:
       tags:
@@ -6425,6 +7813,383 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListCodeStartersResponse'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-libraries:
+    get:
+      tags:
+        - GenAI Shared Libraries
+      summary: List shared libraries
+      operationId: listGenaiCodeLibraries
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCodeLibrariesResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Shared Libraries
+      summary: Create a shared library
+      operationId: createGenaiCodeLibrary
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCodeLibraryRequest'
+      responses:
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLibrary'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-libraries/{libraryId}:
+    delete:
+      tags:
+        - GenAI Shared Libraries
+      summary: Delete a shared library
+      operationId: deleteGenaiCodeLibrary
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: libraryId
+          in: path
+          description: Shared library ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLibraryInUseResponse'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Shared Libraries
+      summary: Get a shared library and the evaluators that use it
+      operationId: getGenaiCodeLibrary
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: libraryId
+          in: path
+          description: Shared library ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLibraryResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Shared Libraries
+      summary: Update a shared library
+      operationId: updateGenaiCodeLibrary
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: libraryId
+          in: path
+          description: Shared library ID.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCodeLibraryRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLibrary'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-libraries/{libraryId}/versions:
+    get:
+      tags:
+        - GenAI Shared Libraries
+      summary: List a shared library's versions
+      operationId: listGenaiCodeLibraryVersions
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: libraryId
+          in: path
+          description: Shared library ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListCodeLibraryVersionsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/code-libraries/{libraryId}/versions/{version}:
+    get:
+      tags:
+        - GenAI Shared Libraries
+      summary: Get one version of a shared library
+      operationId: getGenaiCodeLibraryVersion
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: libraryId
+          in: path
+          description: Shared library ID.
+          required: true
+          schema:
+            type: string
+        - name: version
+          in: path
+          description: Shared library version number.
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeLibraryVersion'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
           description: ""
           content:
             application/json:
@@ -7631,6 +9396,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/eval-templates/{templateId}/test-run:
+    post:
+      tags:
+        - GenAI Evaluators
+      summary: Run an evaluator on one span without saving a score
+      operationId: testRunGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: templateId
+          in: path
+          description: A stored template whose source, settings and pins fill what the request leaves out, or `test` for a draft with no stored template.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CodeEvalTestRunRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CodeEvalTestRunResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/eval-templates/validate:
+    post:
+      tags:
+        - GenAI Evaluators
+      summary: Check an evaluator without saving it
+      operationId: validateGenaiEvaluator
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ValidateEvalTemplateRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidateEvalTemplateResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/langfuse/api/public/evaluation-rules:
     get:
       tags:
@@ -7710,6 +9591,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -7751,6 +9638,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleInUseResponse'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Evaluators
+      summary: Get an evaluation rule
+      operationId: getGenaiEvaluationRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: ruleId
+          in: path
+          description: Evaluation rule ID.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EvaluationRuleResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
           description: ""
           content:
             application/json:
@@ -7810,12 +9746,24 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "404":
           description: ""
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RuleInUseResponse'
         "500":
           description: ""
           content:
@@ -8303,6 +10251,235 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/backfills:
+    get:
+      tags:
+        - GenAI Backfills
+      summary: List backfill runs
+      operationId: listGenaiBackfills
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBackfillsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Backfills
+      summary: Run evaluators over past traffic
+      operationId: createGenaiBackfill
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BackfillRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackfillRun'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/backfills/{backfillId}:
+    delete:
+      tags:
+        - GenAI Backfills
+      summary: Delete a finished backfill run
+      operationId: deleteGenaiBackfill
+      parameters:
+        - name: backfillId
+          in: path
+          description: Backfill run ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeleteBackfillResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Backfills
+      summary: Get a backfill run
+      operationId: getGenaiBackfill
+      parameters:
+        - name: backfillId
+          in: path
+          description: Backfill run ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackfillRun'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/v2/backfills/{backfillId}/cancel:
+    post:
+      tags:
+        - GenAI Backfills
+      summary: Cancel a backfill run
+      operationId: cancelGenaiBackfill
+      parameters:
+        - name: backfillId
+          in: path
+          description: Backfill run ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackfillRun'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
           description: ""
           content:
             application/json:
@@ -12142,5 +14319,9 @@ tags:
     description: Run a prompt over a dataset, score the result, and compare runs.
   - name: GenAI LLM Connections
     description: Provider credentials that evaluators and experiments run against. Stored keys are encrypted and never returned.
+  - name: GenAI Backfills
+    description: Run evaluators over traffic that already happened, to see what they would have found. A run also runs every evaluator whose scores a chosen one reads, and lists them in `alsoRuns`.
+  - name: GenAI Shared Libraries
+    description: Python modules you write once and import from many code evaluators as `shared.<name>`. Each change of the source adds a version, and an evaluator can pin one with `libraryPins`.
   - name: GenAI Webhooks
     description: HTTP endpoints you host that run your own agent or workflow. An experiment run against one posts each dataset item to it and scores the reply; the `traceparent` header it sends is how the run item joins to the trace your workflow emits. Stored headers are encrypted and never returned.

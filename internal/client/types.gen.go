@@ -197,6 +197,66 @@ type AzureServiceFilter struct {
 	Tags       *map[string]string `json:"tags,omitempty"`
 }
 
+// BackfillAlsoRun AlsoRun is an evaluator a backfill runs because a chosen one
+// reads its scores. The run adds it the same way, so the
+// caller sees here what the run will write.
+type BackfillAlsoRun struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// ReadBy ReadBy names the evaluators of the run that read this
+	// one's scores.
+	ReadBy *[]string `json:"readBy"`
+}
+
+// BackfillRequest Request is what the caller asks for.
+type BackfillRequest struct {
+	// BucketSeconds Bucket width in seconds. How often the run publishes
+	// what it read, which is the denominator's unit. The
+	// charts read each result's own time and pick their own
+	// step, so this is not their resolution.
+	BucketSeconds *int `json:"bucketSeconds,omitempty"`
+	EndTime       int  `json:"endTime"`
+
+	// EvaluatorIds Evaluation rule ids. A signal authored through the
+	// drafting flow is a rule like any other, so it needs no
+	// separate list.
+	EvaluatorIds *[]string `json:"evaluatorIds"`
+
+	// Filters Extra span filters, in the same shape the trace APIs
+	// take. Passed through untouched.
+	Filters interface{} `json:"filters,omitempty"`
+	Name    string      `json:"name"`
+
+	// SampleRate Fraction of spans to read, 0 < rate <= 1.
+	SampleRate *float32 `json:"sampleRate,omitempty"`
+
+	// StartTime Microseconds, matching every other trace API here.
+	StartTime int `json:"startTime"`
+}
+
+// BackfillRun BackfillRun is one backfill run, as the list, the detail page
+// and the create, cancel and get routes return it.
+type BackfillRun struct {
+	// AlsoRuns AlsoRuns are the evaluators the run adds because a chosen
+	// one reads their scores. Only the create answer carries
+	// them; the run works out the same set again.
+	AlsoRuns *[]BackfillAlsoRun `json:"alsoRuns,omitempty"`
+
+	// Config Request is what the caller asks for.
+	Config    BackfillRequest `json:"config"`
+	CreatedAt string          `json:"createdAt"`
+	Error     *string         `json:"error,omitempty"`
+	Id        string          `json:"id"`
+	Status    string          `json:"status"`
+
+	// TotalBuckets TotalBuckets is what the run has to get through, derived
+	// from the window and the bucket width. The page pairs it
+	// with the batch markers it can see to show progress.
+	TotalBuckets int    `json:"totalBuckets"`
+	UpdatedAt    string `json:"updatedAt"`
+}
+
 // BasicAuth BasicAuth contains basic HTTP authentication credentials.
 type BasicAuth struct {
 	Password     *string `json:"password,omitempty"`
@@ -303,15 +363,294 @@ type CockroachDBCloudIntegrationWrapper struct {
 	CrdbCloudIntegration *CockroachDBCloudIntegration `json:"crdbCloudIntegration,omitempty"`
 }
 
+// CodeEvalLibContextField CodeEvalLibContextField is one value the code reads from the
+// evaluation context.
+type CodeEvalLibContextField struct {
+	Doc  *string `json:"doc,omitempty"`
+	Path string  `json:"path"`
+}
+
+// CodeEvalLibFunction CodeEvalLibFunction is one function of a module.
+type CodeEvalLibFunction struct {
+	Doc *string `json:"doc,omitempty"`
+
+	// File File and Line are where the function is defined, as a
+	// path the `code-eval-library/files` route serves.
+	File   *string             `json:"file,omitempty"`
+	Line   *int                `json:"line,omitempty"`
+	Name   string              `json:"name"`
+	Params *[]CodeEvalLibParam `json:"params,omitempty"`
+
+	// Scores Scores are the names of the scores the function returns.
+	Scores    *[]string `json:"scores,omitempty"`
+	Signature string    `json:"signature"`
+	Summary   *string   `json:"summary,omitempty"`
+}
+
+// CodeEvalLibMethod CodeEvalLibMethod is one public method of a runtime class.
+type CodeEvalLibMethod struct {
+	Doc       *string `json:"doc,omitempty"`
+	Name      string  `json:"name"`
+	Signature string  `json:"signature"`
+	Summary   *string `json:"summary,omitempty"`
+}
+
+// CodeEvalLibModule CodeEvalLibModule is one module of the library.
+type CodeEvalLibModule struct {
+	Doc       *string                `json:"doc,omitempty"`
+	Functions *[]CodeEvalLibFunction `json:"functions"`
+	Name      string                 `json:"name"`
+	Path      string                 `json:"path"`
+}
+
+// CodeEvalLibParam CodeEvalLibParam is one argument of a function.
+type CodeEvalLibParam struct {
+	Default *string `json:"default,omitempty"`
+	Kind    string  `json:"kind"`
+	Name    string  `json:"name"`
+}
+
+// CodeEvalLibSymbol CodeEvalLibSymbol is one runtime class or function.
+type CodeEvalLibSymbol struct {
+	Doc *string `json:"doc,omitempty"`
+
+	// File File and Line are where the class is defined, as a path
+	// the `code-eval-library/files` route serves.
+	File *string `json:"file,omitempty"`
+	Kind string  `json:"kind"`
+	Line *int    `json:"line,omitempty"`
+
+	// Methods Methods are the class's public methods.
+	Methods   *[]CodeEvalLibMethod `json:"methods,omitempty"`
+	Name      string               `json:"name"`
+	Signature *string              `json:"signature,omitempty"`
+}
+
+// CodeEvalLibraryFileResponse CodeEvalLibraryFileResponse is one file of the library.
+type CodeEvalLibraryFileResponse struct {
+	Path   string `json:"path"`
+	Source string `json:"source"`
+}
+
+// CodeEvalLibraryFilesResponse CodeEvalLibraryFilesResponse lists the Python files of the
+// `oodle_eval` library, so the editor can open the code behind a
+// function.
+type CodeEvalLibraryFilesResponse struct {
+	Files *[]LibraryFile `json:"files"`
+}
+
+// CodeEvalLibraryResponse CodeEvalLibraryResponse is the reference of the `oodle_eval`
+// library that code evaluators import. The handler serves the
+// generated `managed/codelib/manifest.json` as it is; these types
+// describe that file for the API spec and the clients built from
+// it.
+type CodeEvalLibraryResponse struct {
+	// Context Context lists what the code can read from `ctx`.
+	Context *[]CodeEvalLibContextField `json:"context"`
+
+	// Import Import is the import line a code evaluator starts with.
+	Import  *string              `json:"import,omitempty"`
+	Modules *[]CodeEvalLibModule `json:"modules"`
+	Package string               `json:"package"`
+
+	// Runtime Runtime lists the classes the code builds its result
+	// from, such as Score and EvaluationResult.
+	Runtime *[]CodeEvalLibSymbol `json:"runtime"`
+	Version string               `json:"version"`
+}
+
 // CodeEvalStarter CodeEvalStarter is one code evaluator starting point.
 type CodeEvalStarter struct {
+	// BuiltIn BuiltIn is true when the entry is also served as a
+	// managed code check that runs with no code.
+	BuiltIn     bool   `json:"builtIn"`
 	Category    string `json:"category"`
 	Description string `json:"description"`
 	Id          string `json:"id"`
 	Name        string `json:"name"`
 
+	// Params Params are the settings the source reads from ctx.params.
+	// For a built-in check, each name is a keyword argument of
+	// the library function it calls.
+	Params                *[]ParamSpec `json:"params,omitempty"`
+	PrimaryHigherIsBetter *bool        `json:"primaryHigherIsBetter,omitempty"`
+
+	// PrimaryScoreType PrimaryScoreType ("BOOLEAN" or "NUMERIC") and
+	// PrimaryHigherIsBetter describe the first score the source
+	// returns. A managed check takes its template-level type and
+	// direction from them, so a check whose verdict is bad when
+	// true (refused, degenerated) is not coloured the wrong way.
+	PrimaryScoreType *string `json:"primaryScoreType,omitempty"`
+
 	// SourceCode SourceCode is the Python to copy into a new code template.
 	SourceCode string `json:"sourceCode"`
+}
+
+// CodeEvalTestRunRequest CodeEvalTestRunRequest runs an evaluator's Python source, or a
+// judge prompt, against one span without persisting a score.
+//
+// The path's template id names a stored template to fill what
+// the draft leaves out: its source, settings and pins. Use `test`
+// for a draft with no stored template.
+type CodeEvalTestRunRequest struct {
+	ConnectionId *string `json:"connectionId,omitempty"`
+	EndTimeUs    *int    `json:"endTimeUs,omitempty"`
+
+	// Experiment Experiment is a simulated experiment item, read by the
+	// code as `ctx.experiment` (for example
+	// `{"expected_output": ...}`).
+	Experiment interface{} `json:"experiment,omitempty"`
+
+	// Libraries Libraries are draft shared libraries, name to source.
+	// Each one replaces the stored library of that name for
+	// this run only, so a library edit can be tried before it
+	// is saved.
+	Libraries *map[string]string `json:"libraries,omitempty"`
+
+	// LibraryPins LibraryPins are the pins of a draft. Omitted, the stored
+	// template's pins apply.
+	LibraryPins *map[string]int `json:"libraryPins,omitempty"`
+	Model       *string         `json:"model,omitempty"`
+
+	// ModelParams ModelParams is the rule's, so a judge is tried as it will
+	// run: a TypeSafe rule's decision (question type, criteria,
+	// threshold, confidence) rides here.
+	ModelParams interface{} `json:"modelParams,omitempty"`
+
+	// ParamSpecs ParamSpecs are the settings of a draft that is not
+	// saved yet, so the form can test the settings it shows.
+	ParamSpecs *[]ParamSpec `json:"paramSpecs,omitempty"`
+
+	// Params Params are the values to run with, by setting name.
+	// They are resolved against ParamSpecs, or against the
+	// stored template's settings when ParamSpecs is omitted.
+	Params *map[string]interface{} `json:"params,omitempty"`
+
+	// Prompt Prompt runs an LLM judge instead of code. It needs
+	// ConnectionID: the provider that scores it is the
+	// customer's, so a draft is reviewed against the model it
+	// will actually run on.
+	Prompt *string `json:"prompt,omitempty"`
+
+	// Scores Scores are the scores of other evaluators, by evaluator
+	// name, that the code reads through `ctx.scores`. A test
+	// run has no other evaluators running, so the caller
+	// supplies them.
+	Scores *map[string]*[]InputScore `json:"scores,omitempty"`
+
+	// SourceCode SourceCode overrides the stored template source.
+	SourceCode *string `json:"sourceCode,omitempty"`
+
+	// SpanData SpanData is a span to run on instead of a stored one:
+	// `{span_id, trace_id, tags: {attribute: value}}`, the shape
+	// the evaluator reads. It lets a local draft run with no
+	// traffic to pick a span from.
+	SpanData interface{} `json:"spanData,omitempty"`
+
+	// SpanId SpanID and TraceID name a real span to run on. SpanID is
+	// required unless SpanData is sent.
+	SpanId *string `json:"spanId,omitempty"`
+
+	// StartTimeUs StartTimeUs and EndTimeUs are the window to look for the
+	// span in: the one the caller picked it from. Without them
+	// the read defaults to the last 24 hours, so a span chosen
+	// from an older window is not found at all and the run
+	// fails with a 404 that says nothing about time.
+	StartTimeUs *int    `json:"startTimeUs,omitempty"`
+	TraceId     *string `json:"traceId,omitempty"`
+
+	// VariableMapping VariableMapping maps each prompt variable to where its
+	// value is read from, as an evaluation rule's does.
+	VariableMapping interface{} `json:"variableMapping,omitempty"`
+}
+
+// CodeEvalTestRunResponse CodeEvalTestRunResponse is what a test run returns. The
+// fields present depend on what ran:
+//
+//   - code: `scores`, `logs` and `duration_ms`, or `error`
+//     as `{code, message}` (for example BLOCKED_IMPORT,
+//     INVALID_PARAMS, LIBRARY_NOT_FOUND, TIMEOUT).
+//   - a judge: `score`, `reasoning`, `raw_output` and the token
+//     counts, or `error` as a string naming the provider failure.
+//
+// A failed run is a 200 with `error` set: the person drafting the
+// code can act on it.
+type CodeEvalTestRunResponse struct {
+	DurationMs *float32 `json:"duration_ms,omitempty"`
+
+	// Error Error is `{code, message}` for code, a string for a judge.
+	Error        *CodeEvalTestRunResponse_Error `json:"error,omitempty"`
+	InputTokens  *int                           `json:"input_tokens,omitempty"`
+	Logs         *string                        `json:"logs,omitempty"`
+	OutputTokens *int                           `json:"output_tokens,omitempty"`
+	RawOutput    *string                        `json:"raw_output,omitempty"`
+	Reasoning    *string                        `json:"reasoning,omitempty"`
+	Score        *float32                       `json:"score,omitempty"`
+	Scores       *[]InputScore                  `json:"scores,omitempty"`
+}
+
+// CodeEvalTestRunResponseError0 A judge run's failure, such as a provider error.
+type CodeEvalTestRunResponseError0 = string
+
+// CodeEvalTestRunResponseError1 A code run's failure, such as INVALID_PARAMS or LIBRARY_NOT_FOUND.
+type CodeEvalTestRunResponseError1 struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// CodeEvalTestRunResponse_Error Error is `{code, message}` for code, a string for a judge.
+type CodeEvalTestRunResponse_Error struct {
+	union json.RawMessage
+}
+
+// CodeLibrary CodeLibrary is one Python module the customer writes once and
+// imports from many code evaluators as `shared.<name>`.
+type CodeLibrary struct {
+	CreatedAt   string  `json:"createdAt"`
+	CreatedBy   *string `json:"createdBy,omitempty"`
+	Description string  `json:"description"`
+	Id          string  `json:"id"`
+	Name        string  `json:"name"`
+	SourceCode  string  `json:"sourceCode"`
+	UpdatedAt   string  `json:"updatedAt"`
+
+	// Version Version is the latest version. Each change of the source
+	// adds one.
+	Version int `json:"version"`
+}
+
+// CodeLibraryInUseResponse CodeLibraryInUseResponse is the 409 answer to a delete of a
+// library that code templates still import.
+type CodeLibraryInUseResponse struct {
+	Error   string      `json:"error"`
+	Message string      `json:"message"`
+	UsedBy  *[]NamedRef `json:"usedBy"`
+}
+
+// CodeLibraryResponse CodeLibraryResponse is one shared library and the code
+// templates that import it.
+type CodeLibraryResponse struct {
+	CreatedAt   string      `json:"createdAt"`
+	CreatedBy   *string     `json:"createdBy,omitempty"`
+	Description string      `json:"description"`
+	Id          string      `json:"id"`
+	Name        string      `json:"name"`
+	SourceCode  string      `json:"sourceCode"`
+	UpdatedAt   string      `json:"updatedAt"`
+	UsedBy      *[]NamedRef `json:"usedBy"`
+
+	// Version Version is the latest version. Each change of the source
+	// adds one.
+	Version int `json:"version"`
+}
+
+// CodeLibraryVersion CodeLibraryVersion is one stored copy of a library's source.
+// The list omits the source; a single version carries it.
+type CodeLibraryVersion struct {
+	CreatedAt  string  `json:"createdAt"`
+	CreatedBy  *string `json:"createdBy,omitempty"`
+	SourceCode *string `json:"sourceCode,omitempty"`
+	Version    int     `json:"version"`
 }
 
 // Condition Condition is a model for a condition to be evaluated in monitors.
@@ -370,6 +709,21 @@ type CreateApiKeyRequest struct {
 	Name   string    `json:"name"`
 	Roles  *[]string `json:"roles,omitempty"`
 	Scopes *[]string `json:"scopes"`
+}
+
+// CreateCodeLibraryRequest CreateCodeLibraryRequest adds a shared library. Code
+// evaluators import it as `shared.<name>`.
+type CreateCodeLibraryRequest struct {
+	Description *string `json:"description,omitempty"`
+
+	// Name Name is the module name: a lower-case Python identifier
+	// of at most 64 characters that is not a Python keyword
+	// and not `oodle_eval`. It cannot be changed later,
+	// because the code that imports the library names it.
+	Name string `json:"name"`
+
+	// SourceCode SourceCode is the Python module, at most 256 KB.
+	SourceCode string `json:"sourceCode"`
 }
 
 // CreateDatasetItemRequest CreateDatasetItemRequest adds one row to a dataset.
@@ -440,10 +794,21 @@ type CreateEvalTemplateRequest struct {
 	//
 	// (A pointer so the handler can tell an explicit false
 	// from an omitted field.)
-	HigherIsBetter *bool       `json:"higherIsBetter,omitempty"`
-	ModelParams    interface{} `json:"modelParams,omitempty"`
-	Name           string      `json:"name"`
-	OutputSchema   interface{} `json:"outputSchema,omitempty"`
+	HigherIsBetter *bool `json:"higherIsBetter,omitempty"`
+
+	// LibraryPins LibraryPins maps a shared library name to the version
+	// the code runs. A library the code imports with no pin
+	// runs at its latest version. Only code templates may pin.
+	LibraryPins  *map[string]int `json:"libraryPins,omitempty"`
+	ModelParams  interface{}     `json:"modelParams,omitempty"`
+	Name         string          `json:"name"`
+	OutputSchema interface{}     `json:"outputSchema,omitempty"`
+
+	// Params Params declares the settings of a code evaluator. Each
+	// evaluator made from the template sets its own values,
+	// and the code reads them as `ctx.params`. Only code
+	// templates may declare settings.
+	Params *[]ParamSpec `json:"params,omitempty"`
 
 	// Prompt Prompt is the judge prompt for llm evaluators, with
 	// {{var}} placeholders drawn from Vars.
@@ -494,6 +859,11 @@ type CreateEvaluationRuleRequest struct {
 	ModelParams           interface{} `json:"modelParams,omitempty"`
 	Name                  string      `json:"name"`
 
+	// Params Params are this evaluator's values for the settings its
+	// code template declares, by setting name. A setting left
+	// out takes the template's default.
+	Params *map[string]interface{} `json:"params,omitempty"`
+
 	// SamplingRate SamplingRate is 0..1.
 	SamplingRate    *float32    `json:"samplingRate,omitempty"`
 	TargetType      *string     `json:"targetType,omitempty"`
@@ -533,16 +903,45 @@ type CreateJobRequest struct {
 	// promptLabel, or a literal promptTemplate), or webhookId to
 	// post each item to a webhook you host instead. Plus
 	// optional evaluatorIds, outputComparerIds, evaluatorRules,
-	// outputComparerRules, and evalConnectionId. runName is
-	// assigned automatically when omitted.
+	// outputComparerRules, evalConnectionId and
+	// honorDependencies. runName is assigned automatically when
+	// omitted.
 	//
 	// With webhookId, evalConnectionId is required whenever an
-	// evaluator or comparer runs on an LLM: there is no
-	// generation connection to fall back to.
+	// evaluator or comparer runs on an LLM and its rule names
+	// no connection of its own: there is no generation
+	// connection to fall back to.
+	//
+	// An evaluatorRules entry names a rule's templateId,
+	// ruleName, model, llmConnectionId and dependsOnRuleIds.
+	// A rule with its own llmConnectionId judges on it, so
+	// judges on different providers can share one run. With
+	// honorDependencies true, a rule that depends on others in
+	// the run scores an item only where every one of them
+	// reported a finding; off, every selected rule scores every
+	// item, which is what every run did before the flag.
+	//
+	// When llmConnectionId is a TypeSafe (Jev) connection the
+	// prompt is a question over the item's variables and
+	// decision says the answer's shape: {"type": "noul"} for
+	// yes/no (the default), {"type": "choice", "criteria":
+	// {option: description, ...}} for one of a set, or
+	// {"type": "score", "criteria": [level, ...]} for an
+	// ordered scale, lowest first. A yes/no decision takes a
+	// threshold, the P(yes) at or above which the answer is yes
+	// (0.5 unless set). The output is the word the answer maps
+	// to: yes/no, the chosen option, or the nearest level. A Jev
+	// evaluation rule carries the same block as
+	// modelParams.decision, plus confidence, the gate a
+	// dependent rule runs under.
 	//
 	// evaluatorIds and outputComparerIds are both lists of
 	// evaluator template ids; an id has to sit in the list
 	// matching its template type or the request is rejected.
+	//
+	// Each evaluatorRules and outputComparerRules entry names a
+	// templateId and may carry the rule's params, which are
+	// checked against that template's settings.
 	Config       interface{} `json:"config"`
 	DatasetRunId *string     `json:"datasetRunId,omitempty"`
 
@@ -590,10 +989,15 @@ type CreatePromptRequest struct {
 // CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
 // observation within it.
 type CreateScoreRequest struct {
-	Comment     *string `json:"comment,omitempty"`
-	ConfigId    *string `json:"configId,omitempty"`
-	DataType    *string `json:"dataType,omitempty"`
-	Environment *string `json:"environment,omitempty"`
+	// AgreesWithExpectedOutput AgreesWithExpectedOutput is whether the score matched the
+	// dataset item's expected output. Omit it where there was
+	// nothing to compare: absent means the comparison could not
+	// be made, not that the score disagreed.
+	AgreesWithExpectedOutput *bool   `json:"agreesWithExpectedOutput,omitempty"`
+	Comment                  *string `json:"comment,omitempty"`
+	ConfigId                 *string `json:"configId,omitempty"`
+	DataType                 *string `json:"dataType,omitempty"`
+	Environment              *string `json:"environment,omitempty"`
 
 	// HigherIsBetter HigherIsBetter says which way is good for this score.
 	// Omit it to leave the direction undeclared, which reads as
@@ -601,13 +1005,17 @@ type CreateScoreRequest struct {
 	HigherIsBetter *bool   `json:"higherIsBetter,omitempty"`
 	Id             *string `json:"id,omitempty"`
 	InputTokens    *int    `json:"inputTokens,omitempty"`
-	Model          *string `json:"model,omitempty"`
-	Name           string  `json:"name"`
-	ObservationId  *string `json:"observationId,omitempty"`
-	OutputTokens   *int    `json:"outputTokens,omitempty"`
-	Source         *string `json:"source,omitempty"`
-	StringValue    *string `json:"stringValue,omitempty"`
-	TraceId        string  `json:"traceId"`
+
+	// LatencyMs LatencyMs is how long the evaluator took, in
+	// milliseconds.
+	LatencyMs     *int    `json:"latencyMs,omitempty"`
+	Model         *string `json:"model,omitempty"`
+	Name          string  `json:"name"`
+	ObservationId *string `json:"observationId,omitempty"`
+	OutputTokens  *int    `json:"outputTokens,omitempty"`
+	Source        *string `json:"source,omitempty"`
+	StringValue   *string `json:"stringValue,omitempty"`
+	TraceId       string  `json:"traceId"`
 
 	// Value Value carries NUMERIC and BOOLEAN scores; StringValue
 	// carries CATEGORICAL ones.
@@ -810,6 +1218,11 @@ type DatasetScheduleResponse struct {
 	Weekdays *[]string `json:"weekdays,omitempty"`
 }
 
+// DeleteBackfillResponse DeleteBackfillResponse names the run that was removed.
+type DeleteBackfillResponse struct {
+	Id string `json:"id"`
+}
+
 // DeleteDashboardResponse DeleteDashboardResponse is the JSON body of a successful
 // `DELETE /grafana/dashboards/{id}`. Unlike most DELETEs (which return
 // 204 No Content) this endpoint returns the upstream Grafana status
@@ -857,8 +1270,31 @@ type EmailConfig struct {
 	To *string `json:"to,omitempty"`
 }
 
+// EvalFailureSummary EvalFailureSummary is one evaluator's failed evaluations in
+// the scores that a list read.
+type EvalFailureSummary struct {
+	Count         int             `json:"count"`
+	ErrorClasses  *map[string]int `json:"errorClasses"`
+	EvaluatorName string          `json:"evaluatorName"`
+	LastSeen      string          `json:"lastSeen"`
+
+	// Permanent Permanent is true when retrying cannot help, such as a
+	// code error, as opposed to a provider timeout.
+	Permanent bool `json:"permanent"`
+}
+
 // EvalTemplate defines model for EvalTemplate.
 type EvalTemplate struct {
+	// Category Category, Description and Model are set only on the
+	// Oodle-managed templates, which `managed` serves from the
+	// catalogue rather than from a row. They are declared here
+	// so the API spec describes what those templates carry.
+	// Category groups them in the picker ("Built-in checks"),
+	// Description says what a built-in check scores, and Model
+	// is the judge model of a managed judge (served by
+	// `GET eval-templates/{id}` only).
+	Category *string `json:"category,omitempty"`
+
 	// CleanValue CleanValue is the categorical value that means nothing
 	// was found.
 	//
@@ -872,8 +1308,9 @@ type EvalTemplate struct {
 	//
 	// Left empty, the chain is switched off for that rule
 	// rather than run on everything.
-	CleanValue *string `json:"cleanValue,omitempty"`
-	CreatedAt  string  `json:"createdAt"`
+	CleanValue  *string `json:"cleanValue,omitempty"`
+	CreatedAt   string  `json:"createdAt"`
+	Description *string `json:"description,omitempty"`
 
 	// HigherIsBetter HigherIsBetter says which way is good. It lives on the
 	// template rather than the rule because it describes the
@@ -886,13 +1323,24 @@ type EvalTemplate struct {
 	// evaluator gate, an alert's comparison direction, and
 	// the experiment run comparison, which today can show two
 	// numbers but cannot say which won.
-	HigherIsBetter bool        `json:"higherIsBetter"`
-	Id             string      `json:"id"`
-	ModelParams    interface{} `json:"modelParams"`
-	Name           string      `json:"name"`
-	OutputSchema   interface{} `json:"outputSchema"`
-	ProjectId      *string     `json:"projectId,omitempty"`
-	Prompt         string      `json:"prompt"`
+	HigherIsBetter bool   `json:"higherIsBetter"`
+	Id             string `json:"id"`
+
+	// LibraryPins LibraryPins maps a shared library name to the version
+	// this template runs. A library the code imports with no
+	// pin runs at its latest version.
+	LibraryPins  *map[string]int `json:"libraryPins,omitempty"`
+	Model        *string         `json:"model,omitempty"`
+	ModelParams  interface{}     `json:"modelParams"`
+	Name         string          `json:"name"`
+	OutputSchema interface{}     `json:"outputSchema"`
+
+	// Params Params declares the settings of a code template. Each
+	// evaluation rule sets its own values for them, and the
+	// code reads the resolved values as `ctx.params`.
+	Params    *[]ParamSpec `json:"params,omitempty"`
+	ProjectId *string      `json:"projectId,omitempty"`
+	Prompt    string       `json:"prompt"`
 
 	// ScoreType ScoreType is numeric, boolean or categorical. Empty
 	// means the template predates the column and never
@@ -926,10 +1374,21 @@ type EvaluationRule struct {
 	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
 	ModelParams           interface{} `json:"modelParams"`
 	Name                  string      `json:"name"`
-	SamplingRate          float32     `json:"samplingRate"`
-	TargetType            string      `json:"targetType"`
-	UpdatedAt             string      `json:"updatedAt"`
-	VariableMapping       interface{} `json:"variableMapping"`
+
+	// Params Params are this evaluator's values for the settings its
+	// code template declares, by setting name. The handler
+	// checks them against the template on write.
+	Params       *map[string]interface{} `json:"params,omitempty"`
+	SamplingRate float32                 `json:"samplingRate"`
+
+	// ScoreInputRuleIds ScoreInputRuleIDs are the rules whose scores this rule's
+	// code reads through `ctx.scores`. The server derives them
+	// from the code on each write; a client never sets them.
+	// The rule runs after them, on the spans they scored.
+	ScoreInputRuleIds *[]string   `json:"scoreInputRuleIds,omitempty"`
+	TargetType        string      `json:"targetType"`
+	UpdatedAt         string      `json:"updatedAt"`
+	VariableMapping   interface{} `json:"variableMapping"`
 }
 
 // EvaluationRuleResponse EvaluationRuleResponse is one evaluator, joined with the type
@@ -973,7 +1432,18 @@ type EvaluationRuleResponse struct {
 	MaxInvocationsPerHour int         `json:"maxInvocationsPerHour"`
 	ModelParams           interface{} `json:"modelParams"`
 	Name                  string      `json:"name"`
-	SamplingRate          float32     `json:"samplingRate"`
+
+	// Params Params are this evaluator's values for the settings its
+	// code template declares, by setting name. The handler
+	// checks them against the template on write.
+	Params       *map[string]interface{} `json:"params,omitempty"`
+	SamplingRate float32                 `json:"samplingRate"`
+
+	// ScoreInputRuleIds ScoreInputRuleIDs are the rules whose scores this rule's
+	// code reads through `ctx.scores`. The server derives them
+	// from the code on each write; a client never sets them.
+	// The rule runs after them, on the spans they scored.
+	ScoreInputRuleIds *[]string `json:"scoreInputRuleIds,omitempty"`
 
 	// ScoreType ScoreType is numeric, boolean or categorical. Empty when
 	// the template never declared one.
@@ -1104,6 +1574,20 @@ type IndexPatternField struct {
 	Type string `json:"type"`
 }
 
+// InputScore InputScore is one score in the sandbox's shape: a score of
+// another evaluator that a test run hands to the code, or a score
+// the code returned.
+type InputScore struct {
+	Comment        *string `json:"comment,omitempty"`
+	DataType       *string `json:"data_type,omitempty"`
+	HigherIsBetter *bool   `json:"higher_is_better,omitempty"`
+	Name           string  `json:"name"`
+
+	// Value Value is a number, true or false, a string for a
+	// categorical score, or null.
+	Value interface{} `json:"value"`
+}
+
 // Instance defines model for Instance.
 type Instance struct {
 	Id     *string `json:"id,omitempty"`
@@ -1208,10 +1692,51 @@ type LabelMatcherNotifications struct {
 	Notifiers *NotifiersByCondition `json:"notifiers,omitempty"`
 }
 
+// LibraryFile LibraryFile is one Python file of the library, by its path under the
+// package root (for example `oodle_eval/v1/metrics.py`).
+type LibraryFile struct {
+	Path string `json:"path"`
+	Size int    `json:"size"`
+}
+
+// LibraryVersionRef LibraryVersionRef is a shared library the code would load, and
+// the version: the pin, else the latest.
+type LibraryVersionRef struct {
+	// Draft Draft is true when the import resolves to a draft from the
+	// request. Version is then 0.
+	Draft   *bool  `json:"draft,omitempty"`
+	Name    string `json:"name"`
+	Version int    `json:"version"`
+}
+
+// ListBackfillsResponse ListBackfillsResponse lists an instance's backfill runs.
+type ListBackfillsResponse struct {
+	// Active Active is how many runs are queued or running, and
+	// MaxConcurrent how many may be. The form disables itself
+	// with a reason when they are equal.
+	Active        int            `json:"active"`
+	Data          *[]BackfillRun `json:"data"`
+	MaxConcurrent int            `json:"maxConcurrent"`
+}
+
+// ListCodeLibrariesResponse ListCodeLibrariesResponse lists the shared libraries of an
+// instance, each with its latest source.
+type ListCodeLibrariesResponse struct {
+	Data *[]CodeLibrary `json:"data"`
+}
+
+// ListCodeLibraryVersionsResponse ListCodeLibraryVersionsResponse lists a library's versions,
+// newest first, without their source.
+type ListCodeLibraryVersionsResponse struct {
+	Data *[]CodeLibraryVersion `json:"data"`
+}
+
 // ListCodeStartersResponse ListCodeStartersResponse lists the starting points for a code
 // evaluator. A starter is not a template: a client copies its
-// source into a new `type: code` template and edits the
-// settings at the top.
+// source and its settings (`params`) into a new `type: code`
+// template. A starter with `builtIn` set is also served as a
+// managed code template, `oodle-managed-code-<id>-v1`, that runs
+// with no copy.
 type ListCodeStartersResponse struct {
 	Data *[]CodeEvalStarter `json:"data"`
 }
@@ -1326,13 +1851,32 @@ type ListRolesResponse struct {
 	Roles *[]string `json:"roles"`
 }
 
+// ListScoresMeta ListScoresMeta is the score list's pagination, and whether a
+// trace filter was applied to the newest traces only.
+type ListScoresMeta struct {
+	Limit      int  `json:"limit"`
+	Page       int  `json:"page"`
+	TotalItems int  `json:"totalItems"`
+	TotalPages *int `json:"totalPages,omitempty"`
+
+	// TraceFiltersTruncated TraceFiltersTruncated is true when the intersection of
+	// the trace filters was taken over the newest traces only,
+	// so the result may not reach every trace in the window.
+	TraceFiltersTruncated *bool `json:"traceFiltersTruncated,omitempty"`
+}
+
 // ListScoresResponse ListScoresResponse is the score list envelope.
 type ListScoresResponse struct {
 	Data *[]ScoreResponse `json:"data"`
 
-	// Meta ListMeta is the pagination envelope every llmops list
-	// endpoint returns alongside `data`.
-	Meta ListMeta `json:"meta"`
+	// Meta ListScoresMeta is the score list's pagination, and whether a
+	// trace filter was applied to the newest traces only.
+	Meta ListScoresMeta `json:"meta"`
+
+	// Summary Summary counts the failed evaluations per evaluator over
+	// everything the query read, not only this page, so the
+	// evaluators list can flag failing rows from one request.
+	Summary *[]EvalFailureSummary `json:"summary"`
 }
 
 // ListSyntheticMonitorsResponse ListSyntheticMonitorsResponse is the response body for listing synthetic
@@ -1629,6 +2173,17 @@ type MutingRule struct {
 	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
+// NamedRef NamedRef names one template, library or rule, for an answer that
+// lists what depends on the thing being changed.
+type NamedRef struct {
+	Id string `json:"id"`
+
+	// Kind Kind is "template" or "library" in a library's used-by
+	// list, and empty elsewhere.
+	Kind *string `json:"kind,omitempty"`
+	Name string  `json:"name"`
+}
+
 // NotificationPolicy NotificationPolicy represents a policy for sending notifications based on severity.
 // A notification policy is associated with a monitor.
 type NotificationPolicy struct {
@@ -1795,6 +2350,19 @@ type PagerdutyLink struct {
 	Text *string `json:"text,omitempty"`
 }
 
+// ParamSpec ParamSpec declares one setting of a code evaluator template.
+type ParamSpec struct {
+	Default     interface{} `json:"default,omitempty"`
+	Description *string     `json:"description,omitempty"`
+	Label       *string     `json:"label,omitempty"`
+	Name        string      `json:"name"`
+
+	// Options Options are the allowed values of an `enum` setting.
+	Options  *[]string `json:"options,omitempty"`
+	Required *bool     `json:"required,omitempty"`
+	Type     string    `json:"type"`
+}
+
 // PatchIntegration defines model for PatchIntegration.
 type PatchIntegration struct {
 	Status           *string                            `json:"status,omitempty"`
@@ -1904,6 +2472,15 @@ type RenameDatasetRequest struct {
 	Name string `json:"name"`
 }
 
+// RuleInUseResponse RuleInUseResponse is the 409 answer to a rename or delete of
+// an evaluation rule that other rules depend on: they gate on
+// it, or their code reads its scores by name.
+type RuleInUseResponse struct {
+	Dependents *[]NamedRef `json:"dependents"`
+	Error      string      `json:"error"`
+	Message    string      `json:"message"`
+}
+
 // RunScoreAggregate RunScoreAggregate is every score of one name over one
 // dataset run, collapsed to what a table cell can hold.
 //
@@ -1912,9 +2489,23 @@ type RenameDatasetRequest struct {
 // did this run do", which is the average for a number and the
 // spread of answers for a label.
 type RunScoreAggregate struct {
+	// Agreement What the run cost and how it compared, per evaluator.
+	// Every field here is absent when no score of this name
+	// recorded it, which is what every score written before
+	// the columns existed does: absence is "not recorded",
+	// never zero.
+	//
+	// Agreement is the share of comparable scores that
+	// matched the dataset item's expected output, over
+	// AgreementCount of them. Scores with nothing to compare
+	// against are outside both numbers.
+	Agreement      *float32 `json:"agreement,omitempty"`
+	AgreementCount *int     `json:"agreementCount,omitempty"`
+
 	// Average Average is absent when no score of this name carried a
 	// number, which is what a purely categorical score is.
 	Average *float32 `json:"average,omitempty"`
+	CostUsd *float32 `json:"costUsd,omitempty"`
 
 	// Count Count is how many scores of this name the run has, over
 	// every data type. It is the denominator the average and
@@ -1926,8 +2517,20 @@ type RunScoreAggregate struct {
 	// name declared. Absent when none declared one, or when
 	// they disagree: an average over two evaluators that read
 	// in opposite directions has no direction.
-	HigherIsBetter *bool  `json:"higherIsBetter,omitempty"`
-	Name           string `json:"name"`
+	HigherIsBetter *bool `json:"higherIsBetter,omitempty"`
+
+	// InputTokens Tokens and cost sum over every score of the name, so a
+	// judge that ran on 300 items reports the bill for 300
+	// calls. Cost prices each score by the model stamped on
+	// it; a model the pricing table does not know adds zero
+	// and the tokens still show, so the gap is visible.
+	InputTokens *int `json:"inputTokens,omitempty"`
+
+	// LatencyMsP50 Latency, in milliseconds, at the median and the tail.
+	LatencyMsP50 *float32 `json:"latencyMsP50,omitempty"`
+	LatencyMsP95 *float32 `json:"latencyMsP95,omitempty"`
+	Name         string   `json:"name"`
+	OutputTokens *int     `json:"outputTokens,omitempty"`
 
 	// Values Values counts each distinct label of a categorical
 	// score. Absent when the name has no labelled scores.
@@ -1983,27 +2586,41 @@ type ScheduleTimeRange struct {
 
 // Score defines model for Score.
 type Score struct {
-	Comment     *string `json:"comment,omitempty"`
-	ConfigId    *string `json:"configId,omitempty"`
-	CreatedAt   string  `json:"createdAt"`
-	DataType    string  `json:"dataType"`
-	Environment *string `json:"environment,omitempty"`
+	// AgreesWithExpectedOutput AgreesWithExpectedOutput says whether the score matched
+	// the dataset item's expected output. Nil when the two were
+	// not comparable, which is a claim of nothing rather than a
+	// disagreement.
+	AgreesWithExpectedOutput *bool   `json:"agreesWithExpectedOutput,omitempty"`
+	Comment                  *string `json:"comment,omitempty"`
+	ConfigId                 *string `json:"configId,omitempty"`
+
+	// CostUsd CostUSD is what the judge call cost at the default
+	// pricing, derived on read from Model and the tokens; nil
+	// when either is missing.
+	CostUsd     *float32 `json:"costUsd,omitempty"`
+	CreatedAt   string   `json:"createdAt"`
+	DataType    string   `json:"dataType"`
+	Environment *string  `json:"environment,omitempty"`
 
 	// HigherIsBetter HigherIsBetter is the direction the writer declared. Nil
 	// is undeclared, which every renderer reads as
 	// higher-is-better.
-	HigherIsBetter *bool    `json:"higherIsBetter,omitempty"`
-	Id             string   `json:"id"`
-	InputTokens    *int     `json:"inputTokens,omitempty"`
-	Model          *string  `json:"model,omitempty"`
-	Name           string   `json:"name"`
-	ObservationId  *string  `json:"observationId,omitempty"`
-	OutputTokens   *int     `json:"outputTokens,omitempty"`
-	Source         string   `json:"source"`
-	StringValue    *string  `json:"stringValue,omitempty"`
-	TraceId        string   `json:"traceId"`
-	UpdatedAt      string   `json:"updatedAt"`
-	Value          *float32 `json:"value,omitempty"`
+	HigherIsBetter *bool  `json:"higherIsBetter,omitempty"`
+	Id             string `json:"id"`
+	InputTokens    *int   `json:"inputTokens,omitempty"`
+
+	// LatencyMs LatencyMs is how long the evaluator took to produce this
+	// score.
+	LatencyMs     *int     `json:"latencyMs,omitempty"`
+	Model         *string  `json:"model,omitempty"`
+	Name          string   `json:"name"`
+	ObservationId *string  `json:"observationId,omitempty"`
+	OutputTokens  *int     `json:"outputTokens,omitempty"`
+	Source        string   `json:"source"`
+	StringValue   *string  `json:"stringValue,omitempty"`
+	TraceId       string   `json:"traceId"`
+	UpdatedAt     string   `json:"updatedAt"`
+	Value         *float32 `json:"value,omitempty"`
 }
 
 // ScoreResponse ScoreResponse is one recorded score.
@@ -2515,9 +3132,11 @@ type TraceSpanReference struct {
 // "span.kind" from span_kind) and for internal counter columns like
 // dropped_attributes_count and flags that aren't meaningful to filter on.
 type TraceSpanTag struct {
-	FilterLabel *string `json:"filterLabel,omitempty"`
-	Key         string  `json:"key"`
-	Type        string  `json:"type"`
+	// ContentRef Ref stands in a tag for a value that was moved to the table.
+	ContentRef  *OodleUtilTracecontentRef `json:"contentRef,omitempty"`
+	FilterLabel *string                   `json:"filterLabel,omitempty"`
+	Key         string                    `json:"key"`
+	Type        string                    `json:"type"`
 
 	// Value Value carries the tag's data. Its concrete JSON type (string,
 	// integer, number, or boolean) is declared by the sibling Type field.
@@ -2544,10 +3163,12 @@ type TraceSpanTag_Value struct {
 
 // TracesResponse defines model for TracesResponse.
 type TracesResponse struct {
-	Data   *[]Trace `json:"data"`
-	Errors *string  `json:"errors,omitempty"`
-	Limit  int      `json:"limit"`
-	Offset int      `json:"offset"`
+	// Contents Contents is the table as a response carries it.
+	Contents *OodleUtilTracecontentContents `json:"contents,omitempty"`
+	Data     *[]Trace                       `json:"data"`
+	Errors   *string                        `json:"errors,omitempty"`
+	Limit    int                            `json:"limit"`
+	Offset   int                            `json:"offset"`
 
 	// RowLimit RowLimit is the limit that stopped the query,
 	// in the same units as RowsRead.
@@ -2602,6 +3223,13 @@ type UpdateApiKeyRequest struct {
 	Scopes *[]string `json:"scopes"`
 }
 
+// UpdateCodeLibraryRequest UpdateCodeLibraryRequest changes a shared library. Omitted
+// fields are left alone. A changed source adds a version.
+type UpdateCodeLibraryRequest struct {
+	Description *string `json:"description,omitempty"`
+	SourceCode  *string `json:"sourceCode,omitempty"`
+}
+
 // UpdateDatasetItemRequest UpdateDatasetItemRequest patches a dataset row. Omitted
 // fields are left untouched.
 type UpdateDatasetItemRequest struct {
@@ -2634,15 +3262,26 @@ type UpdateEvalTemplateRequest struct {
 	// HigherIsBetter HigherIsBetter changes which end of the score range is
 	// the good one. Omit it to leave the current setting
 	// alone; send false to mark the evaluator lower-is-better.
-	HigherIsBetter     *bool       `json:"higherIsBetter,omitempty"`
-	ModelParams        interface{} `json:"modelParams,omitempty"`
-	Name               *string     `json:"name,omitempty"`
-	OutputSchema       interface{} `json:"outputSchema,omitempty"`
-	Prompt             *string     `json:"prompt,omitempty"`
-	ScoreType          *string     `json:"scoreType,omitempty"`
-	SourceCode         *string     `json:"sourceCode,omitempty"`
-	SourceCodeLanguage *string     `json:"sourceCodeLanguage,omitempty"`
-	Vars               *[]string   `json:"vars,omitempty"`
+	HigherIsBetter *bool `json:"higherIsBetter,omitempty"`
+
+	// LibraryPins LibraryPins replaces the shared library pins. Omit it
+	// to leave them alone; send an empty object to remove
+	// them all.
+	LibraryPins  *map[string]int `json:"libraryPins,omitempty"`
+	ModelParams  interface{}     `json:"modelParams,omitempty"`
+	Name         *string         `json:"name,omitempty"`
+	OutputSchema interface{}     `json:"outputSchema,omitempty"`
+
+	// Params Params replaces the settings of a code evaluator. Omit
+	// it to leave them alone; send an empty list to remove
+	// them all. The values each evaluator already set are not
+	// checked again until that evaluator is next saved.
+	Params             *[]ParamSpec `json:"params,omitempty"`
+	Prompt             *string      `json:"prompt,omitempty"`
+	ScoreType          *string      `json:"scoreType,omitempty"`
+	SourceCode         *string      `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string      `json:"sourceCodeLanguage,omitempty"`
+	Vars               *[]string    `json:"vars,omitempty"`
 }
 
 // UpdateEvaluationRuleRequest UpdateEvaluationRuleRequest patches an evaluation rule.
@@ -2656,9 +3295,14 @@ type UpdateEvaluationRuleRequest struct {
 	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
 	ModelParams           interface{} `json:"modelParams,omitempty"`
 	Name                  *string     `json:"name,omitempty"`
-	SamplingRate          *float32    `json:"samplingRate,omitempty"`
-	TargetType            *string     `json:"targetType,omitempty"`
-	VariableMapping       interface{} `json:"variableMapping,omitempty"`
+
+	// Params Params replaces this evaluator's setting values. Omit
+	// it to leave them alone; send an empty object to go back
+	// to the template's defaults.
+	Params          *map[string]interface{} `json:"params,omitempty"`
+	SamplingRate    *float32                `json:"samplingRate,omitempty"`
+	TargetType      *string                 `json:"targetType,omitempty"`
+	VariableMapping interface{}             `json:"variableMapping,omitempty"`
 }
 
 // UpdateJobRequest UpdateJobRequest changes a job's status. Only cancellation is
@@ -2785,6 +3429,60 @@ type UserInvitation struct {
 	Id        string    `json:"id"`
 	Inviter   string    `json:"inviter"`
 	Roles     *[]string `json:"roles"`
+}
+
+// ValidateEvalTemplateRequest ValidateEvalTemplateRequest is a template to check without
+// saving it: every check a create or an update runs.
+type ValidateEvalTemplateRequest struct {
+	// Libraries Libraries are draft shared libraries, name to source, with
+	// the caps of a test run's drafts. An import resolves to a
+	// draft first, then to a stored library, and a draft's own
+	// imports are followed the same way.
+	Libraries   *map[string]string `json:"libraries,omitempty"`
+	LibraryPins *map[string]int    `json:"libraryPins,omitempty"`
+
+	// Name Name is the name of the evaluator (rule) that would run
+	// the code. With it, the score reads are also checked for a
+	// read of its own scores and for a cycle.
+	Name *string `json:"name,omitempty"`
+
+	// Params Params are the template's settings.
+	Params *[]ParamSpec `json:"params,omitempty"`
+
+	// RuleParams RuleParams are an evaluator's values, resolved against
+	// Params when sent.
+	RuleParams         *map[string]interface{} `json:"ruleParams,omitempty"`
+	SourceCode         *string                 `json:"sourceCode,omitempty"`
+	SourceCodeLanguage *string                 `json:"sourceCodeLanguage,omitempty"`
+
+	// Type Type is "llm", "code" or "output_comparer".
+	Type string `json:"type"`
+}
+
+// ValidateEvalTemplateResponse ValidateEvalTemplateResponse is the answer to a check. It is
+// always a 200; Valid says whether a save would go through.
+type ValidateEvalTemplateResponse struct {
+	// Libraries Libraries are the shared libraries the code imports,
+	// directly or through other libraries.
+	Libraries *[]LibraryVersionRef `json:"libraries"`
+
+	// Notes Notes say what the check does not cover, such as Python
+	// syntax.
+	Notes    *[]string            `json:"notes"`
+	Problems *[]ValidationProblem `json:"problems"`
+
+	// ScoreInputs ScoreInputs are the evaluators whose scores the code
+	// reads, by the names it uses.
+	ScoreInputs *[]NamedRef `json:"scoreInputs"`
+	Valid       bool        `json:"valid"`
+}
+
+// ValidationProblem ValidationProblem is one thing a create or an update would
+// refuse.
+type ValidationProblem struct {
+	// Field Field is the request field the problem is about.
+	Field   string `json:"field"`
+	Message string `json:"message"`
 }
 
 // ValueExtractor ValueExtractor is used to extract label values from the log fields.
@@ -2919,6 +3617,60 @@ type OodleUtilHttputilsModelsError struct {
 // OodleUtilHttputilsModelsErrors defines model for oodle_util_httputils_models_Errors.
 type OodleUtilHttputilsModelsErrors struct {
 	Errors *[]OodleUtilHttputilsModelsError `json:"errors,omitempty"`
+}
+
+// OodleUtilTracecontentContents Contents is the table as a response carries it.
+type OodleUtilTracecontentContents struct {
+	// BundleStarts BundleStarts, Layout and KeyEpochUs name the cache
+	// entries the contents were stored under: entry b holds
+	// indexes BundleStarts[b] up to the next start. A reader
+	// sends each id's entry back to fetch it. No starts means
+	// the contents were not stored, and only Values has them.
+	BundleStarts *[]int `json:"bundleStarts,omitempty"`
+
+	// Derived Derived are the values of the last len(Derived) ids: the
+	// contents a reader of the trace made itself, which no cache
+	// holds, so they travel with the response.
+	Derived *[]string `json:"derived,omitempty"`
+
+	// Ids IDs are the ids of the contents, in the order a Ref's
+	// indexes count.
+	Ids        *[]string `json:"ids"`
+	KeyEpochUs *int      `json:"keyEpochUs,omitempty"`
+	Layout     *string   `json:"layout,omitempty"`
+
+	// Sizes Sizes are the lengths of the contents in bytes,
+	// index-aligned with IDs, so a reader can ask for a
+	// bounded amount at a time.
+	Sizes *[]int `json:"sizes,omitempty"`
+
+	// Values Values, when present, are the contents themselves,
+	// index-aligned with IDs.
+	Values *[]string `json:"values,omitempty"`
+}
+
+// OodleUtilTracecontentRef Ref stands in a tag for a value that was moved to the table.
+type OodleUtilTracecontentRef struct {
+	// Array Array is true when the value was a JSON array and IDs
+	// are its elements in order.
+	Array *bool   `json:"array,omitempty"`
+	Close *string `json:"close,omitempty"`
+
+	// Ids IDs are indexes into the table's ids. A value that was
+	// not an array has one. JSON carries them as runs: an id,
+	// then the negated count of the ids that follow it, so
+	// [4,-3,9] is 4, 5, 6, 7 and 9.
+	Ids *[]int `json:"ids"`
+
+	// Open Open, Sep and Close are the text of the array around
+	// and between its elements, white space included, when it
+	// is not "[", "," and "]". With them the array is rebuilt
+	// byte for byte: a Python SDK writes ", " between elements.
+	Open *string `json:"open,omitempty"`
+	Sep  *string `json:"sep,omitempty"`
+
+	// Size Size is the length of the value in bytes.
+	Size int `json:"size"`
 }
 
 // ImportPrometheusMetricsTextBody defines parameters for ImportPrometheusMetrics.
@@ -3245,6 +3997,12 @@ type PatchIntegrationsByIdJSONRequestBody = PatchIntegration
 // UpdateIntegrationsByIdJSONRequestBody defines body for UpdateIntegrationsById for application/json ContentType.
 type UpdateIntegrationsByIdJSONRequestBody = PatchIntegration
 
+// CreateGenaiCodeLibraryJSONRequestBody defines body for CreateGenaiCodeLibrary for application/json ContentType.
+type CreateGenaiCodeLibraryJSONRequestBody = CreateCodeLibraryRequest
+
+// UpdateGenaiCodeLibraryJSONRequestBody defines body for UpdateGenaiCodeLibrary for application/json ContentType.
+type UpdateGenaiCodeLibraryJSONRequestBody = UpdateCodeLibraryRequest
+
 // RenameGenaiDatasetFolderJSONRequestBody defines body for RenameGenaiDatasetFolder for application/json ContentType.
 type RenameGenaiDatasetFolderJSONRequestBody = RenameDatasetFolderRequest
 
@@ -3269,8 +4027,14 @@ type SetGenaiDatasetScheduleJSONRequestBody = UpsertDatasetScheduleRequest
 // CreateGenaiEvaluatorJSONRequestBody defines body for CreateGenaiEvaluator for application/json ContentType.
 type CreateGenaiEvaluatorJSONRequestBody = CreateEvalTemplateRequest
 
+// ValidateGenaiEvaluatorJSONRequestBody defines body for ValidateGenaiEvaluator for application/json ContentType.
+type ValidateGenaiEvaluatorJSONRequestBody = ValidateEvalTemplateRequest
+
 // UpdateGenaiEvaluatorJSONRequestBody defines body for UpdateGenaiEvaluator for application/json ContentType.
 type UpdateGenaiEvaluatorJSONRequestBody = UpdateEvalTemplateRequest
+
+// TestRunGenaiEvaluatorJSONRequestBody defines body for TestRunGenaiEvaluator for application/json ContentType.
+type TestRunGenaiEvaluatorJSONRequestBody = CodeEvalTestRunRequest
 
 // CreateGenaiEvaluationRuleJSONRequestBody defines body for CreateGenaiEvaluationRule for application/json ContentType.
 type CreateGenaiEvaluationRuleJSONRequestBody = CreateEvaluationRuleRequest
@@ -3292,6 +4056,9 @@ type UpdateGenaiLlmConnectionJSONRequestBody = UpdateLLMConnectionRequest
 
 // CreateGenaiScoreJSONRequestBody defines body for CreateGenaiScore for application/json ContentType.
 type CreateGenaiScoreJSONRequestBody = CreateScoreRequest
+
+// CreateGenaiBackfillJSONRequestBody defines body for CreateGenaiBackfill for application/json ContentType.
+type CreateGenaiBackfillJSONRequestBody = BackfillRequest
 
 // CreateGenaiPromptJSONRequestBody defines body for CreateGenaiPrompt for application/json ContentType.
 type CreateGenaiPromptJSONRequestBody = CreatePromptRequest
@@ -3358,6 +4125,68 @@ type CreateInvitationsJSONRequestBody = SendInvitationRequest
 
 // CreateBulkJSONRequestBody defines body for CreateBulk for application/json ContentType.
 type CreateBulkJSONRequestBody = BulkSendInvitationRequest
+
+// AsCodeEvalTestRunResponseError0 returns the union data inside the CodeEvalTestRunResponse_Error as a CodeEvalTestRunResponseError0
+func (t CodeEvalTestRunResponse_Error) AsCodeEvalTestRunResponseError0() (CodeEvalTestRunResponseError0, error) {
+	var body CodeEvalTestRunResponseError0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCodeEvalTestRunResponseError0 overwrites any union data inside the CodeEvalTestRunResponse_Error as the provided CodeEvalTestRunResponseError0
+func (t *CodeEvalTestRunResponse_Error) FromCodeEvalTestRunResponseError0(v CodeEvalTestRunResponseError0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCodeEvalTestRunResponseError0 performs a merge with any union data inside the CodeEvalTestRunResponse_Error, using the provided CodeEvalTestRunResponseError0
+func (t *CodeEvalTestRunResponse_Error) MergeCodeEvalTestRunResponseError0(v CodeEvalTestRunResponseError0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCodeEvalTestRunResponseError1 returns the union data inside the CodeEvalTestRunResponse_Error as a CodeEvalTestRunResponseError1
+func (t CodeEvalTestRunResponse_Error) AsCodeEvalTestRunResponseError1() (CodeEvalTestRunResponseError1, error) {
+	var body CodeEvalTestRunResponseError1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCodeEvalTestRunResponseError1 overwrites any union data inside the CodeEvalTestRunResponse_Error as the provided CodeEvalTestRunResponseError1
+func (t *CodeEvalTestRunResponse_Error) FromCodeEvalTestRunResponseError1(v CodeEvalTestRunResponseError1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCodeEvalTestRunResponseError1 performs a merge with any union data inside the CodeEvalTestRunResponse_Error, using the provided CodeEvalTestRunResponseError1
+func (t *CodeEvalTestRunResponse_Error) MergeCodeEvalTestRunResponseError1(v CodeEvalTestRunResponseError1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CodeEvalTestRunResponse_Error) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CodeEvalTestRunResponse_Error) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // AsCloudWatchMetricPullIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CloudWatchMetricPullIntegrationWrapper
 func (t CreateIntegrationRequest_TypeSpecificData) AsCloudWatchMetricPullIntegrationWrapper() (CloudWatchMetricPullIntegrationWrapper, error) {

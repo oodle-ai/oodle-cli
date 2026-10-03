@@ -198,8 +198,42 @@ type ClientInterface interface {
 
 	UpdateIntegrationsById(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetGenaiCodeEvalLibrary request
+	GetGenaiCodeEvalLibrary(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiCodeEvalLibraryFiles request
+	ListGenaiCodeEvalLibraryFiles(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiCodeEvalLibraryFile request
+	GetGenaiCodeEvalLibraryFile(ctx context.Context, instance string, path string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListGenaiCodeEvalStarters request
 	ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiCodeLibraries request
+	ListGenaiCodeLibraries(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGenaiCodeLibraryWithBody request with any body
+	CreateGenaiCodeLibraryWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGenaiCodeLibrary(ctx context.Context, instance string, body CreateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGenaiCodeLibrary request
+	DeleteGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiCodeLibrary request
+	GetGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateGenaiCodeLibraryWithBody request with any body
+	UpdateGenaiCodeLibraryWithBody(ctx context.Context, instance string, libraryId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, body UpdateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiCodeLibraryVersions request
+	ListGenaiCodeLibraryVersions(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiCodeLibraryVersion request
+	GetGenaiCodeLibraryVersion(ctx context.Context, instance string, libraryId string, version int, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RenameGenaiDatasetFolderWithBody request with any body
 	RenameGenaiDatasetFolderWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -274,6 +308,11 @@ type ClientInterface interface {
 
 	CreateGenaiEvaluator(ctx context.Context, instance string, body CreateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ValidateGenaiEvaluatorWithBody request with any body
+	ValidateGenaiEvaluatorWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ValidateGenaiEvaluator(ctx context.Context, instance string, body ValidateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteGenaiEvaluator request
 	DeleteGenaiEvaluator(ctx context.Context, instance string, templateId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -285,6 +324,11 @@ type ClientInterface interface {
 
 	UpdateGenaiEvaluator(ctx context.Context, instance string, templateId string, body UpdateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// TestRunGenaiEvaluatorWithBody request with any body
+	TestRunGenaiEvaluatorWithBody(ctx context.Context, instance string, templateId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	TestRunGenaiEvaluator(ctx context.Context, instance string, templateId string, body TestRunGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListGenaiEvaluationRules request
 	ListGenaiEvaluationRules(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -295,6 +339,9 @@ type ClientInterface interface {
 
 	// DeleteGenaiEvaluationRule request
 	DeleteGenaiEvaluationRule(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiEvaluationRule request
+	GetGenaiEvaluationRule(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateGenaiEvaluationRuleWithBody request with any body
 	UpdateGenaiEvaluationRuleWithBody(ctx context.Context, instance string, ruleId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -340,6 +387,23 @@ type ClientInterface interface {
 
 	// GetGenaiScore request
 	GetGenaiScore(ctx context.Context, instance string, scoreId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListGenaiBackfills request
+	ListGenaiBackfills(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateGenaiBackfillWithBody request with any body
+	CreateGenaiBackfillWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateGenaiBackfill(ctx context.Context, instance string, body CreateGenaiBackfillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteGenaiBackfill request
+	DeleteGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetGenaiBackfill request
+	GetGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CancelGenaiBackfill request
+	CancelGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListGenaiPrompts request
 	ListGenaiPrompts(ctx context.Context, instance string, params *ListGenaiPromptsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -1073,8 +1137,152 @@ func (c *Client) UpdateIntegrationsById(ctx context.Context, instance string, in
 	return c.Client.Do(req)
 }
 
+func (c *Client) GetGenaiCodeEvalLibrary(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiCodeEvalLibraryRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiCodeEvalLibraryFiles(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiCodeEvalLibraryFilesRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiCodeEvalLibraryFile(ctx context.Context, instance string, path string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiCodeEvalLibraryFileRequest(c.Server, instance, path)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListGenaiCodeEvalStarters(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGenaiCodeEvalStartersRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiCodeLibraries(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiCodeLibrariesRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiCodeLibraryWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiCodeLibraryRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiCodeLibrary(ctx context.Context, instance string, body CreateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiCodeLibraryRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGenaiCodeLibraryRequest(c.Server, instance, libraryId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiCodeLibraryRequest(c.Server, instance, libraryId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGenaiCodeLibraryWithBody(ctx context.Context, instance string, libraryId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGenaiCodeLibraryRequestWithBody(c.Server, instance, libraryId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateGenaiCodeLibrary(ctx context.Context, instance string, libraryId string, body UpdateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateGenaiCodeLibraryRequest(c.Server, instance, libraryId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiCodeLibraryVersions(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiCodeLibraryVersionsRequest(c.Server, instance, libraryId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiCodeLibraryVersion(ctx context.Context, instance string, libraryId string, version int, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiCodeLibraryVersionRequest(c.Server, instance, libraryId, version)
 	if err != nil {
 		return nil, err
 	}
@@ -1409,6 +1617,30 @@ func (c *Client) CreateGenaiEvaluator(ctx context.Context, instance string, body
 	return c.Client.Do(req)
 }
 
+func (c *Client) ValidateGenaiEvaluatorWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidateGenaiEvaluatorRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ValidateGenaiEvaluator(ctx context.Context, instance string, body ValidateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewValidateGenaiEvaluatorRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) DeleteGenaiEvaluator(ctx context.Context, instance string, templateId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteGenaiEvaluatorRequest(c.Server, instance, templateId)
 	if err != nil {
@@ -1457,6 +1689,30 @@ func (c *Client) UpdateGenaiEvaluator(ctx context.Context, instance string, temp
 	return c.Client.Do(req)
 }
 
+func (c *Client) TestRunGenaiEvaluatorWithBody(ctx context.Context, instance string, templateId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestRunGenaiEvaluatorRequestWithBody(c.Server, instance, templateId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) TestRunGenaiEvaluator(ctx context.Context, instance string, templateId string, body TestRunGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestRunGenaiEvaluatorRequest(c.Server, instance, templateId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListGenaiEvaluationRules(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListGenaiEvaluationRulesRequest(c.Server, instance, params)
 	if err != nil {
@@ -1495,6 +1751,18 @@ func (c *Client) CreateGenaiEvaluationRule(ctx context.Context, instance string,
 
 func (c *Client) DeleteGenaiEvaluationRule(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteGenaiEvaluationRuleRequest(c.Server, instance, ruleId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiEvaluationRule(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiEvaluationRuleRequest(c.Server, instance, ruleId)
 	if err != nil {
 		return nil, err
 	}
@@ -1699,6 +1967,78 @@ func (c *Client) CreateGenaiScore(ctx context.Context, instance string, body Cre
 
 func (c *Client) GetGenaiScore(ctx context.Context, instance string, scoreId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetGenaiScoreRequest(c.Server, instance, scoreId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListGenaiBackfills(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListGenaiBackfillsRequest(c.Server, instance)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiBackfillWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiBackfillRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateGenaiBackfill(ctx context.Context, instance string, body CreateGenaiBackfillJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateGenaiBackfillRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteGenaiBackfillRequest(c.Server, instance, backfillId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetGenaiBackfillRequest(c.Server, instance, backfillId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CancelGenaiBackfill(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCancelGenaiBackfillRequest(c.Server, instance, backfillId)
 	if err != nil {
 		return nil, err
 	}
@@ -4211,6 +4551,115 @@ func NewUpdateIntegrationsByIdRequestWithBody(server string, instance string, in
 	return req, nil
 }
 
+// NewGetGenaiCodeEvalLibraryRequest generates requests for GetGenaiCodeEvalLibrary
+func NewGetGenaiCodeEvalLibraryRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-library", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGenaiCodeEvalLibraryFilesRequest generates requests for ListGenaiCodeEvalLibraryFiles
+func NewListGenaiCodeEvalLibraryFilesRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-library/files", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiCodeEvalLibraryFileRequest generates requests for GetGenaiCodeEvalLibraryFile
+func NewGetGenaiCodeEvalLibraryFileRequest(server string, instance string, path string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "path", path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-library/files/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListGenaiCodeEvalStartersRequest generates requests for ListGenaiCodeEvalStarters
 func NewListGenaiCodeEvalStartersRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -4228,6 +4677,312 @@ func NewListGenaiCodeEvalStartersRequest(server string, instance string) (*http.
 	}
 
 	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-eval-starters", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGenaiCodeLibrariesRequest generates requests for ListGenaiCodeLibraries
+func NewListGenaiCodeLibrariesRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGenaiCodeLibraryRequest calls the generic CreateGenaiCodeLibrary builder with application/json body
+func NewCreateGenaiCodeLibraryRequest(server string, instance string, body CreateGenaiCodeLibraryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGenaiCodeLibraryRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewCreateGenaiCodeLibraryRequestWithBody generates requests for CreateGenaiCodeLibrary with any type of body
+func NewCreateGenaiCodeLibraryRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGenaiCodeLibraryRequest generates requests for DeleteGenaiCodeLibrary
+func NewDeleteGenaiCodeLibraryRequest(server string, instance string, libraryId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "libraryId", libraryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiCodeLibraryRequest generates requests for GetGenaiCodeLibrary
+func NewGetGenaiCodeLibraryRequest(server string, instance string, libraryId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "libraryId", libraryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateGenaiCodeLibraryRequest calls the generic UpdateGenaiCodeLibrary builder with application/json body
+func NewUpdateGenaiCodeLibraryRequest(server string, instance string, libraryId string, body UpdateGenaiCodeLibraryJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateGenaiCodeLibraryRequestWithBody(server, instance, libraryId, "application/json", bodyReader)
+}
+
+// NewUpdateGenaiCodeLibraryRequestWithBody generates requests for UpdateGenaiCodeLibrary with any type of body
+func NewUpdateGenaiCodeLibraryRequestWithBody(server string, instance string, libraryId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "libraryId", libraryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListGenaiCodeLibraryVersionsRequest generates requests for ListGenaiCodeLibraryVersions
+func NewListGenaiCodeLibraryVersionsRequest(server string, instance string, libraryId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "libraryId", libraryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries/%s/versions", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiCodeLibraryVersionRequest generates requests for GetGenaiCodeLibraryVersion
+func NewGetGenaiCodeLibraryVersionRequest(server string, instance string, libraryId string, version int) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "libraryId", libraryId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "version", version, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/code-libraries/%s/versions/%s", pathParam0, pathParam1, pathParam2)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -5290,6 +6045,53 @@ func NewCreateGenaiEvaluatorRequestWithBody(server string, instance string, cont
 	return req, nil
 }
 
+// NewValidateGenaiEvaluatorRequest calls the generic ValidateGenaiEvaluator builder with application/json body
+func NewValidateGenaiEvaluatorRequest(server string, instance string, body ValidateGenaiEvaluatorJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewValidateGenaiEvaluatorRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewValidateGenaiEvaluatorRequestWithBody generates requests for ValidateGenaiEvaluator with any type of body
+func NewValidateGenaiEvaluatorRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/eval-templates/validate", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteGenaiEvaluatorRequest generates requests for DeleteGenaiEvaluator
 func NewDeleteGenaiEvaluatorRequest(server string, instance string, templateId string) (*http.Request, error) {
 	var err error
@@ -5417,6 +6219,60 @@ func NewUpdateGenaiEvaluatorRequestWithBody(server string, instance string, temp
 	}
 
 	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewTestRunGenaiEvaluatorRequest calls the generic TestRunGenaiEvaluator builder with application/json body
+func NewTestRunGenaiEvaluatorRequest(server string, instance string, templateId string, body TestRunGenaiEvaluatorJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewTestRunGenaiEvaluatorRequestWithBody(server, instance, templateId, "application/json", bodyReader)
+}
+
+// NewTestRunGenaiEvaluatorRequestWithBody generates requests for TestRunGenaiEvaluator with any type of body
+func NewTestRunGenaiEvaluatorRequestWithBody(server string, instance string, templateId string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "templateId", templateId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/eval-templates/%s/test-run", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -5563,6 +6419,47 @@ func NewDeleteGenaiEvaluationRuleRequest(server string, instance string, ruleId 
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiEvaluationRuleRequest generates requests for GetGenaiEvaluationRule
+func NewGetGenaiEvaluationRuleRequest(server string, instance string, ruleId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "ruleId", ruleId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/evaluation-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -6079,6 +6976,210 @@ func NewGetGenaiScoreRequest(server string, instance string, scoreId string) (*h
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListGenaiBackfillsRequest generates requests for ListGenaiBackfills
+func NewListGenaiBackfillsRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/v2/backfills", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateGenaiBackfillRequest calls the generic CreateGenaiBackfill builder with application/json body
+func NewCreateGenaiBackfillRequest(server string, instance string, body CreateGenaiBackfillJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateGenaiBackfillRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewCreateGenaiBackfillRequestWithBody generates requests for CreateGenaiBackfill with any type of body
+func NewCreateGenaiBackfillRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/v2/backfills", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteGenaiBackfillRequest generates requests for DeleteGenaiBackfill
+func NewDeleteGenaiBackfillRequest(server string, instance string, backfillId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "backfillId", backfillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/v2/backfills/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetGenaiBackfillRequest generates requests for GetGenaiBackfill
+func NewGetGenaiBackfillRequest(server string, instance string, backfillId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "backfillId", backfillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/v2/backfills/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCancelGenaiBackfillRequest generates requests for CancelGenaiBackfill
+func NewCancelGenaiBackfillRequest(server string, instance string, backfillId string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "backfillId", backfillId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/langfuse/api/public/v2/backfills/%s/cancel", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -9810,8 +10911,42 @@ type ClientWithResponsesInterface interface {
 
 	UpdateIntegrationsByIdWithResponse(ctx context.Context, instance string, integrationId string, body UpdateIntegrationsByIdJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateIntegrationsByIdResponse, error)
 
+	// GetGenaiCodeEvalLibraryWithResponse request
+	GetGenaiCodeEvalLibraryWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*GetGenaiCodeEvalLibraryResponse, error)
+
+	// ListGenaiCodeEvalLibraryFilesWithResponse request
+	ListGenaiCodeEvalLibraryFilesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalLibraryFilesResponse, error)
+
+	// GetGenaiCodeEvalLibraryFileWithResponse request
+	GetGenaiCodeEvalLibraryFileWithResponse(ctx context.Context, instance string, path string, reqEditors ...RequestEditorFn) (*GetGenaiCodeEvalLibraryFileResponse, error)
+
 	// ListGenaiCodeEvalStartersWithResponse request
 	ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error)
+
+	// ListGenaiCodeLibrariesWithResponse request
+	ListGenaiCodeLibrariesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeLibrariesResponse, error)
+
+	// CreateGenaiCodeLibraryWithBodyWithResponse request with any body
+	CreateGenaiCodeLibraryWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiCodeLibraryResponse, error)
+
+	CreateGenaiCodeLibraryWithResponse(ctx context.Context, instance string, body CreateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiCodeLibraryResponse, error)
+
+	// DeleteGenaiCodeLibraryWithResponse request
+	DeleteGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*DeleteGenaiCodeLibraryResponse, error)
+
+	// GetGenaiCodeLibraryWithResponse request
+	GetGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*GetGenaiCodeLibraryResponse, error)
+
+	// UpdateGenaiCodeLibraryWithBodyWithResponse request with any body
+	UpdateGenaiCodeLibraryWithBodyWithResponse(ctx context.Context, instance string, libraryId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGenaiCodeLibraryResponse, error)
+
+	UpdateGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, body UpdateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiCodeLibraryResponse, error)
+
+	// ListGenaiCodeLibraryVersionsWithResponse request
+	ListGenaiCodeLibraryVersionsWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*ListGenaiCodeLibraryVersionsResponse, error)
+
+	// GetGenaiCodeLibraryVersionWithResponse request
+	GetGenaiCodeLibraryVersionWithResponse(ctx context.Context, instance string, libraryId string, version int, reqEditors ...RequestEditorFn) (*GetGenaiCodeLibraryVersionResponse, error)
 
 	// RenameGenaiDatasetFolderWithBodyWithResponse request with any body
 	RenameGenaiDatasetFolderWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenameGenaiDatasetFolderResponse, error)
@@ -9886,6 +11021,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateGenaiEvaluatorWithResponse(ctx context.Context, instance string, body CreateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiEvaluatorResponse, error)
 
+	// ValidateGenaiEvaluatorWithBodyWithResponse request with any body
+	ValidateGenaiEvaluatorWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateGenaiEvaluatorResponse, error)
+
+	ValidateGenaiEvaluatorWithResponse(ctx context.Context, instance string, body ValidateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateGenaiEvaluatorResponse, error)
+
 	// DeleteGenaiEvaluatorWithResponse request
 	DeleteGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, reqEditors ...RequestEditorFn) (*DeleteGenaiEvaluatorResponse, error)
 
@@ -9897,6 +11037,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, body UpdateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiEvaluatorResponse, error)
 
+	// TestRunGenaiEvaluatorWithBodyWithResponse request with any body
+	TestRunGenaiEvaluatorWithBodyWithResponse(ctx context.Context, instance string, templateId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestRunGenaiEvaluatorResponse, error)
+
+	TestRunGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, body TestRunGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*TestRunGenaiEvaluatorResponse, error)
+
 	// ListGenaiEvaluationRulesWithResponse request
 	ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error)
 
@@ -9907,6 +11052,9 @@ type ClientWithResponsesInterface interface {
 
 	// DeleteGenaiEvaluationRuleWithResponse request
 	DeleteGenaiEvaluationRuleWithResponse(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*DeleteGenaiEvaluationRuleResponse, error)
+
+	// GetGenaiEvaluationRuleWithResponse request
+	GetGenaiEvaluationRuleWithResponse(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*GetGenaiEvaluationRuleResponse, error)
 
 	// UpdateGenaiEvaluationRuleWithBodyWithResponse request with any body
 	UpdateGenaiEvaluationRuleWithBodyWithResponse(ctx context.Context, instance string, ruleId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGenaiEvaluationRuleResponse, error)
@@ -9952,6 +11100,23 @@ type ClientWithResponsesInterface interface {
 
 	// GetGenaiScoreWithResponse request
 	GetGenaiScoreWithResponse(ctx context.Context, instance string, scoreId string, reqEditors ...RequestEditorFn) (*GetGenaiScoreResponse, error)
+
+	// ListGenaiBackfillsWithResponse request
+	ListGenaiBackfillsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiBackfillsResponse, error)
+
+	// CreateGenaiBackfillWithBodyWithResponse request with any body
+	CreateGenaiBackfillWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiBackfillResponse, error)
+
+	CreateGenaiBackfillWithResponse(ctx context.Context, instance string, body CreateGenaiBackfillJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiBackfillResponse, error)
+
+	// DeleteGenaiBackfillWithResponse request
+	DeleteGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*DeleteGenaiBackfillResponse, error)
+
+	// GetGenaiBackfillWithResponse request
+	GetGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*GetGenaiBackfillResponse, error)
+
+	// CancelGenaiBackfillWithResponse request
+	CancelGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*CancelGenaiBackfillResponse, error)
 
 	// ListGenaiPromptsWithResponse request
 	ListGenaiPromptsWithResponse(ctx context.Context, instance string, params *ListGenaiPromptsParams, reqEditors ...RequestEditorFn) (*ListGenaiPromptsResponse, error)
@@ -10932,6 +12097,79 @@ func (r UpdateIntegrationsByIdResponse) StatusCode() int {
 	return 0
 }
 
+type GetGenaiCodeEvalLibraryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeEvalLibraryResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiCodeEvalLibraryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiCodeEvalLibraryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiCodeEvalLibraryFilesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeEvalLibraryFilesResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiCodeEvalLibraryFilesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiCodeEvalLibraryFilesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiCodeEvalLibraryFileResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeEvalLibraryFileResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiCodeEvalLibraryFileResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiCodeEvalLibraryFileResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListGenaiCodeEvalStartersResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -10950,6 +12188,192 @@ func (r ListGenaiCodeEvalStartersResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ListGenaiCodeEvalStartersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiCodeLibrariesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListCodeLibrariesResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiCodeLibrariesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiCodeLibrariesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGenaiCodeLibraryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON201      *CodeLibrary
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGenaiCodeLibraryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGenaiCodeLibraryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGenaiCodeLibraryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON409      *CodeLibraryInUseResponse
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGenaiCodeLibraryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGenaiCodeLibraryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiCodeLibraryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeLibraryResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiCodeLibraryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiCodeLibraryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateGenaiCodeLibraryResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeLibrary
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateGenaiCodeLibraryResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateGenaiCodeLibraryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiCodeLibraryVersionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListCodeLibraryVersionsResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiCodeLibraryVersionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiCodeLibraryVersionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiCodeLibraryVersionResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeLibraryVersion
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiCodeLibraryVersionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiCodeLibraryVersionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -11457,6 +12881,32 @@ func (r CreateGenaiEvaluatorResponse) StatusCode() int {
 	return 0
 }
 
+type ValidateGenaiEvaluatorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ValidateEvalTemplateResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ValidateGenaiEvaluatorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ValidateGenaiEvaluatorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteGenaiEvaluatorResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11535,6 +12985,34 @@ func (r UpdateGenaiEvaluatorResponse) StatusCode() int {
 	return 0
 }
 
+type TestRunGenaiEvaluatorResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *CodeEvalTestRunResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r TestRunGenaiEvaluatorResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r TestRunGenaiEvaluatorResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListGenaiEvaluationRulesResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -11566,6 +13044,7 @@ type CreateGenaiEvaluationRuleResponse struct {
 	JSON201      *EvaluationRule
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -11590,7 +13069,7 @@ type DeleteGenaiEvaluationRuleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *OodleUtilHttputilsModelsErrors
-	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON409      *RuleInUseResponse
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -11611,13 +13090,41 @@ func (r DeleteGenaiEvaluationRuleResponse) StatusCode() int {
 	return 0
 }
 
+type GetGenaiEvaluationRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *EvaluationRuleResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiEvaluationRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiEvaluationRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UpdateGenaiEvaluationRuleResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *EvaluationRule
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON409      *RuleInUseResponse
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -11890,6 +13397,134 @@ func (r GetGenaiScoreResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetGenaiScoreResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ListGenaiBackfillsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListBackfillsResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListGenaiBackfillsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListGenaiBackfillsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateGenaiBackfillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackfillRun
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateGenaiBackfillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateGenaiBackfillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteGenaiBackfillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *DeleteBackfillResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteGenaiBackfillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteGenaiBackfillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetGenaiBackfillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackfillRun
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetGenaiBackfillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetGenaiBackfillResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CancelGenaiBackfillResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *BackfillRun
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CancelGenaiBackfillResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CancelGenaiBackfillResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -14038,6 +15673,33 @@ func (c *ClientWithResponses) UpdateIntegrationsByIdWithResponse(ctx context.Con
 	return ParseUpdateIntegrationsByIdResponse(rsp)
 }
 
+// GetGenaiCodeEvalLibraryWithResponse request returning *GetGenaiCodeEvalLibraryResponse
+func (c *ClientWithResponses) GetGenaiCodeEvalLibraryWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*GetGenaiCodeEvalLibraryResponse, error) {
+	rsp, err := c.GetGenaiCodeEvalLibrary(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiCodeEvalLibraryResponse(rsp)
+}
+
+// ListGenaiCodeEvalLibraryFilesWithResponse request returning *ListGenaiCodeEvalLibraryFilesResponse
+func (c *ClientWithResponses) ListGenaiCodeEvalLibraryFilesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalLibraryFilesResponse, error) {
+	rsp, err := c.ListGenaiCodeEvalLibraryFiles(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiCodeEvalLibraryFilesResponse(rsp)
+}
+
+// GetGenaiCodeEvalLibraryFileWithResponse request returning *GetGenaiCodeEvalLibraryFileResponse
+func (c *ClientWithResponses) GetGenaiCodeEvalLibraryFileWithResponse(ctx context.Context, instance string, path string, reqEditors ...RequestEditorFn) (*GetGenaiCodeEvalLibraryFileResponse, error) {
+	rsp, err := c.GetGenaiCodeEvalLibraryFile(ctx, instance, path, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiCodeEvalLibraryFileResponse(rsp)
+}
+
 // ListGenaiCodeEvalStartersWithResponse request returning *ListGenaiCodeEvalStartersResponse
 func (c *ClientWithResponses) ListGenaiCodeEvalStartersWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeEvalStartersResponse, error) {
 	rsp, err := c.ListGenaiCodeEvalStarters(ctx, instance, reqEditors...)
@@ -14045,6 +15707,85 @@ func (c *ClientWithResponses) ListGenaiCodeEvalStartersWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseListGenaiCodeEvalStartersResponse(rsp)
+}
+
+// ListGenaiCodeLibrariesWithResponse request returning *ListGenaiCodeLibrariesResponse
+func (c *ClientWithResponses) ListGenaiCodeLibrariesWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiCodeLibrariesResponse, error) {
+	rsp, err := c.ListGenaiCodeLibraries(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiCodeLibrariesResponse(rsp)
+}
+
+// CreateGenaiCodeLibraryWithBodyWithResponse request with arbitrary body returning *CreateGenaiCodeLibraryResponse
+func (c *ClientWithResponses) CreateGenaiCodeLibraryWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiCodeLibraryResponse, error) {
+	rsp, err := c.CreateGenaiCodeLibraryWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiCodeLibraryResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGenaiCodeLibraryWithResponse(ctx context.Context, instance string, body CreateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiCodeLibraryResponse, error) {
+	rsp, err := c.CreateGenaiCodeLibrary(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiCodeLibraryResponse(rsp)
+}
+
+// DeleteGenaiCodeLibraryWithResponse request returning *DeleteGenaiCodeLibraryResponse
+func (c *ClientWithResponses) DeleteGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*DeleteGenaiCodeLibraryResponse, error) {
+	rsp, err := c.DeleteGenaiCodeLibrary(ctx, instance, libraryId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGenaiCodeLibraryResponse(rsp)
+}
+
+// GetGenaiCodeLibraryWithResponse request returning *GetGenaiCodeLibraryResponse
+func (c *ClientWithResponses) GetGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*GetGenaiCodeLibraryResponse, error) {
+	rsp, err := c.GetGenaiCodeLibrary(ctx, instance, libraryId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiCodeLibraryResponse(rsp)
+}
+
+// UpdateGenaiCodeLibraryWithBodyWithResponse request with arbitrary body returning *UpdateGenaiCodeLibraryResponse
+func (c *ClientWithResponses) UpdateGenaiCodeLibraryWithBodyWithResponse(ctx context.Context, instance string, libraryId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateGenaiCodeLibraryResponse, error) {
+	rsp, err := c.UpdateGenaiCodeLibraryWithBody(ctx, instance, libraryId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGenaiCodeLibraryResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateGenaiCodeLibraryWithResponse(ctx context.Context, instance string, libraryId string, body UpdateGenaiCodeLibraryJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateGenaiCodeLibraryResponse, error) {
+	rsp, err := c.UpdateGenaiCodeLibrary(ctx, instance, libraryId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateGenaiCodeLibraryResponse(rsp)
+}
+
+// ListGenaiCodeLibraryVersionsWithResponse request returning *ListGenaiCodeLibraryVersionsResponse
+func (c *ClientWithResponses) ListGenaiCodeLibraryVersionsWithResponse(ctx context.Context, instance string, libraryId string, reqEditors ...RequestEditorFn) (*ListGenaiCodeLibraryVersionsResponse, error) {
+	rsp, err := c.ListGenaiCodeLibraryVersions(ctx, instance, libraryId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiCodeLibraryVersionsResponse(rsp)
+}
+
+// GetGenaiCodeLibraryVersionWithResponse request returning *GetGenaiCodeLibraryVersionResponse
+func (c *ClientWithResponses) GetGenaiCodeLibraryVersionWithResponse(ctx context.Context, instance string, libraryId string, version int, reqEditors ...RequestEditorFn) (*GetGenaiCodeLibraryVersionResponse, error) {
+	rsp, err := c.GetGenaiCodeLibraryVersion(ctx, instance, libraryId, version, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiCodeLibraryVersionResponse(rsp)
 }
 
 // RenameGenaiDatasetFolderWithBodyWithResponse request with arbitrary body returning *RenameGenaiDatasetFolderResponse
@@ -14282,6 +16023,23 @@ func (c *ClientWithResponses) CreateGenaiEvaluatorWithResponse(ctx context.Conte
 	return ParseCreateGenaiEvaluatorResponse(rsp)
 }
 
+// ValidateGenaiEvaluatorWithBodyWithResponse request with arbitrary body returning *ValidateGenaiEvaluatorResponse
+func (c *ClientWithResponses) ValidateGenaiEvaluatorWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ValidateGenaiEvaluatorResponse, error) {
+	rsp, err := c.ValidateGenaiEvaluatorWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidateGenaiEvaluatorResponse(rsp)
+}
+
+func (c *ClientWithResponses) ValidateGenaiEvaluatorWithResponse(ctx context.Context, instance string, body ValidateGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*ValidateGenaiEvaluatorResponse, error) {
+	rsp, err := c.ValidateGenaiEvaluator(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseValidateGenaiEvaluatorResponse(rsp)
+}
+
 // DeleteGenaiEvaluatorWithResponse request returning *DeleteGenaiEvaluatorResponse
 func (c *ClientWithResponses) DeleteGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, reqEditors ...RequestEditorFn) (*DeleteGenaiEvaluatorResponse, error) {
 	rsp, err := c.DeleteGenaiEvaluator(ctx, instance, templateId, reqEditors...)
@@ -14317,6 +16075,23 @@ func (c *ClientWithResponses) UpdateGenaiEvaluatorWithResponse(ctx context.Conte
 	return ParseUpdateGenaiEvaluatorResponse(rsp)
 }
 
+// TestRunGenaiEvaluatorWithBodyWithResponse request with arbitrary body returning *TestRunGenaiEvaluatorResponse
+func (c *ClientWithResponses) TestRunGenaiEvaluatorWithBodyWithResponse(ctx context.Context, instance string, templateId string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*TestRunGenaiEvaluatorResponse, error) {
+	rsp, err := c.TestRunGenaiEvaluatorWithBody(ctx, instance, templateId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestRunGenaiEvaluatorResponse(rsp)
+}
+
+func (c *ClientWithResponses) TestRunGenaiEvaluatorWithResponse(ctx context.Context, instance string, templateId string, body TestRunGenaiEvaluatorJSONRequestBody, reqEditors ...RequestEditorFn) (*TestRunGenaiEvaluatorResponse, error) {
+	rsp, err := c.TestRunGenaiEvaluator(ctx, instance, templateId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseTestRunGenaiEvaluatorResponse(rsp)
+}
+
 // ListGenaiEvaluationRulesWithResponse request returning *ListGenaiEvaluationRulesResponse
 func (c *ClientWithResponses) ListGenaiEvaluationRulesWithResponse(ctx context.Context, instance string, params *ListGenaiEvaluationRulesParams, reqEditors ...RequestEditorFn) (*ListGenaiEvaluationRulesResponse, error) {
 	rsp, err := c.ListGenaiEvaluationRules(ctx, instance, params, reqEditors...)
@@ -14350,6 +16125,15 @@ func (c *ClientWithResponses) DeleteGenaiEvaluationRuleWithResponse(ctx context.
 		return nil, err
 	}
 	return ParseDeleteGenaiEvaluationRuleResponse(rsp)
+}
+
+// GetGenaiEvaluationRuleWithResponse request returning *GetGenaiEvaluationRuleResponse
+func (c *ClientWithResponses) GetGenaiEvaluationRuleWithResponse(ctx context.Context, instance string, ruleId string, reqEditors ...RequestEditorFn) (*GetGenaiEvaluationRuleResponse, error) {
+	rsp, err := c.GetGenaiEvaluationRule(ctx, instance, ruleId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiEvaluationRuleResponse(rsp)
 }
 
 // UpdateGenaiEvaluationRuleWithBodyWithResponse request with arbitrary body returning *UpdateGenaiEvaluationRuleResponse
@@ -14497,6 +16281,59 @@ func (c *ClientWithResponses) GetGenaiScoreWithResponse(ctx context.Context, ins
 		return nil, err
 	}
 	return ParseGetGenaiScoreResponse(rsp)
+}
+
+// ListGenaiBackfillsWithResponse request returning *ListGenaiBackfillsResponse
+func (c *ClientWithResponses) ListGenaiBackfillsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListGenaiBackfillsResponse, error) {
+	rsp, err := c.ListGenaiBackfills(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListGenaiBackfillsResponse(rsp)
+}
+
+// CreateGenaiBackfillWithBodyWithResponse request with arbitrary body returning *CreateGenaiBackfillResponse
+func (c *ClientWithResponses) CreateGenaiBackfillWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateGenaiBackfillResponse, error) {
+	rsp, err := c.CreateGenaiBackfillWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiBackfillResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateGenaiBackfillWithResponse(ctx context.Context, instance string, body CreateGenaiBackfillJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateGenaiBackfillResponse, error) {
+	rsp, err := c.CreateGenaiBackfill(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateGenaiBackfillResponse(rsp)
+}
+
+// DeleteGenaiBackfillWithResponse request returning *DeleteGenaiBackfillResponse
+func (c *ClientWithResponses) DeleteGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*DeleteGenaiBackfillResponse, error) {
+	rsp, err := c.DeleteGenaiBackfill(ctx, instance, backfillId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteGenaiBackfillResponse(rsp)
+}
+
+// GetGenaiBackfillWithResponse request returning *GetGenaiBackfillResponse
+func (c *ClientWithResponses) GetGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*GetGenaiBackfillResponse, error) {
+	rsp, err := c.GetGenaiBackfill(ctx, instance, backfillId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetGenaiBackfillResponse(rsp)
+}
+
+// CancelGenaiBackfillWithResponse request returning *CancelGenaiBackfillResponse
+func (c *ClientWithResponses) CancelGenaiBackfillWithResponse(ctx context.Context, instance string, backfillId string, reqEditors ...RequestEditorFn) (*CancelGenaiBackfillResponse, error) {
+	rsp, err := c.CancelGenaiBackfill(ctx, instance, backfillId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCancelGenaiBackfillResponse(rsp)
 }
 
 // ListGenaiPromptsWithResponse request returning *ListGenaiPromptsResponse
@@ -16667,6 +18504,133 @@ func ParseUpdateIntegrationsByIdResponse(rsp *http.Response) (*UpdateIntegration
 	return response, nil
 }
 
+// ParseGetGenaiCodeEvalLibraryResponse parses an HTTP response from a GetGenaiCodeEvalLibraryWithResponse call
+func ParseGetGenaiCodeEvalLibraryResponse(rsp *http.Response) (*GetGenaiCodeEvalLibraryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiCodeEvalLibraryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeEvalLibraryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiCodeEvalLibraryFilesResponse parses an HTTP response from a ListGenaiCodeEvalLibraryFilesWithResponse call
+func ParseListGenaiCodeEvalLibraryFilesResponse(rsp *http.Response) (*ListGenaiCodeEvalLibraryFilesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiCodeEvalLibraryFilesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeEvalLibraryFilesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiCodeEvalLibraryFileResponse parses an HTTP response from a GetGenaiCodeEvalLibraryFileWithResponse call
+func ParseGetGenaiCodeEvalLibraryFileResponse(rsp *http.Response) (*GetGenaiCodeEvalLibraryFileResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiCodeEvalLibraryFileResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeEvalLibraryFileResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListGenaiCodeEvalStartersResponse parses an HTTP response from a ListGenaiCodeEvalStartersWithResponse call
 func ParseListGenaiCodeEvalStartersResponse(rsp *http.Response) (*ListGenaiCodeEvalStartersResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -16694,6 +18658,412 @@ func ParseListGenaiCodeEvalStartersResponse(rsp *http.Response) (*ListGenaiCodeE
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiCodeLibrariesResponse parses an HTTP response from a ListGenaiCodeLibrariesWithResponse call
+func ParseListGenaiCodeLibrariesResponse(rsp *http.Response) (*ListGenaiCodeLibrariesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiCodeLibrariesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListCodeLibrariesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGenaiCodeLibraryResponse parses an HTTP response from a CreateGenaiCodeLibraryWithResponse call
+func ParseCreateGenaiCodeLibraryResponse(rsp *http.Response) (*CreateGenaiCodeLibraryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGenaiCodeLibraryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 201:
+		var dest CodeLibrary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON201 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGenaiCodeLibraryResponse parses an HTTP response from a DeleteGenaiCodeLibraryWithResponse call
+func ParseDeleteGenaiCodeLibraryResponse(rsp *http.Response) (*DeleteGenaiCodeLibraryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGenaiCodeLibraryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest CodeLibraryInUseResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiCodeLibraryResponse parses an HTTP response from a GetGenaiCodeLibraryWithResponse call
+func ParseGetGenaiCodeLibraryResponse(rsp *http.Response) (*GetGenaiCodeLibraryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiCodeLibraryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeLibraryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateGenaiCodeLibraryResponse parses an HTTP response from a UpdateGenaiCodeLibraryWithResponse call
+func ParseUpdateGenaiCodeLibraryResponse(rsp *http.Response) (*UpdateGenaiCodeLibraryResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateGenaiCodeLibraryResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeLibrary
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiCodeLibraryVersionsResponse parses an HTTP response from a ListGenaiCodeLibraryVersionsWithResponse call
+func ParseListGenaiCodeLibraryVersionsResponse(rsp *http.Response) (*ListGenaiCodeLibraryVersionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiCodeLibraryVersionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListCodeLibraryVersionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiCodeLibraryVersionResponse parses an HTTP response from a GetGenaiCodeLibraryVersionWithResponse call
+func ParseGetGenaiCodeLibraryVersionResponse(rsp *http.Response) (*GetGenaiCodeLibraryVersionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiCodeLibraryVersionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeLibraryVersion
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
@@ -17782,6 +20152,60 @@ func ParseCreateGenaiEvaluatorResponse(rsp *http.Response) (*CreateGenaiEvaluato
 	return response, nil
 }
 
+// ParseValidateGenaiEvaluatorResponse parses an HTTP response from a ValidateGenaiEvaluatorWithResponse call
+func ParseValidateGenaiEvaluatorResponse(rsp *http.Response) (*ValidateGenaiEvaluatorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ValidateGenaiEvaluatorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ValidateEvalTemplateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseDeleteGenaiEvaluatorResponse parses an HTTP response from a DeleteGenaiEvaluatorWithResponse call
 func ParseDeleteGenaiEvaluatorResponse(rsp *http.Response) (*DeleteGenaiEvaluatorResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -17944,6 +20368,74 @@ func ParseUpdateGenaiEvaluatorResponse(rsp *http.Response) (*UpdateGenaiEvaluato
 	return response, nil
 }
 
+// ParseTestRunGenaiEvaluatorResponse parses an HTTP response from a TestRunGenaiEvaluatorWithResponse call
+func ParseTestRunGenaiEvaluatorResponse(rsp *http.Response) (*TestRunGenaiEvaluatorResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &TestRunGenaiEvaluatorResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeEvalTestRunResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListGenaiEvaluationRulesResponse parses an HTTP response from a ListGenaiEvaluationRulesWithResponse call
 func ParseListGenaiEvaluationRulesResponse(rsp *http.Response) (*ListGenaiEvaluationRulesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -18026,6 +20518,13 @@ func ParseCreateGenaiEvaluationRuleResponse(rsp *http.Response) (*CreateGenaiEva
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -18067,11 +20566,65 @@ func ParseDeleteGenaiEvaluationRuleResponse(rsp *http.Response) (*DeleteGenaiEva
 		response.JSON401 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
-		var dest OodleUtilHttputilsModelsErrors
+		var dest RuleInUseResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiEvaluationRuleResponse parses an HTTP response from a GetGenaiEvaluationRuleWithResponse call
+func ParseGetGenaiEvaluationRuleResponse(rsp *http.Response) (*GetGenaiEvaluationRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiEvaluationRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EvaluationRuleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
@@ -18127,12 +20680,26 @@ func ParseUpdateGenaiEvaluationRuleResponse(rsp *http.Response) (*UpdateGenaiEva
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest RuleInUseResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
@@ -18666,6 +21233,262 @@ func ParseGetGenaiScoreResponse(rsp *http.Response) (*GetGenaiScoreResponse, err
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListGenaiBackfillsResponse parses an HTTP response from a ListGenaiBackfillsWithResponse call
+func ParseListGenaiBackfillsResponse(rsp *http.Response) (*ListGenaiBackfillsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListGenaiBackfillsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListBackfillsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateGenaiBackfillResponse parses an HTTP response from a CreateGenaiBackfillWithResponse call
+func ParseCreateGenaiBackfillResponse(rsp *http.Response) (*CreateGenaiBackfillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateGenaiBackfillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackfillRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteGenaiBackfillResponse parses an HTTP response from a DeleteGenaiBackfillWithResponse call
+func ParseDeleteGenaiBackfillResponse(rsp *http.Response) (*DeleteGenaiBackfillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteGenaiBackfillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeleteBackfillResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetGenaiBackfillResponse parses an HTTP response from a GetGenaiBackfillWithResponse call
+func ParseGetGenaiBackfillResponse(rsp *http.Response) (*GetGenaiBackfillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetGenaiBackfillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackfillRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCancelGenaiBackfillResponse parses an HTTP response from a CancelGenaiBackfillWithResponse call
+func ParseCancelGenaiBackfillResponse(rsp *http.Response) (*CancelGenaiBackfillResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CancelGenaiBackfillResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BackfillRun
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors
