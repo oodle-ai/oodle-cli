@@ -407,6 +407,9 @@ telemetry stays under `oodle traces` and `oodle metrics`.
 | `scores`        | Evaluator output and manual scores                     |
 | `experiments`   | Run a prompt over a dataset and score it               |
 | `connections`   | Provider credentials evaluators and experiments use    |
+| `library`       | The `oodle_eval` reference for code evaluators         |
+| `code-libraries`| Your Python modules that code evaluators import        |
+| `backfills`     | Run evaluators over past traffic                       |
 
 #### Prompts — `oodle genai prompts`
 
@@ -492,10 +495,11 @@ oodle genai datasets schedule set support-eval --enabled=false \
 
 #### Templates — `oodle genai templates`
 
-Aliases: `template`, `library`. The judges themselves — what the UI
+Alias: `template`. The judges themselves — what the UI
 calls Evaluations > Library, and the API calls `eval-templates`. `list` includes Oodle-managed
 templates (ids beginning `oodle-managed-`), which are
-read-only.
+read-only. The `CATEGORY` column groups them; the built-in code
+checks show "Built-in checks". The description is in `-o yaml`.
 
 Three `type` values: `llm` (a judge prompt), `code` (a Python
 scorer), and `output_comparer` (a judge that scores the output
@@ -511,16 +515,143 @@ an experiment, so it never runs against live traffic.
 | `update <id> -f`   | Update an evaluator            |
 | `delete <id>`      | Delete an evaluator            |
 | `starters [id]`    | List code starters, or print one as a template file |
+| `validate -f <file>` | Check a template without saving it; exits non-zero when not valid |
+| `pull <ref> <dir>` | Write a code template to local files (see below) |
+| `test <dir>`       | Run the local files on one span |
+| `push <dir>`       | Save the local files: shared libraries, then the template |
 
 A starter is a ready-made code check (JSON validity, tone, PII
-leak, conversation degeneration and others) with its settings in
-UPPER_CASE names at the top of the source. Print one, edit the
-settings, then create the template:
+leak, conversation degeneration and others) or an example that
+combines checks. The list names the settings of each starter.
+The printed file has the settings under `params` and the source
+as a YAML block. Print one, change the defaults or the code,
+then create the template:
 
 ```bash
 oodle genai templates starters pii-leak > pii.yaml
 oodle genai templates create -f pii.yaml
 ```
+
+Check a template file before you save it. The command prints
+each problem, the evaluators whose scores the code reads and the
+shared library versions it would run. It exits non-zero when a
+save would be refused. `--rule-params` checks an evaluator's
+values for the settings, and `--rule-name` names the evaluator
+that would run the code, which also checks the score reads for
+cycles:
+
+`--libraries <dir>` checks the `.py` files of a directory (or one
+file) as draft shared libraries, in place of the stored ones:
+
+```bash
+oodle genai templates validate -f pii.yaml --rule-params params.yaml
+oodle genai templates validate -f pii.yaml --libraries shared/
+oodle genai templates validate -d ./refund-check   # a pulled directory
+```
+
+The file is YAML; `-o json` prints it as JSON. It carries the
+starter's primary score as `scoreType` and `higherIsBetter`, so
+that a check whose verdict is bad when true (a refusal, a
+degenerated conversation) is not shown as a pass. `templates get
+-o yaml` also gives a file that `templates update -f` reads
+back: it uses the API's key names (`libraryPins`, `sourceCode`)
+and writes source code as a block.
+
+A starter marked `BUILT-IN` is also a managed template,
+`oodle-managed-code-<starter-id>-v1`. An evaluator can use it
+with no code and set its settings in `params`.
+
+A code template declares its settings in `params` (a list of
+`name`, `type`, `default`, and optional `label`, `description`,
+`required`, `options`). The code reads the resolved values as
+`ctx.params`. `libraryPins` sets the version of a shared library
+that the template runs:
+
+```yaml
+name: Mentions refund
+type: code
+sourceCodeLanguage: python
+params:
+  - name: required
+    type: string_list
+    default: [refund]
+libraryPins:
+  acme_text: 3
+sourceCode: |
+  from oodle_eval.v1 import metrics
+
+  def evaluate(ctx):
+      return EvaluationResult(scores=metrics.keyword_check(ctx, **ctx.params))
+```
+
+#### Write code evaluators locally
+
+Use `pull`, `test` and `push` to write a code evaluator as real
+files in Claude Code, Cursor or VS Code. The editor then has
+type checks and completion for the `oodle_eval` library and for
+your shared libraries, and an agent can read the library source
+and run the code on real spans.
+
+```bash
+# Start from a template, a starter, or nothing.
+oodle genai templates pull <template-id> ./refund-check
+oodle genai templates pull starter:keyword-check ./refund-check
+oodle genai templates pull new ./refund-check
+
+# Run the local code on one span. Nothing is saved.
+oodle genai templates test ./refund-check --trace <trace-id>
+oodle genai templates test ./refund-check --span <trace-id>:<span-id> \
+  --params params.yaml --scores scores.yaml
+oodle genai templates test ./refund-check --span-file span.json   # no traffic needed
+
+# Save it: validate, then the changed shared libraries, then the template.
+oodle genai templates push ./refund-check --dry-run
+oodle genai templates push ./refund-check
+```
+
+`pull` writes this layout. It refuses a directory that is not
+empty unless you set `--force`. `--force` does not replace your
+changes: when `evaluate.py`, `template.yaml` or a file in
+`shared/` differs from the last pull or push, it lists those
+files and stops. `--discard-local` replaces them, and the
+changes are lost. A file in `shared/` that the server does not
+have stays; the next push creates it. Nothing changes until
+every file is downloaded, so a failed pull leaves the directory
+as it was:
+
+```
+refund-check/
+├── evaluate.py            # the code (the template's sourceCode)
+├── template.yaml          # name, type, params, libraryPins, scoreType ...
+├── shared/<name>.py       # each shared library: at its pin, else the latest
+├── oodle_eval/**          # the library that the sandbox runs (read-only)
+├── __builtins__.pyi       # Score, EvaluationResult, Scores, ctx for Pyright
+├── pyrightconfig.json     # basic type checks, project root
+├── README.md              # layout, sandbox rules, commands
+└── .oodle/
+    ├── template.yaml      # the template id that push updates
+    └── shared.lock.yaml   # each library's version and hash at pull
+```
+
+- `test` sends `evaluate.py`, the `params` and `libraryPins` of
+  `template.yaml`, and each file in `shared/` that is new or
+  changed since the pull. It prints the scores, the error and the
+  logs, and exits non-zero when the code fails.
+- `push` validates with the new and changed `shared/` files as
+  draft libraries, and stops on problems. It creates each new file in
+  `shared/` as a shared library, and updates each changed one. It
+  refuses a library that changed on the server after the pull,
+  a library file based on an older version than the latest (a
+  pinned library), and a changed library that was deleted on the
+  server; it prints a command to compare the versions. Keep a
+  copy of your change and pull with `--force --discard-local`,
+  or push with `--force` to replace the server's version. It then updates the template, or creates it for a
+  directory from a starter, a managed template or `new`, and
+  records the new id. `--pin-libraries` pins each library that
+  the code imports to its version after the push.
+- For an agent: tell it to read `README.md` in the directory
+  first. It lists the sandbox rules (absolute imports, the allowed
+  modules, the removed builtins, the time and memory limits).
 
 #### Evaluators — `oodle genai evaluators`
 
@@ -537,6 +668,7 @@ sandbox run; 0 means no limit.
 | Subcommand         | Description                        |
 |--------------------|------------------------------------|
 | `list`             | List evaluation rules              |
+| `get <id or name>` | Get a rule with its params and score inputs |
 | `create -f <file>` | Create an evaluation rule          |
 | `update <id>`      | Update, or `--enable` / `--disable`|
 | `delete <id>`      | Delete an evaluation rule          |
@@ -545,10 +677,103 @@ sandbox run; 0 means no limit.
 runs — so an output comparer can be told from an ordinary judge.
 `--type` narrows the list to one kind.
 
+For a code template with settings, `params` in the file sets
+the evaluator's values, by setting name. A setting left out
+takes the template's default. A code evaluator that reads other
+evaluators' scores (`ctx.scores["Helpfulness"]`) runs after
+them. The server finds them in the code and shows them in
+`scoreInputRuleIds`; you do not set that field.
+
+`filters` in the file limits the spans that an evaluator scores.
+An attribute name has its kind as a prefix, `span::` or
+`resource::`. A dotted name with no prefix is refused with 400,
+because the server cannot tell a span attribute from a resource
+attribute. `type` is one of `eq`, `neq`, `re`, `nre` (or `=`,
+`!=`, `=~`, `!~`), `oneof`, `not_oneof`, `gt`, `gte`, `lt`,
+`lte`. `oneof` and `not_oneof` take a `multi_value` list in
+place of `value`. The server stores the operator in the form
+that the trace store matches, so a `get` shows `0`–`5` or
+`GT`/`GTE`/`LT`/`LTE` in place of the word. A number outside
+`0`–`5`, or an unknown word, is refused with 400.
+
+```json
+"filters": [
+  {"name": "span::gen_ai.operation.name", "type": "eq", "value": "chat"},
+  {"name": "span::gen_ai.request.model", "type": "oneof",
+   "multi_value": ["gpt-4o", "claude-sonnet-4"]}
+]
+```
+
 ```bash
 oodle genai evaluators update rule_123 --disable
 oodle genai evaluators list --type output_comparer
+oodle genai evaluators get "Refund mentioned" -o yaml
 ```
+
+#### Library reference — `oodle genai library`
+
+Shows the `oodle_eval` Python library that code evaluators
+import: the built-in checks (`metrics`), the text helpers
+(`text`) and the functions that combine scores (`combine`).
+With no argument, a table of each function and its summary.
+With a name, its signature, documentation, score names and
+`file:line`; a runtime class also lists its methods. The
+command prints text unless you set `-o`: `-o csv` gives the
+FUNCTION and SUMMARY columns, and `-o json` or `-o yaml` the
+manifest data.
+
+```bash
+oodle genai library
+oodle genai library metrics.keyword_check   # or: keyword_check
+oodle genai library metrics.format          # one module
+oodle genai library -o json                 # the full manifest
+oodle genai library keyword_check --source  # the Python source
+oodle genai library files                   # the library's files
+oodle genai library files oodle_eval/v1/metrics/format.py
+```
+
+A function or runtime class shows its `file:line` in the
+library. `--source` prints its source: the decorators, the
+definition and the body up to the next top-level statement. For
+a module, `--source` prints the whole file; for a package such
+as `metrics`, its `__init__.py`. A check that a package lists
+again from its submodule (`metrics.keyword_check` and
+`metrics.format.keyword_check`) is one entry.
+
+#### Shared libraries — `oodle genai code-libraries`
+
+Your own Python modules, written one time and imported from
+many code evaluators as `shared.<name>`. Each change of the
+source adds a version. Commands that take `<library>` accept the
+id or the name.
+
+| Subcommand                 | Description                                   |
+|----------------------------|-----------------------------------------------|
+| `list`                     | List shared libraries                         |
+| `get <library>`            | Get one, with the templates that import it    |
+| `create`                   | Create from `--source file.py` (or `-` for standard input) and/or `-f` |
+| `update <library>`         | Change the source or description; `--restore N` saves version N as a new version |
+| `delete <library>`         | Delete it; refused while anything imports it  |
+| `versions <library>`       | List versions; `--version N` prints that source |
+
+```bash
+oodle genai code-libraries create --source acme_text.py \
+  --description "Text helpers for the support agent"
+oodle genai code-libraries update acme_text --source acme_text.py
+oodle genai code-libraries versions acme_text --version 1 > v1.py
+oodle genai code-libraries update acme_text --restore 1
+cat acme_text.py | oodle genai code-libraries update acme_text --source -
+```
+
+An update with an empty source, or with nothing to change, is
+refused before any request is sent.
+
+`get` and a refused `delete` (409) name what imports the
+library, each with its kind: `template`, or `library` for
+another shared library. Either kind blocks a delete.
+
+A restore does not remove versions: `--restore N` saves the
+source of version N as the new latest version.
 
 #### Scores — `oodle genai scores`
 
@@ -613,6 +838,36 @@ oodle genai experiments run --dataset-id "$DS" --webhook-id "$WH" \
   --output-comparer-id oodle-managed-output-match-v1 \
   --eval-connection-id "$CONN"
 ```
+
+An `evaluatorRules` entry in a `--file` config can name the
+rules it depends on in `dependsOnRuleIds`. With
+`--honor-dependencies`, a dependent evaluator scores an item
+only where each evaluator it depends on reported a finding.
+The server refuses the run (400) when a rule depends on a rule
+that is not in the run, or when the rules form a cycle.
+
+#### Backfills — `oodle genai backfills`
+
+Alias: `backfill`. Run evaluators over traces that already
+arrived. A run is queued, so `create` returns at once.
+
+| Subcommand      | Description                                    |
+|-----------------|------------------------------------------------|
+| `list`          | List runs, with their status                   |
+| `get <id>`      | Get a run                                      |
+| `create`        | Start a run from flags and/or `-f`             |
+| `cancel <id>`   | Cancel a queued or running run                 |
+| `delete <id>`   | Delete a finished run from the list            |
+
+```bash
+oodle genai backfills create --name "Refund check, last week" \
+  --evaluator-id "$RULE" --start -7d --sample-rate 0.1
+oodle genai backfills list
+```
+
+The window cannot end in the future and is at most 90 days.
+When an evaluator of the run reads other evaluators' scores,
+the run adds them too, and `create` names them in `alsoRuns`.
 
 #### Connections — `oodle genai connections`
 
