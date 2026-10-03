@@ -6,9 +6,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Experiment config keys. These are the keys the eval-worker
-// reads, and they match the constants in
-// api-server/apps/llmops/experiments/launch.go.
+// Experiment config keys. These are the keys of the job config
+// that the API documents for an llm-experiment job.
 const (
 	cfgKeyDatasetID         = "datasetId"
 	cfgKeyRunName           = "runName"
@@ -28,6 +27,10 @@ const (
 	// and the reply is the output. No connection, model or
 	// prompt is read then.
 	cfgKeyWebhookID = "webhookId"
+	// cfgKeyHonorDependencies makes a rule that depends on other
+	// rules of the run score an item only where each of them
+	// reported a finding.
+	cfgKeyHonorDependencies = "honorDependencies"
 )
 
 // ruleTemplateIDKey and ruleModelKey are the fields of a rule entry
@@ -59,6 +62,12 @@ type experimentConfigFlags struct {
 	outputComparerIDs []string
 	evaluatorModel    string
 	evalConnectionID  string
+	honorDependencies bool
+	// honorSet is true when --honor-dependencies is on the
+	// command line. Only then does the flag replace the value
+	// from --file, so that --honor-dependencies=false can turn
+	// off a value that the file sets.
+	honorSet func() bool
 }
 
 // addTo registers the config flags on cmd.
@@ -127,6 +136,14 @@ func (f *experimentConfigFlags) addTo(
 		&f.evalConnectionID, "eval-connection-id", "",
 		"LLM connection the evaluators run against",
 	)
+	cmd.Flags().BoolVar(
+		&f.honorDependencies, "honor-dependencies", false,
+		"Score an item with a dependent evaluator only where the "+
+			"evaluators it depends on report a finding",
+	)
+	f.honorSet = func() bool {
+		return cmd.Flags().Changed("honor-dependencies")
+	}
 }
 
 // applyTo overlays the flags onto config, which starts as
@@ -152,6 +169,9 @@ func (f *experimentConfigFlags) applyTo(config map[string]any) {
 	}
 	if len(f.evaluatorIDs) > 0 {
 		config[cfgKeyEvaluatorIDs] = f.evaluatorIDs
+	}
+	if f.honorSet != nil && f.honorSet() {
+		config[cfgKeyHonorDependencies] = f.honorDependencies
 	}
 	if len(f.outputComparerIDs) > 0 {
 		config[cfgKeyOutputComparerIDs] = f.outputComparerIDs

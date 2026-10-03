@@ -31,6 +31,7 @@ func newGenAICmd() *cobra.Command {
   evaluators   run templates over live traffic
   scores       evaluator output (read-only)
   experiments  run a prompt over a dataset and score it
+  backfills    run evaluators over past traffic
   connections  provider credentials evaluators run against
   library      the oodle_eval reference for code evaluators
   code-libraries
@@ -54,6 +55,7 @@ A first run, end to end:
 	cmd.AddCommand(newGenAIExperimentsCmd())
 	cmd.AddCommand(newGenAIConnectionsCmd())
 	cmd.AddCommand(newGenAIWebhooksCmd())
+	cmd.AddCommand(newGenAIBackfillsCmd())
 	cmd.AddCommand(newGenAILibraryCmd())
 	cmd.AddCommand(newGenAICodeLibrariesCmd())
 

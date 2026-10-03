@@ -35,8 +35,7 @@ var jobColumns = []output.Column{
 }
 
 // jobTypeLLMExperiment is the job type that runs a prompt over
-// a dataset and scores the output. It matches the constant in
-// api-server/apps/llmops/handlers/jobs.go.
+// a dataset and scores the output, as the jobs API names it.
 const jobTypeLLMExperiment = "llm-experiment"
 
 func newGenAIExperimentsCmd() *cobra.Command {
@@ -206,7 +205,30 @@ An evaluator judges with the model its template names, falling
 back to the eval connection's default model.
 --evaluator-model overrides that for every id given by flag,
 which is how a run judges with a cheaper model than it
-generates with; the rules above override it per evaluator.`,
+generates with; the rules above override it per evaluator.
+
+An evaluatorRules entry can name the rules it depends on in
+"dependsOnRuleIds". By default every evaluator scores every
+item. With --honor-dependencies (or "honorDependencies": true
+in the file), a dependent evaluator scores an item only where
+each evaluator it depends on reported a finding. The server
+then refuses the run (400) when a rule depends on a rule that
+is not in the run, or when the rules depend on each other in a
+cycle:
+
+  {
+    "datasetId": "<id>",
+    "llmConnectionId": "<id>",
+    "promptName": "support-reply",
+    "honorDependencies": true,
+    "evaluatorRules": [
+      {"templateId": "<id>", "ruleId": "refusal",
+       "ruleName": "Refusal"},
+      {"templateId": "<id>", "ruleId": "refusal-reason",
+       "ruleName": "Refusal reason",
+       "dependsOnRuleIds": ["refusal"]}
+    ]
+  }`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
