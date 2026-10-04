@@ -34,7 +34,13 @@ func TestGenAICommandTree(t *testing.T) {
 		{"genai", "templates", "create"},
 		{"genai", "templates", "update"},
 		{"genai", "templates", "delete"},
+		{"genai", "templates", "starters"},
+		{"genai", "templates", "validate"},
+		{"genai", "templates", "pull"},
+		{"genai", "templates", "push"},
+		{"genai", "templates", "test"},
 		{"genai", "evaluators", "list"},
+		{"genai", "evaluators", "get"},
 		{"genai", "evaluators", "create"},
 		{"genai", "evaluators", "update"},
 		{"genai", "evaluators", "delete"},
@@ -56,6 +62,18 @@ func TestGenAICommandTree(t *testing.T) {
 		{"genai", "webhooks", "update"},
 		{"genai", "webhooks", "delete"},
 		{"genai", "webhooks", "test"},
+		{"genai", "library"},
+		{"genai", "code-libraries", "list"},
+		{"genai", "code-libraries", "get"},
+		{"genai", "code-libraries", "create"},
+		{"genai", "code-libraries", "update"},
+		{"genai", "code-libraries", "delete"},
+		{"genai", "code-libraries", "versions"},
+		{"genai", "backfills", "list"},
+		{"genai", "backfills", "get"},
+		{"genai", "backfills", "create"},
+		{"genai", "backfills", "cancel"},
+		{"genai", "backfills", "delete"},
 	}
 
 	root := NewRootCmd()
@@ -222,7 +240,8 @@ func TestGenAIHelpListsEveryGroup(t *testing.T) {
 	}
 	for _, group := range []string{
 		"prompts", "datasets", "templates", "evaluators",
-		"scores", "experiments", "connections",
+		"scores", "experiments", "connections", "backfills",
+		"code-libraries", "library",
 	} {
 		if !strings.Contains(genai.Long, group) {
 			t.Errorf(

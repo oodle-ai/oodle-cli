@@ -536,3 +536,25 @@ func TestNewClient_ZeroRetriesViaNewClient(t *testing.T) {
 		t.Fatal("Inner is nil")
 	}
 }
+
+// A 204 with a JSON content type is a success. Without the fix
+// the generated client parses the empty body and returns an error.
+func TestNoContentWithJSONContentType(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer srv.Close()
+
+	c, err := NewClient(&config.Config{APIKey: "k", Instance: "i", APIURL: srv.URL}, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := c.Inner.DeleteGenaiCodeLibraryWithResponse(context.Background(), "i", "lib-1")
+	if err != nil {
+		t.Fatalf("a 204 failed: %v", err)
+	}
+	if resp.StatusCode() != http.StatusNoContent {
+		t.Errorf("status = %d", resp.StatusCode())
+	}
+}
