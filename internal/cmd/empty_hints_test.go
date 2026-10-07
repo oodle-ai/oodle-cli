@@ -108,3 +108,17 @@ func TestIsEmptyLogsResult(t *testing.T) {
 		}
 	}
 }
+
+func TestGenAIScoresEmptyHint(t *testing.T) {
+	srv, _ := newTraceQLTestServer(t, 200, `{"data":[]}`)
+	stdout, stderr, err := runCmdSplit(t, srv.URL, newGenAIScoresListCmd(), output.FormatJSON)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(stderr, "default window (the last 15 minutes)") {
+		t.Errorf("stderr = %q", stderr)
+	}
+	if !json.Valid([]byte(stdout)) {
+		t.Errorf("stdout is not clean JSON: %q", stdout)
+	}
+}

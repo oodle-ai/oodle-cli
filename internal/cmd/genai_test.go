@@ -194,12 +194,22 @@ func TestToRFC3339(t *testing.T) {
 		}
 	})
 
+	// An epoch in any unit converts, like the other time flags.
+	t.Run("epoch converts", func(t *testing.T) {
+		for _, in := range []string{"1731628800", "1731628800000", "1731628800000000"} {
+			got, err := toRFC3339(in)
+			if err != nil || got != "2024-11-15T00:00:00Z" {
+				t.Errorf("toRFC3339(%q) = %q, %v", in, got, err)
+			}
+		}
+	})
+
 	// Passing junk through would let the server fall back to its
 	// 15-minute default, so a --start the user thought covered a
 	// day silently reports nothing.
 	t.Run("junk is rejected", func(t *testing.T) {
 		for _, bad := range []string{
-			"yesterday", "1 hour ago", "1731628800", "-1x",
+			"yesterday", "1 hour ago", "-1x",
 		} {
 			if _, err := toRFC3339(bad); err == nil {
 				t.Errorf(
