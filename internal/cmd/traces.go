@@ -17,12 +17,21 @@ func newTracesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "traces",
 		Aliases: []string{"trace"},
-		Short:   "Query traces, trace labels, and label values",
+		Short:   "Query traces with filters or TraceQL, and list trace labels",
+		Long: `Query traces, trace labels, and label values.
+
+  list, get              Find traces with simple filters, or get one by ID.
+  labels, label-values   List trace label names and their values.
+  traceql                Run TraceQL search and metrics queries.
+
+Use 'oodle traces traceql --help' for TraceQL examples, and for how to alert
+on trace data.`,
 	}
 	cmd.AddCommand(newTracesListCmd())
 	cmd.AddCommand(newTracesGetCmd())
 	cmd.AddCommand(newTracesLabelsCmd())
 	cmd.AddCommand(newTracesLabelValuesCmd())
+	cmd.AddCommand(newTracesTraceQLCmd())
 	return cmd
 }
 
@@ -41,7 +50,14 @@ func newTracesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List traces in a time range",
-		Args:  cobra.NoArgs,
+		Long: `List traces in a time range. --start and --end are required.
+
+Filter with --service, --operation, --min-duration, --max-duration, --tags
+and --search. For conditions on any span attribute, use
+'oodle traces traceql search'.`,
+		Example: `  oodle traces list --start -1h --end now --service api --limit 20
+  oodle traces list --start -30m --end now --min-duration 2s -o json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -124,9 +140,11 @@ func newTracesGetCmd() *cobra.Command {
 		endStr   string
 	)
 	cmd := &cobra.Command{
-		Use:   "get <trace_id>",
-		Short: "Get a trace by ID",
-		Args:  exactArgs(1),
+		Use:     "get <trace_id>",
+		Short:   "Get a trace by ID",
+		Long:    "Get a trace by ID. --start and --end are required and must include the start time of the trace.",
+		Example: `  oodle traces get 4bf92f3577b34da6a3ce929d0e0e4736 --start -1h --end now -o json`,
+		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

@@ -107,7 +107,23 @@ func newMonitorsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a monitor from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a monitor from a JSON/YAML file.
+
+A monitor runs a PromQL query on metrics and fires when the result crosses
+its thresholds. A monitor cannot run a log query or a TraceQL query.
+
+To alert on logs, first make a metric from the logs with a log metrics rule
+('oodle log-metrics --help'). Then use that oodle_logs_* metric in the
+monitor query.
+
+To alert on traces, use the trace metrics in the monitor query:
+oodle_trace_metrics for spans, or the oodle_genai_* metrics for GenAI spans.
+Use 'oodle traces traceql metrics' to try a trace query first.
+
+Run 'oodle monitors get <id> -o yaml' on an existing monitor to see the file
+format.`,
+		Example: `  oodle monitors create -f monitor.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
