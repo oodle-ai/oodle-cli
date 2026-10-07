@@ -83,6 +83,15 @@ func addTimeRangeFlagsSeconds(cmd *cobra.Command) func() (start, end float64, er
 }
 
 // newMetricsCmd returns the `oodle metrics` command tree.
+// metricsDiscoveryRangeNote explains that discovery reads only the time
+// range. Without it, an empty result for a sparse metric reads as proof that
+// the metric, label or value does not exist.
+const metricsDiscoveryRangeNote = `Only series that have samples between --start and --end are read. The
+default range is the last hour. A metric, label or value with no samples in
+the range is not listed, even if it exists. Metrics from rare events, such as
+log metrics or error counters, are often sparse: widen the range (for example
+--start -7d) before you decide that something does not exist.`
+
 func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "metrics",
@@ -101,6 +110,7 @@ func newMetricsNamesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "names",
 		Short: "List metric names",
+		Long:  "List metric names.\n\n" + metricsDiscoveryRangeNote,
 		Args:  cobra.NoArgs,
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
@@ -136,6 +146,7 @@ func newMetricsLabelsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "labels <metric_name>",
 		Short: "List label names for a metric",
+		Long:  "List label names for a metric.\n\n" + metricsDiscoveryRangeNote,
 		Args:  exactArgs(1),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
@@ -171,6 +182,7 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <metric_name> <label_name>",
 		Short: "List values for a label of a metric",
+		Long:  "List values for a label of a metric.\n\n" + metricsDiscoveryRangeNote,
 		Args:  exactArgs(2),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
