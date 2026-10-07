@@ -97,7 +97,11 @@ func newSyntheticMonitorsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a synthetic monitor from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a synthetic monitor from a JSON or YAML file.
+
+Run 'oodle synthetic-monitors get <id> -o json' on an existing synthetic monitor for a template.`,
+		Example: `  oodle synthetic-monitors create -f check.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -130,7 +134,12 @@ func newSyntheticMonitorsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a synthetic monitor from a JSON or YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a synthetic monitor from a JSON or YAML file.
+
+The file replaces the synthetic monitor. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle synthetic-monitors get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

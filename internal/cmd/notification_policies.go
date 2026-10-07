@@ -87,7 +87,11 @@ func newNotificationPoliciesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a notification policy from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a notification policy from a JSON/YAML file.
+
+Run 'oodle notification-policies get <id> -o json' on an existing policy for a template.`,
+		Example: `  oodle notification-policies create -f policy.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -120,7 +124,12 @@ func newNotificationPoliciesUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a notification policy from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a notification policy from a JSON or YAML file.
+
+The file replaces the notification policy. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle notification-policies get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

@@ -88,7 +88,22 @@ func newDashboardsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create or update a dashboard from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create or update a dashboard from a JSON or YAML file.
+
+The file is a save request, not the output of 'dashboards get':
+  {"dashboard": {...}, "folderUid": "<folder>", "overwrite": true}
+
+"dashboard" is Grafana dashboard JSON. Without "folderUid" the dashboard
+is saved in the root folder. With "overwrite": true, the dashboard with the
+same uid is replaced as a whole: panels that are not in the file are removed.
+
+To change a dashboard:
+  oodle dashboards get <uid> -o json > current.json
+  jq '{dashboard: .dashboard, folderUid: .meta.folderUid, overwrite: true}' \
+    current.json > save.json
+  # edit save.json
+  oodle dashboards create -f save.json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

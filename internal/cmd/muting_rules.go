@@ -89,7 +89,11 @@ func newMutingRulesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a muting rule from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a muting rule from a JSON/YAML file.
+
+Run 'oodle muting-rules get <id> -o json' on an existing muting rule for a template.`,
+		Example: `  oodle muting-rules create -f mute.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

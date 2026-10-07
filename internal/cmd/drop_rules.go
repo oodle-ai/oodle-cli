@@ -86,7 +86,11 @@ func newDropRulesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a drop rule from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a drop rule from a JSON or YAML file.
+
+Run 'oodle drop-rules get <id> -o json' on an existing drop rule for a template.`,
+		Example: `  oodle drop-rules create -f drop.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -119,7 +123,12 @@ func newDropRulesUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a drop rule from a JSON or YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a drop rule from a JSON or YAML file.
+
+The file replaces the drop rule. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle drop-rules get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

@@ -88,7 +88,18 @@ func newNotifiersCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a notifier from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a notifier from a JSON/YAML file.
+
+Set "name", "type" and the config object that matches the type:
+  0 email_config       4 webhook_config
+  1 pagerduty_config   5 googlechat_config
+  2 slack_config       6 msteamsv2_config
+  3 opsgenie_config    7 rootly_config
+
+Run 'oodle notifiers get <id> -o json' on an existing notifier for a
+template.`,
+		Example: `  oodle notifiers create -f slack.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -121,7 +132,12 @@ func newNotifiersUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a notifier from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a notifier from a JSON or YAML file.
+
+The file replaces the notifier. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle notifiers get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

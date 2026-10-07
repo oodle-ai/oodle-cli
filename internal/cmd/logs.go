@@ -48,7 +48,11 @@ bool filter, the range clause is appended to the existing filter array.
 
 Example NDJSON file contents:
   {"index": "logs-*"}
-  {"query": {"match_all": {}}, "size": 10}`,
+  {"query": {"match_all": {}}, "size": 10}
+
+Run 'oodle logs index-patterns' to list the index names.`,
+		Example: `  oodle logs query -f query.ndjson --start -24h
+  oodle logs query -f query.ndjson --start 2026-01-02T00:00:00Z --end 2026-01-02T06:00:00Z -o json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)

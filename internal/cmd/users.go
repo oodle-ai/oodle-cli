@@ -191,7 +191,15 @@ func newInvitationsBulkCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "bulk",
 		Short: "Send multiple user invitations from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Send multiple user invitations from a JSON or YAML file.
+
+File shape:
+  {"sender_email": "admin@example.com",
+   "invitations": [{"email": "user@example.com", "roles": ["Viewer"]}]}
+
+Each result item matches the invitation at the same position.`,
+		Example: `  oodle users invitations bulk -f invites.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)

@@ -152,7 +152,12 @@ func newMonitorsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a monitor from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a monitor from a JSON or YAML file.
+
+The file replaces the monitor. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle monitors get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
