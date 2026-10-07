@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/client"
+	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
 // newTracesCmd returns the `oodle traces` command tree.
@@ -61,7 +63,6 @@ and --search. For conditions on any span attribute, use
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			start, err := parseTimeFlag(startStr)
 			if err != nil {
@@ -115,7 +116,7 @@ and --search. For conditions on any span attribute, use
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if err := printResponseBody(cmd, format, resp.Body); err != nil {
+			if err := printBodyOrTable(cmd, resp.Body, traceRows(resp.JSON200), traceColumns); err != nil {
 				return err
 			}
 			if resp.JSON200.Data == nil || len(*resp.JSON200.Data) == 0 {
@@ -152,7 +153,6 @@ func newTracesGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			start, err := parseTimeFlag(startStr)
 			if err != nil {
@@ -177,7 +177,7 @@ func newTracesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printResponseBody(cmd, format, resp.Body)
+			return printBodyOrTable(cmd, resp.Body, traceRows(resp.JSON200), traceColumns)
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
@@ -185,6 +185,69 @@ func newTracesGetCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("start")
 	_ = cmd.MarkFlagRequired("end")
 	return cmd
+}
+
+// traceRow is one trace in the table output of traces list and get.
+type traceRow struct {
+	TraceID   string
+	Service   string
+	Operation string
+	Start     string
+	Duration  string
+	Spans     string
+}
+
+var traceColumns = []output.Column{
+	{Header: "TRACE ID", Field: "TraceID"},
+	{Header: "ROOT SERVICE", Field: "Service"},
+	{Header: "ROOT OPERATION", Field: "Operation"},
+	{Header: "START (UTC)", Field: "Start"},
+	{Header: "DURATION", Field: "Duration"},
+	{Header: "SPANS", Field: "Spans"},
+}
+
+// traceRows makes one row for each trace. The root is the earliest span
+// whose parent is not in the trace, so a trace that is cut short still
+// shows a root. Span times are epoch microseconds. The duration runs from
+// the first span start to the last span end.
+func traceRows(resp *client.TracesResponse) []traceRow {
+	traces := deref(resp.Data)
+	rows := make([]traceRow, 0, len(traces))
+	for _, t := range traces {
+		spans := deref(t.Spans)
+		row := traceRow{TraceID: t.TraceID, Spans: strconv.Itoa(len(spans))}
+		if len(spans) == 0 {
+			rows = append(rows, row)
+			continue
+		}
+		ids := make(map[string]bool, len(spans))
+		for _, s := range spans {
+			ids[s.SpanID] = true
+		}
+		var root *client.TraceSpan
+		first, last := spans[0].StartTime, spans[0].StartTime+spans[0].Duration
+		for i := range spans {
+			s := &spans[i]
+			first = min(first, s.StartTime)
+			last = max(last, s.StartTime+s.Duration)
+			if s.ParentSpanID != "" && ids[s.ParentSpanID] {
+				continue
+			}
+			if root == nil || s.StartTime < root.StartTime {
+				root = s
+			}
+		}
+		if root != nil {
+			row.Operation = root.OperationName
+			if p, ok := deref(t.Processes)[root.ProcessID]; ok {
+				row.Service = p.ServiceName
+			}
+		}
+		row.Start = time.UnixMicro(int64(first)).UTC().Format("2006-01-02 15:04:05")
+		row.Duration = (time.Duration(last-first) * time.Microsecond).String()
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // traceLabelRangeNote explains the window that the label commands read.
