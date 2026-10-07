@@ -389,7 +389,15 @@ Alias: `trace`. Query traces, trace labels, and label values.
 ```bash
 oodle traces labels -o json
 oodle traces list
+oodle traces label-values resource::service.name --start -1h
 ```
+
+Trace label names have a scope prefix, for example
+`resource::service.name` or `span::http.method`. If you give a
+name without a prefix, such as `service.name`, `label-values`
+uses the scoped label when exactly one scope has it. If the
+label does not exist, the command fails and suggests the
+closest label names.
 
 ### GenAI — `oodle genai`
 
