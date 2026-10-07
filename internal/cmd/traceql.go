@@ -25,6 +25,10 @@ const (
 	// --limit is not set. The server uses the same default.
 	traceQLDefaultLimit = 20
 
+	// traceQLMaxLimit is the largest --limit that search accepts. The CLI
+	// checks it so that a large value fails with a clear message.
+	traceQLMaxLimit = 1000
+
 	// traceQLMaxPoints is the number of points per series that the default
 	// metrics step aims for. Without a bound, a long range with a one-minute
 	// step makes the server compute very many buckets.
@@ -337,10 +341,7 @@ func traceQLSearchRows(resp traceQLSearchResponse) []traceQLSearchRow {
 }
 
 func newTraceQLSearchCmd() *cobra.Command {
-	var (
-		limit int
-		spss  int
-	)
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Find traces that match a TraceQL filter",
@@ -357,15 +358,14 @@ which includes the matching spans and their attributes.`,
 		Args: exactArgs(1),
 	}
 	parseRange := addTraceQLTimeFlags(cmd)
-	cmd.Flags().IntVar(&limit, "limit", traceQLDefaultLimit, "Maximum number of traces to return")
-	cmd.Flags().IntVar(&spss, "spss", 0, "Maximum number of matching spans to return for each trace")
+	cmd.Flags().IntVar(&limit, "limit", traceQLDefaultLimit, "Maximum number of traces to return (1 to 1000)")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		query := strings.TrimSpace(args[0])
 		if isTraceQLMetricsQuery(query) {
 			return fmt.Errorf("this is a metrics query; run it with 'oodle traces traceql metrics'")
 		}
-		if limit <= 0 {
-			return fmt.Errorf("--limit must be greater than zero")
+		if limit < 1 || limit > traceQLMaxLimit {
+			return fmt.Errorf("--limit must be between 1 and %d, got %d", traceQLMaxLimit, limit)
 		}
 		start, end, err := parseRange()
 		if err != nil {
@@ -376,12 +376,6 @@ which includes the matching spans and their attributes.`,
 		params.Set("start", strconv.FormatInt(start, 10))
 		params.Set("end", strconv.FormatInt(end, 10))
 		params.Set("limit", strconv.Itoa(limit))
-		if cmd.Flags().Changed("spss") {
-			if spss <= 0 {
-				return fmt.Errorf("--spss must be greater than zero")
-			}
-			params.Set("spss", strconv.Itoa(spss))
-		}
 		body, err := traceQLGet(cmd, "search", params)
 		if err != nil {
 			return err

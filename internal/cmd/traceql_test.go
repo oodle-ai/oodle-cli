@@ -72,7 +72,7 @@ func TestTraceQLSearch_RequestAndTable(t *testing.T) {
 	srv, got := newTraceQLTestServer(t, 200, traceQLSearchBody)
 	query := `{ resource.service.name="api" && status=error }`
 	out, err := runTraceQLCmd(t, srv, newTraceQLSearchCmd(), output.FormatTable, "inst/1",
-		"--start", "1700000000", "--end", "1700003600000", "--limit", "5", "--spss", "2", query)
+		"--start", "1700000000", "--end", "1700003600000", "--limit", "5", query)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -89,7 +89,6 @@ func TestTraceQLSearch_RequestAndTable(t *testing.T) {
 		// The end was given in milliseconds; the server reads seconds.
 		"end":   "1700003600",
 		"limit": "5",
-		"spss":  "2",
 	}
 	for k, want := range wantParams {
 		if v := got.query.Get(k); v != want {
@@ -116,9 +115,6 @@ func TestTraceQLSearch_DefaultsAndJSONPassThrough(t *testing.T) {
 	}
 	if got.query.Get("limit") != "20" {
 		t.Errorf("limit = %q, want 20", got.query.Get("limit"))
-	}
-	if got.query.Has("spss") {
-		t.Errorf("spss is sent but was not set")
 	}
 	start, _ := strconv.ParseInt(got.query.Get("start"), 10, 64)
 	end, _ := strconv.ParseInt(got.query.Get("end"), 10, 64)
@@ -358,5 +354,25 @@ func TestTraceQLTags_NoTimeFlags(t *testing.T) {
 				t.Errorf("%s has --%s", cmd.Name(), name)
 			}
 		}
+	}
+}
+
+func TestTraceQLSearch_LimitRange(t *testing.T) {
+	for _, bad := range []string{"0", "-1", "1001"} {
+		srv, got := newTraceQLTestServer(t, 200, traceQLSearchBody)
+		_, err := runTraceQLCmd(t, srv, newTraceQLSearchCmd(), output.FormatJSON, "inst", "--limit", bad, "{ }")
+		if err == nil || !strings.Contains(err.Error(), "between 1 and 1000") {
+			t.Errorf("--limit %s: expected a range error, got %v", bad, err)
+		}
+		if got.escapedPath != "" {
+			t.Errorf("--limit %s: request was sent", bad)
+		}
+	}
+	srv, got := newTraceQLTestServer(t, 200, traceQLSearchBody)
+	if _, err := runTraceQLCmd(t, srv, newTraceQLSearchCmd(), output.FormatJSON, "inst", "--limit", "1000", "{ }"); err != nil {
+		t.Fatalf("--limit 1000: %v", err)
+	}
+	if got.query.Get("limit") != "1000" {
+		t.Errorf("limit = %q, want 1000", got.query.Get("limit"))
 	}
 }

@@ -471,7 +471,7 @@ Alias: `tql`.
 `search` and `metrics` take `--start` (default `-1h`) and `--end` (default
 `now`). They accept `now`, a relative time such as `-6h`, or an epoch timestamp in
 seconds (milliseconds, microseconds and nanoseconds are also detected).
-`search` takes `--limit` (default 20) and `--spss`. `metrics` takes `--step`,
+`search` takes `--limit` (default 20, at most 1000). `metrics` takes `--step`,
 such as `5m`; the default is `1m`, or larger for long ranges. `tags` takes
 `--scope` (`resource`, `span`, `intrinsic` or `all`). `tags` and `tag-values`
 read only the last hour; use `-q` to narrow the spans.
