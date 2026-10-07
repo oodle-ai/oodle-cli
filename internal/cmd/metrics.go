@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -137,7 +138,13 @@ func newMetricsNamesCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Name")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Name"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "metric names", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }
@@ -173,7 +180,13 @@ func newMetricsLabelsCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Label")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Label"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "labels for this metric", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }
@@ -209,7 +222,13 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Value")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Value"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "values for this label", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }

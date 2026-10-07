@@ -378,3 +378,37 @@ func confirmAction(prompt string, force bool) bool {
 	answer := strings.TrimSpace(strings.ToLower(line))
 	return answer == "y" || answer == "yes"
 }
+
+// hintNoData writes a hint to stderr when a read in a time range returns
+// nothing. An empty table alone reads as proof that the data does not
+// exist, when the data is often only outside the range. stdout stays
+// clean, so -o json output is not changed.
+func hintNoData(cmd *cobra.Command, what string, start, end time.Time) {
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"No %s between %s and %s. Only this range is read; widen it (for example --start -7d) before you decide that the data does not exist.\n",
+		what, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+}
+
+// printResponseBody prints a response body that has no table form. JSON
+// output is the body without change, and YAML output is converted from it.
+// Other formats print JSON. Decoding the body into a generated type first
+// drops the fields that the type does not know.
+func printResponseBody(cmd *cobra.Command, format output.Format, body []byte) error {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return fmt.Errorf("unexpected empty response")
+	}
+	if format == output.FormatYAML {
+		var parsed any
+		if err := json.Unmarshal(body, &parsed); err != nil {
+			return fmt.Errorf("parsing response: %w", err)
+		}
+		return output.Print(cmd.OutOrStdout(), format, parsed, nil)
+	}
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, body, "", "  "); err != nil {
+		return fmt.Errorf("parsing response: %w", err)
+	}
+	buf.WriteByte('\n')
+	_, err := cmd.OutOrStdout().Write(buf.Bytes())
+	return err
+}

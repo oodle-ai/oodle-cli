@@ -257,6 +257,20 @@ func printTraceQLBody(cmd *cobra.Command, format output.Format, body []byte) (bo
 	return false, nil
 }
 
+// printTraceQLResult prints body as JSON or YAML, or calls table for the
+// other formats. decodeErr is the error from decoding body for the table;
+// JSON and YAML output do not need the decode.
+func printTraceQLResult(cmd *cobra.Command, body []byte, decodeErr error, table func(output.Format) error) error {
+	format := getOutputFormat(cmd)
+	if done, err := printTraceQLBody(cmd, format, body); done {
+		return err
+	}
+	if decodeErr != nil {
+		return fmt.Errorf("parsing response: %w", decodeErr)
+	}
+	return table(format)
+}
+
 // --- search ---
 
 type traceQLSearchResponse struct {
@@ -371,15 +385,17 @@ which includes the matching spans and their attributes.`,
 		if err != nil {
 			return err
 		}
-		format := getOutputFormat(cmd)
-		if done, err := printTraceQLBody(cmd, format, body); done {
+		var resp traceQLSearchResponse
+		decodeErr := json.Unmarshal(body, &resp)
+		if err := printTraceQLResult(cmd, body, decodeErr, func(format output.Format) error {
+			return output.Print(cmd.OutOrStdout(), format, traceQLSearchRows(resp), traceQLSearchColumns)
+		}); err != nil {
 			return err
 		}
-		var resp traceQLSearchResponse
-		if err := json.Unmarshal(body, &resp); err != nil {
-			return fmt.Errorf("parsing response: %w", err)
+		if decodeErr == nil && len(resp.Traces) == 0 {
+			hintNoData(cmd, "matching traces", time.Unix(start, 0), time.Unix(end, 0))
 		}
-		return output.Print(cmd.OutOrStdout(), format, traceQLSearchRows(resp), traceQLSearchColumns)
+		return nil
 	}
 	return cmd
 }
@@ -567,22 +583,24 @@ that keeps the result at or below 300 points per series.`,
 		if err != nil {
 			return err
 		}
-		format := getOutputFormat(cmd)
-		if done, err := printTraceQLBody(cmd, format, body); done {
+		var resp traceQLMetricsResponse
+		decodeErr := json.Unmarshal(body, &resp)
+		if err := printTraceQLResult(cmd, body, decodeErr, func(format output.Format) error {
+			series := resp.toPromSeries()
+			switch format {
+			case output.FormatGraph:
+				return output.PrintGraph(cmd.OutOrStdout(), series)
+			case output.FormatStats:
+				return output.PrintStats(cmd.OutOrStdout(), series)
+			}
+			return output.Print(cmd.OutOrStdout(), format, traceQLMetricsRows(series), traceQLMetricsColumns)
+		}); err != nil {
 			return err
 		}
-		var resp traceQLMetricsResponse
-		if err := json.Unmarshal(body, &resp); err != nil {
-			return fmt.Errorf("parsing response: %w", err)
+		if decodeErr == nil && len(resp.Series) == 0 {
+			hintNoData(cmd, "series", time.Unix(start, 0), time.Unix(end, 0))
 		}
-		series := resp.toPromSeries()
-		switch format {
-		case output.FormatGraph:
-			return output.PrintGraph(cmd.OutOrStdout(), series)
-		case output.FormatStats:
-			return output.PrintStats(cmd.OutOrStdout(), series)
-		}
-		return output.Print(cmd.OutOrStdout(), format, traceQLMetricsRows(series), traceQLMetricsColumns)
+		return nil
 	}
 	return cmd
 }
@@ -673,15 +691,18 @@ Use --query to list only the names on spans that match a filter.`,
 		if err != nil {
 			return err
 		}
-		format := getOutputFormat(cmd)
-		if done, err := printTraceQLBody(cmd, format, body); done {
+		var resp traceQLTagsResponse
+		decodeErr := json.Unmarshal(body, &resp)
+		rows := traceQLTagRows(resp, scope)
+		if err := printTraceQLResult(cmd, body, decodeErr, func(format output.Format) error {
+			return output.Print(cmd.OutOrStdout(), format, rows, traceQLTagColumns)
+		}); err != nil {
 			return err
 		}
-		var resp traceQLTagsResponse
-		if err := json.Unmarshal(body, &resp); err != nil {
-			return fmt.Errorf("parsing response: %w", err)
+		if decodeErr == nil && len(rows) == 0 {
+			hintNoData(cmd, "tags", time.Unix(start, 0), time.Unix(end, 0))
 		}
-		return output.Print(cmd.OutOrStdout(), format, traceQLTagRows(resp, scope), traceQLTagColumns)
+		return nil
 	}
 	return cmd
 }
@@ -742,20 +763,22 @@ values on spans that match a filter.`,
 		if err != nil {
 			return err
 		}
-		format := getOutputFormat(cmd)
-		if done, err := printTraceQLBody(cmd, format, body); done {
-			return err
-		}
 		var resp traceQLTagValuesResponse
-		if err := json.Unmarshal(body, &resp); err != nil {
-			return fmt.Errorf("parsing response: %w", err)
-		}
+		decodeErr := json.Unmarshal(body, &resp)
 		rows := make([]traceQLTagValueRow, 0, len(resp.TagValues))
 		for _, v := range resp.TagValues {
 			rows = append(rows, traceQLTagValueRow{Value: v.Value, Type: v.Type})
 		}
 		sort.SliceStable(rows, func(i, j int) bool { return rows[i].Value < rows[j].Value })
-		return output.Print(cmd.OutOrStdout(), format, rows, traceQLTagValueColumns)
+		if err := printTraceQLResult(cmd, body, decodeErr, func(format output.Format) error {
+			return output.Print(cmd.OutOrStdout(), format, rows, traceQLTagValueColumns)
+		}); err != nil {
+			return err
+		}
+		if decodeErr == nil && len(rows) == 0 {
+			hintNoData(cmd, "values for "+tag, time.Unix(start, 0), time.Unix(end, 0))
+		}
+		return nil
 	}
 	return cmd
 }

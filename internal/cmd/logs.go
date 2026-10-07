@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -70,6 +71,7 @@ Example NDJSON file contents:
 			// If the query body already contains a timestamp range and
 			// the user did not explicitly provide --start/--end, honour
 			// the range from the query and skip injection.
+			var startMs, endMs int64
 			if !startExplicit && !endExplicit && queryContainsTimestampRange(data) {
 				// Use the query's own timestamp range as-is.
 			} else {
@@ -81,11 +83,11 @@ Example NDJSON file contents:
 					endStr = defaultEndValue
 				}
 
-				startMs, err := parseTimeFlagMs(startStr)
+				startMs, err = parseTimeFlagMs(startStr)
 				if err != nil {
 					return fmt.Errorf("--start: %w", err)
 				}
-				endMs, err := parseTimeFlagMs(endStr)
+				endMs, err = parseTimeFlagMs(endStr)
 				if err != nil {
 					return fmt.Errorf("--end: %w", err)
 				}
@@ -113,7 +115,13 @@ Example NDJSON file contents:
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
-			return readAndPrintQueryResponse(cmd, format, httpResp)
+			return readAndPrintWithEmptyHint(cmd, format, httpResp, isEmptyLogsResult, func() {
+				if startMs == 0 && endMs == 0 {
+					fmt.Fprintln(cmd.ErrOrStderr(), "No logs in the time range of the query. Widen the range or the filters before you decide that the logs do not exist.")
+					return
+				}
+				hintNoData(cmd, "logs", time.UnixMilli(startMs), time.UnixMilli(endMs))
+			})
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to NDJSON query file")
@@ -121,6 +129,29 @@ Example NDJSON file contents:
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
+}
+
+// isEmptyLogsResult reports whether a multi-search response has no hits in
+// any search and no errors.
+func isEmptyLogsResult(body []byte) bool {
+	var resp struct {
+		Responses []struct {
+			Error json.RawMessage `json:"error"`
+			Hits  *struct {
+				Hits []json.RawMessage `json:"hits"`
+			} `json:"hits"`
+			Aggregations json.RawMessage `json:"aggregations"`
+		} `json:"responses"`
+	}
+	if json.Unmarshal(body, &resp) != nil || len(resp.Responses) == 0 {
+		return false
+	}
+	for _, r := range resp.Responses {
+		if len(r.Error) > 0 || r.Hits == nil || len(r.Hits.Hits) > 0 || len(r.Aggregations) > 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // injectTimeRange parses the NDJSON body (header + search lines) and injects

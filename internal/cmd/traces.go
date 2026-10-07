@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/client"
-	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
 // newTracesCmd returns the `oodle traces` command tree.
@@ -115,9 +115,13 @@ and --search. For conditions on any span attribute, use
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			// The response is map[string]interface{}; render as JSON/YAML for
-			// structured formats and dump key/value pairs for tabular output.
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			if err := printResponseBody(cmd, format, resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200.Data == nil || len(*resp.JSON200.Data) == 0 {
+				hintNoData(cmd, "traces", time.UnixMicro(start), time.UnixMicro(end))
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
@@ -173,7 +177,7 @@ func newTracesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			return printResponseBody(cmd, format, resp.Body)
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
@@ -183,15 +187,26 @@ func newTracesGetCmd() *cobra.Command {
 	return cmd
 }
 
+// traceLabelRangeNote explains the window that the label commands read.
+// Without it, an empty or short list reads as proof that a label does not
+// exist.
+const traceLabelRangeNote = `Only spans in the time range are read. Without --start, the server reads a
+short default window (about the last hour). The server can also limit the
+range to a fixed span (such as one day) before --end; to find older labels,
+move --end back. Set --start (for example --start -24h) before you decide
+that a label or value does not exist.`
+
 func newTracesLabelsCmd() *cobra.Command {
 	var (
 		startStr string
 		endStr   string
 	)
 	cmd := &cobra.Command{
-		Use:   "labels",
-		Short: "List trace label names",
-		Args:  cobra.NoArgs,
+		Use:     "labels",
+		Short:   "List trace label names",
+		Long:    "List trace label names.\n\n" + traceLabelRangeNote,
+		Example: `  oodle traces labels --start -24h`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -223,7 +238,13 @@ func newTracesLabelsCmd() *cobra.Command {
 			if resp.JSON200 == nil || resp.JSON200.Data == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
+			if err := printStringSlice(cmd, format, *resp.JSON200.Data, "Label"); err != nil {
+				return err
+			}
+			if len(*resp.JSON200.Data) == 0 {
+				hintTraceLabelRange(cmd, "trace labels", params.Start, params.End)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
@@ -244,7 +265,9 @@ func newTracesLabelValuesCmd() *cobra.Command {
 Trace labels carry a scope prefix, for example resource::service.name or
 span::http.method. Run 'oodle traces labels' to list them. A plain OpenTelemetry
 name such as service.name resolves to the scoped label when exactly one
-matches. An unknown label name fails with a suggestion.`,
+matches. An unknown label name fails with a suggestion.
+
+` + traceLabelRangeNote,
 		Example: `  oodle traces label-values resource::service.name --start -1h
   oodle traces label-values service.name`,
 		Args: exactArgs(1),
@@ -315,12 +338,34 @@ matches. An unknown label name fails with a suggestion.`,
 					}
 				}
 			}
-			return printStringSlice(cmd, format, values, "Value")
+			if err := printStringSlice(cmd, format, values, "Value"); err != nil {
+				return err
+			}
+			if len(values) == 0 {
+				hintTraceLabelRange(cmd, "values for "+label, params.Start, params.End)
+			}
+			return nil
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return cmd
+}
+
+// hintTraceLabelRange writes the empty-result hint for the trace label
+// commands. start and end are epoch microseconds, or nil when not set.
+func hintTraceLabelRange(cmd *cobra.Command, what string, start, end *int64) {
+	if start == nil {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"No %s in the default window (about the last hour). Set --start (for example --start -24h) before you decide that the data does not exist.\n",
+			what)
+		return
+	}
+	e := time.Now()
+	if end != nil {
+		e = time.UnixMicro(*end)
+	}
+	hintNoData(cmd, what, time.UnixMicro(*start), e)
 }
 
 // traceLabelScopes are the prefixes, in lookup order, that the traces API puts
