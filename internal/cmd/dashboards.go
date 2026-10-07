@@ -32,7 +32,6 @@ func newDashboardsListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListDashboardsWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -50,7 +49,7 @@ func newDashboardsListCmd() *cobra.Command {
 				{Header: "TYPE", Field: "Type"},
 				{Header: "FOLDER", Field: "FolderTitle"},
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, columns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, columns)
 		},
 	}
 }

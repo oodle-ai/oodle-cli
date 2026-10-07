@@ -66,6 +66,7 @@ func TestRawBodyGetPrintsUnknownFields(t *testing.T) {
 		{"monitors get", newMonitorsGetCmd, `{"name":"m","promql_query":"up","future_field":1}`},
 		{"notifiers get", newNotifiersGetCmd, `{"name":"n","type":1,"future_field":1}`},
 		{"dashboards get", newDashboardsGetCmd, `{"dashboard":{"title":"t"},"meta":{"folderUid":"f","future_field":1}}`},
+		{"dashboards list", newDashboardsListCmd, `[{"title":"t","uid":"u","future_field":1}]`},
 		{"traces get", newTracesGetCmd, `{"data":[],"limit":0,"offset":0,"total":0,"future_field":1}`},
 	}
 	for _, tt := range tests {
@@ -73,6 +74,9 @@ func TestRawBodyGetPrintsUnknownFields(t *testing.T) {
 			t.Run(tt.name+" "+string(format), func(t *testing.T) {
 				srv, _, _ := logMetricsServer(t, tt.resp)
 				args := []string{"id1"}
+				if tt.name == "dashboards list" {
+					args = nil
+				}
 				if tt.name == "traces get" {
 					args = append(args, "--start", "-1h", "--end", "now")
 				}
@@ -96,5 +100,18 @@ func TestRawBodyTableStillWorks(t *testing.T) {
 	}
 	if !strings.Contains(out, "cpu-high") || !strings.Contains(out, "NAME") {
 		t.Errorf("table output = %q", out)
+	}
+}
+
+func TestRawBodyDashboardsListTable(t *testing.T) {
+	srv, _, _ := logMetricsServer(t, `[{"title":"cpu","uid":"u1","type":"dash-db","folderTitle":"infra"}]`)
+	out, err := runLogMetricsCmd(t, srv.URL, newDashboardsListCmd(), output.FormatTable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"TITLE", "cpu", "u1", "infra"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("table output does not contain %q:\n%s", want, out)
+		}
 	}
 }
