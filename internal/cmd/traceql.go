@@ -296,6 +296,23 @@ type traceQLTrace struct {
 	SpanSets          []traceQLSpanSet `json:"spanSets"`
 }
 
+// matchedSpans returns the number of matching spans in the trace. spanSet is
+// an older field that repeats the first entry of spanSets, so adding both
+// counts that entry twice. spanSet is used only when spanSets is empty.
+func (t traceQLTrace) matchedSpans() int {
+	if len(t.SpanSets) == 0 {
+		if t.SpanSet != nil {
+			return t.SpanSet.Matched
+		}
+		return 0
+	}
+	matched := 0
+	for _, s := range t.SpanSets {
+		matched += s.Matched
+	}
+	return matched
+}
+
 type traceQLSearchRow struct {
 	TraceID     string
 	RootService string
@@ -321,13 +338,7 @@ func traceQLSearchRows(resp traceQLSearchResponse) []traceQLSearchRow {
 		if ns, err := strconv.ParseInt(t.StartTimeUnixNano, 10, 64); err == nil && ns > 0 {
 			start = time.Unix(0, ns).UTC().Format("2006-01-02 15:04:05")
 		}
-		matched := 0
-		if t.SpanSet != nil {
-			matched = t.SpanSet.Matched
-		}
-		for _, s := range t.SpanSets {
-			matched += s.Matched
-		}
+		matched := t.matchedSpans()
 		rows = append(rows, traceQLSearchRow{
 			TraceID:     t.TraceID,
 			RootService: t.RootServiceName,

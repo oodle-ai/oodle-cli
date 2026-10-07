@@ -376,3 +376,23 @@ func TestTraceQLSearch_LimitRange(t *testing.T) {
 		t.Errorf("limit = %q, want 1000", got.query.Get("limit"))
 	}
 }
+
+func TestTraceQLTrace_MatchedSpans(t *testing.T) {
+	tests := []struct {
+		name  string
+		trace traceQLTrace
+		want  int
+	}{
+		{"none", traceQLTrace{}, 0},
+		{"spanSet only", traceQLTrace{SpanSet: &traceQLSpanSet{Matched: 4}}, 4},
+		{"spanSets only", traceQLTrace{SpanSets: []traceQLSpanSet{{Matched: 2}, {Matched: 3}}}, 5},
+		// spanSet repeats the first entry of spanSets; it must not be added.
+		{"both", traceQLTrace{SpanSet: &traceQLSpanSet{Matched: 2},
+			SpanSets: []traceQLSpanSet{{Matched: 2}, {Matched: 3}}}, 5},
+	}
+	for _, tt := range tests {
+		if got := tt.trace.matchedSpans(); got != tt.want {
+			t.Errorf("%s: matchedSpans() = %d, want %d", tt.name, got, tt.want)
+		}
+	}
+}
