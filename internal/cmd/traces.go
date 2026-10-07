@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"sort"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -219,7 +221,15 @@ func newTracesLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <label_name>",
 		Short: "List values for a trace label",
-		Args:  exactArgs(1),
+		Long: `List values for a trace label.
+
+Trace labels carry a scope prefix, for example resource::service.name or
+span::http.method. Run 'oodle traces labels' to list them. A plain OpenTelemetry
+name such as service.name resolves to the scoped label when exactly one
+matches. An unknown label name fails with a suggestion.`,
+		Example: `  oodle traces label-values resource::service.name --start -1h
+  oodle traces label-values service.name`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -241,20 +251,173 @@ func newTracesLabelValuesCmd() *cobra.Command {
 				params.End = &end
 			}
 
-			resp, err := c.Inner.GetTraceLabelValuesByIdWithResponse(cmd.Context(), instance, args[0], params)
+			fetchValues := func(label string) ([]string, error) {
+				resp, err := c.Inner.GetTraceLabelValuesByIdWithResponse(cmd.Context(), instance, label, params)
+				if err != nil {
+					return nil, fmt.Errorf("API request failed: %w", err)
+				}
+				if resp.StatusCode() >= 300 {
+					return nil, api.CheckResponse(resp.HTTPResponse, resp.Body)
+				}
+				if resp.JSON200 == nil || resp.JSON200.Data == nil {
+					return nil, fmt.Errorf("unexpected empty response")
+				}
+				return *resp.JSON200.Data, nil
+			}
+
+			label := args[0]
+			values, err := fetchValues(label)
 			if err != nil {
-				return fmt.Errorf("API request failed: %w", err)
+				return err
 			}
-			if resp.StatusCode() >= 300 {
-				return api.CheckResponse(resp.HTTPResponse, resp.Body)
+			// The API returns [] for a label that does not exist. Look the
+			// name up so a wrong name is not mistaken for missing data.
+			if len(values) == 0 {
+				labelsResp, err := c.Inner.ListLabelsWithResponse(cmd.Context(), instance, &client.ListLabelsParams{
+					Start: params.Start,
+					End:   params.End,
+				})
+				if err != nil {
+					return fmt.Errorf("API request failed: %w", err)
+				}
+				if labelsResp.StatusCode() >= 300 {
+					return api.CheckResponse(labelsResp.HTTPResponse, labelsResp.Body)
+				}
+				// With no labels at all in the range, there is no data to check against.
+				if labelsResp.JSON200 != nil && labelsResp.JSON200.Data != nil && len(*labelsResp.JSON200.Data) > 0 {
+					resolved, err := resolveTraceLabel(label, *labelsResp.JSON200.Data)
+					if err != nil {
+						return err
+					}
+					if resolved != label {
+						fmt.Fprintf(cmd.ErrOrStderr(), "Using trace label %q for %q.\n", resolved, label)
+						if values, err = fetchValues(resolved); err != nil {
+							return err
+						}
+					}
+				}
 			}
-			if resp.JSON200 == nil || resp.JSON200.Data == nil {
-				return fmt.Errorf("unexpected empty response")
-			}
-			return printStringSlice(cmd, format, *resp.JSON200.Data, "Value")
+			return printStringSlice(cmd, format, values, "Value")
 		},
 	}
 	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
 	return cmd
+}
+
+// traceLabelScopes are the prefixes, in lookup order, that the traces API puts
+// in front of attribute names.
+var traceLabelScopes = []string{"resource::", "span::", "events::"}
+
+// traceLabelAliases maps shorthand names to their OpenTelemetry attribute.
+var traceLabelAliases = map[string]string{
+	"service": "service.name",
+}
+
+// resolveTraceLabel maps name to a label in known. An exact match wins. An
+// unscoped name, or a shorthand alias, resolves to the scoped label when
+// exactly one scope has it. Otherwise it returns an error that suggests the
+// closest labels.
+func resolveTraceLabel(name string, known []string) (string, error) {
+	set := make(map[string]bool, len(known))
+	for _, l := range known {
+		set[l] = true
+	}
+	if set[name] {
+		return name, nil
+	}
+
+	bases := []string{name}
+	if alias, ok := traceLabelAliases[name]; ok {
+		if set[alias] {
+			return alias, nil
+		}
+		bases = append(bases, alias)
+	}
+	var matches []string
+	for _, base := range bases {
+		if strings.Contains(base, "::") {
+			continue
+		}
+		for _, scope := range traceLabelScopes {
+			if set[scope+base] {
+				matches = append(matches, scope+base)
+			}
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0], nil
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("trace label %q is ambiguous; use one of: %s", name, strings.Join(matches, ", "))
+	}
+
+	msg := fmt.Sprintf("unknown trace label %q", name)
+	if s := closestTraceLabels(name, known, 3); len(s) > 0 {
+		msg += fmt.Sprintf("; did you mean %s?", strings.Join(s, ", "))
+	}
+	return "", fmt.Errorf("%s (run 'oodle traces labels' to list label names)", msg)
+}
+
+// closestTraceLabels returns up to n labels from known nearest to name by edit
+// distance. The scope prefix is ignored when comparing, so "service.nam" still
+// finds "resource::service.name".
+func closestTraceLabels(name string, known []string, n int) []string {
+	type candidate struct {
+		label string
+		dist  int
+	}
+	target := strings.ToLower(stripTraceScope(name))
+	if alias, ok := traceLabelAliases[target]; ok {
+		target = alias
+	}
+	maxDist := len(target)/3 + 1
+	var cands []candidate
+	for _, l := range known {
+		d := levenshtein(target, strings.ToLower(stripTraceScope(l)))
+		if d <= maxDist {
+			cands = append(cands, candidate{l, d})
+		}
+	}
+	sort.SliceStable(cands, func(i, j int) bool {
+		if cands[i].dist != cands[j].dist {
+			return cands[i].dist < cands[j].dist
+		}
+		return cands[i].label < cands[j].label
+	})
+	var out []string
+	for i := 0; i < len(cands) && i < n; i++ {
+		out = append(out, cands[i].label)
+	}
+	return out
+}
+
+// stripTraceScope removes everything up to the last "::" in a label name.
+func stripTraceScope(label string) string {
+	if i := strings.LastIndex(label, "::"); i >= 0 {
+		return label[i+2:]
+	}
+	return label
+}
+
+// levenshtein returns the edit distance between a and b.
+func levenshtein(a, b string) int {
+	ra, rb := []rune(a), []rune(b)
+	prev := make([]int, len(rb)+1)
+	cur := make([]int, len(rb)+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= len(ra); i++ {
+		cur[0] = i
+		for j := 1; j <= len(rb); j++ {
+			cost := 1
+			if ra[i-1] == rb[j-1] {
+				cost = 0
+			}
+			cur[j] = min(prev[j]+1, cur[j-1]+1, prev[j-1]+cost)
+		}
+		prev, cur = cur, prev
+	}
+	return prev[len(rb)]
 }

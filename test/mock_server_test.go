@@ -473,6 +473,53 @@ func TestMock_TracesLabels(t *testing.T) {
 	assertValidJSONMock(t, stdout)
 }
 
+// traceLabelsSrv serves the trace label list and returns values only for
+// resource::service.name, as the real API does for scoped labels.
+func traceLabelsSrv(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/v1/api/instance/test-instance/traces/labels", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{"data":["resource::service.name","span::http.method"],"total":2,"limit":0,"offset":0}`)
+	})
+	mux.HandleFunc("/v1/api/instance/test-instance/traces/labels/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(r.URL.Path, "resource::service.name") {
+			fmt.Fprint(w, `{"data":["orders","storefront"],"total":2,"limit":0,"offset":0}`)
+			return
+		}
+		fmt.Fprint(w, `{"data":[],"total":0,"limit":0,"offset":0}`)
+	})
+	return httptest.NewServer(mux)
+}
+
+func TestMock_TracesLabelValues_ResolvesOTelName(t *testing.T) {
+	srv := traceLabelsSrv(t)
+	defer srv.Close()
+	stdout, stderr, code := runMock(t, srv.URL, "traces", "label-values", "service.name", "--start", "-1h", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	if !strings.Contains(stdout, "storefront") {
+		t.Errorf("expected values of resource::service.name, got: %s", stdout)
+	}
+	if !strings.Contains(stderr, "resource::service.name") {
+		t.Errorf("expected a note about the resolved label, got: %s", stderr)
+	}
+}
+
+func TestMock_TracesLabelValues_UnknownLabel(t *testing.T) {
+	srv := traceLabelsSrv(t)
+	defer srv.Close()
+	_, stderr, code := runMock(t, srv.URL, "traces", "label-values", "service.nam", "--output", "json")
+	if code == 0 {
+		t.Fatal("expected non-zero exit for an unknown label")
+	}
+	if !strings.Contains(stderr, "did you mean resource::service.name") {
+		t.Errorf("expected a suggestion, got: %s", stderr)
+	}
+}
+
 func TestMock_ApiKeysList(t *testing.T) {
 	srv := jsonSrv(`[{"name":"my-key","id":"key-001"}]`, 200)
 	defer srv.Close()
