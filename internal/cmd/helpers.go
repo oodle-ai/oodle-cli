@@ -412,3 +412,17 @@ func printResponseBody(cmd *cobra.Command, format output.Format, body []byte) er
 	_, err := cmd.OutOrStdout().Write(buf.Bytes())
 	return err
 }
+
+// printBodyOrTable prints body without change for JSON and YAML output, and
+// rows with columns for the table formats. Use it for resources that users
+// get, edit and give back to update: a body decoded into a generated type
+// and encoded again loses the fields that the type does not know, and the
+// update then removes them on the server.
+func printBodyOrTable(cmd *cobra.Command, body []byte, rows any, columns []output.Column) error {
+	format := getOutputFormat(cmd)
+	switch format {
+	case output.FormatJSON, output.FormatYAML, "":
+		return printResponseBody(cmd, format, body)
+	}
+	return output.Print(cmd.OutOrStdout(), format, rows, columns)
+}

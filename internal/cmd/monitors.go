@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -57,7 +58,6 @@ func newMonitorsListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListMonitorsWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -69,7 +69,7 @@ func newMonitorsListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, monitorListColumns)
 		},
 	}
 }
@@ -82,7 +82,6 @@ func newMonitorsGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetMonitorsByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -94,10 +93,7 @@ func newMonitorsGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 }
@@ -127,14 +123,13 @@ format.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateMonitorsJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.CreateMonitorsWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateMonitorsWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -144,10 +139,7 @@ format.`,
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with monitor definition")
@@ -164,14 +156,13 @@ func newMonitorsUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.UpdateMonitorsByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.UpdateMonitorsByIdWithResponse(cmd.Context(), instance, args[0], body)
+			resp, err := c.Inner.UpdateMonitorsByIdWithBodyWithResponse(cmd.Context(), instance, args[0], "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -181,10 +172,7 @@ func newMonitorsUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with monitor definition")
@@ -371,7 +359,6 @@ func newMonitorsTriggersCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListMonitorTriggersWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -383,7 +370,7 @@ func newMonitorsTriggersCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, monitorTriggerColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, monitorTriggerColumns)
 		},
 	}
 }

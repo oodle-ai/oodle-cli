@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
-	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -76,11 +76,9 @@ func newDashboardsGetCmd() *cobra.Command {
 				return fmt.Errorf("unexpected empty response")
 			}
 			// Dashboards are complex nested objects; tables don't make sense
-			// here. Override the table format to JSON.
-			if format == output.FormatTable {
-				format = output.FormatJSON
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			// here, so every format except YAML prints JSON. The body is
+			// printed without change, so no field is lost.
+			return printResponseBody(cmd, format, resp.Body)
 		},
 	}
 }
@@ -96,11 +94,11 @@ func newDashboardsCreateCmd() *cobra.Command {
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			var body client.CreateDashboardsJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
-			resp, err := c.Inner.CreateDashboardsWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateDashboardsWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -110,10 +108,7 @@ func newDashboardsCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable {
-				format = output.FormatJSON
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			return printResponseBody(cmd, format, resp.Body)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON or YAML file with the dashboard (required)")
