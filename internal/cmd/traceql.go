@@ -107,7 +107,8 @@ Alerts:
   PromQL monitor on the oodle_trace_metrics metrics, or on the oodle_genai_*
   metrics for GenAI spans. See 'oodle monitors create --help'.
 
-Time flags accept 'now', a relative time such as -1h or -7d, or an epoch
+tags and tag-values read only the last hour. search and metrics take
+--start and --end. Time flags accept 'now', a relative time such as -1h or -7d, or an epoch
 timestamp in seconds. Epoch values in milliseconds, microseconds or
 nanoseconds are also accepted and converted to seconds.`
 
@@ -607,6 +608,19 @@ that keeps the result at or below 300 points per series.`,
 
 // --- tags ---
 
+// traceQLTagsWindowNote tells the user that tags and tag-values have no time
+// range. Without it, an empty list reads as proof that a name or value does
+// not exist, when it only did not occur in the last hour.
+const traceQLTagsWindowNote = `The server reads only the spans of the last hour. To look further back, use
+'oodle traces traceql search' with a --start.`
+
+// hintTraceQLLastHour writes the empty-result hint for tags and tag-values.
+func hintTraceQLLastHour(cmd *cobra.Command, what string) {
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"No %s in the last hour. The server reads only the last hour; use -q to narrow the spans, "+
+			"or 'oodle traces traceql search --start -24h' to look further back.\n", what)
+}
+
 var traceQLScopes = []string{"resource", "span", "intrinsic"}
 
 type traceQLTagsResponse struct {
@@ -627,7 +641,8 @@ var traceQLTagColumns = []output.Column{
 }
 
 // traceQLTagRows lists the tags of the given scope, or of all scopes when
-// scope is "all". Names are shown as a query uses them: span.http.route,
+// scope is "all". The CLI filters by scope itself because the server returns
+// every scope. Names are shown as a query uses them: span.http.route,
 // resource.service.name, or a bare intrinsic such as duration.
 func traceQLTagRows(resp traceQLTagsResponse, scope string) []traceQLTagRow {
 	var rows []traceQLTagRow
@@ -660,30 +675,25 @@ func newTraceQLTagsCmd() *cobra.Command {
 
 The table shows each name the way a query uses it, for example
 resource.service.name, span.http.route, or an intrinsic such as duration.
-Use --query to list only the names on spans that match a filter.`,
+Use --query to list only the names on spans that match a filter.
+
+` + traceQLTagsWindowNote,
 		Example: `  oodle traces traceql tags
   oodle traces traceql tags --scope span
   oodle traces traceql tags --query '{ resource.service.name="api" }'`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addTraceQLTimeFlags(cmd)
-	cmd.Flags().StringVar(&scope, "scope", "all", "Scope to list: resource, span, intrinsic or all")
+	cmd.Flags().StringVar(&scope, "scope", "all", "Scope to list: resource, span, intrinsic or all (the CLI filters the result)")
 	cmd.Flags().StringVarP(&query, "query", "q", "", "TraceQL filter that limits the spans to look at")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		scope = strings.ToLower(strings.TrimSpace(scope))
 		if scope != "all" && !slices.Contains(traceQLScopes, scope) {
 			return fmt.Errorf("--scope must be one of resource, span, intrinsic, all")
 		}
-		start, end, err := parseRange()
-		if err != nil {
-			return err
-		}
 		params := url.Values{}
 		if scope != "all" {
 			params.Set("scope", scope)
 		}
-		params.Set("start", strconv.FormatInt(start, 10))
-		params.Set("end", strconv.FormatInt(end, 10))
 		if query != "" {
 			params.Set("q", query)
 		}
@@ -700,7 +710,7 @@ Use --query to list only the names on spans that match a filter.`,
 			return err
 		}
 		if decodeErr == nil && len(rows) == 0 {
-			hintNoData(cmd, "tags", time.Unix(start, 0), time.Unix(end, 0))
+			hintTraceQLLastHour(cmd, "tags")
 		}
 		return nil
 	}
@@ -736,26 +746,21 @@ func newTraceQLTagValuesCmd() *cobra.Command {
 Give the name the way a query uses it, for example resource.service.name,
 span.http.route, or an intrinsic such as name or status. Run
 'oodle traces traceql tags' to list the names. Use --query to list only the
-values on spans that match a filter.`,
+values on spans that match a filter.
+
+` + traceQLTagsWindowNote,
 		Example: `  oodle traces traceql tag-values resource.service.name
   oodle traces traceql tag-values span.http.route --query '{ resource.service.name="api" }'
-  oodle traces traceql tag-values name --start -24h`,
+  oodle traces traceql tag-values status -q '{ resource.service.name="api" }'`,
 		Args: exactArgs(1),
 	}
-	parseRange := addTraceQLTimeFlags(cmd)
 	cmd.Flags().StringVarP(&query, "query", "q", "", "TraceQL filter that limits the spans to look at")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		tag := strings.TrimSpace(args[0])
 		if tag == "" {
 			return fmt.Errorf("tag name must not be empty")
 		}
-		start, end, err := parseRange()
-		if err != nil {
-			return err
-		}
 		params := url.Values{}
-		params.Set("start", strconv.FormatInt(start, 10))
-		params.Set("end", strconv.FormatInt(end, 10))
 		if query != "" {
 			params.Set("q", query)
 		}
@@ -776,7 +781,7 @@ values on spans that match a filter.`,
 			return err
 		}
 		if decodeErr == nil && len(rows) == 0 {
-			hintNoData(cmd, "values for "+tag, time.Unix(start, 0), time.Unix(end, 0))
+			hintTraceQLLastHour(cmd, "values for "+tag)
 		}
 		return nil
 	}

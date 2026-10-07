@@ -232,8 +232,7 @@ const traceQLTagsBody = `{"scopes":[{"name":"resource","tags":["service.name"]},
 
 func TestTraceQLTags_Table(t *testing.T) {
 	srv, got := newTraceQLTestServer(t, 200, traceQLTagsBody)
-	out, err := runTraceQLCmd(t, srv, newTraceQLTagsCmd(), output.FormatTable, "inst",
-		"--start", "1700000000", "--end", "1700003600")
+	out, err := runTraceQLCmd(t, srv, newTraceQLTagsCmd(), output.FormatTable, "inst")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -243,8 +242,9 @@ func TestTraceQLTags_Table(t *testing.T) {
 	if got.query.Has("scope") {
 		t.Errorf("scope is sent for all scopes")
 	}
-	if got.query.Get("start") != "1700000000" || got.query.Get("end") != "1700003600" {
-		t.Errorf("start/end = %q/%q", got.query.Get("start"), got.query.Get("end"))
+	// The server always reads the last hour, so no range is sent.
+	if got.query.Has("start") || got.query.Has("end") {
+		t.Errorf("start/end sent: %v", got.query)
 	}
 	for _, want := range []string{"resource.service.name", "span.http.route", "span.gen_ai.tool.name", "duration"} {
 		if !strings.Contains(out, want) {
@@ -345,5 +345,18 @@ func TestTraceQLTimeRange_StartAfterEnd(t *testing.T) {
 		"--start", "now", "--end", "-1h", `{ }`)
 	if err == nil || !strings.Contains(err.Error(), "before --end") {
 		t.Fatalf("expected a range error, got %v", err)
+	}
+}
+
+// TestTraceQLTags_NoTimeFlags checks that tags and tag-values have no
+// --start or --end. The server ignores them, so the flags would make a user
+// think that an empty result covers a longer range.
+func TestTraceQLTags_NoTimeFlags(t *testing.T) {
+	for _, cmd := range []*cobra.Command{newTraceQLTagsCmd(), newTraceQLTagValuesCmd()} {
+		for _, name := range []string{"start", "end"} {
+			if cmd.Flags().Lookup(name) != nil {
+				t.Errorf("%s has --%s", cmd.Name(), name)
+			}
+		}
 	}
 }

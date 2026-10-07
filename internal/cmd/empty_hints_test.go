@@ -64,7 +64,8 @@ func TestEmptyResultHints(t *testing.T) {
 			[]string{"--start", "-1h", "--end", "now"}, "No traces between"},
 		{"traceql search", newTraceQLSearchCmd, `{"traces":[]}`, []string{"{ }"}, "No matching traces between"},
 		{"traceql metrics", newTraceQLMetricsCmd, `{"series":[]}`, []string{"{ } | rate()"}, "No series between"},
-		{"traceql tag-values", newTraceQLTagValuesCmd, `{"tagValues":[]}`, []string{"span.x"}, "No values for span.x between"},
+		{"traceql tag-values", newTraceQLTagValuesCmd, `{"tagValues":[]}`, []string{"span.x"}, "No values for span.x in the last hour"},
+		{"traceql tags", newTraceQLTagsCmd, `{"scopes":[]}`, nil, "reads only the last hour"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
