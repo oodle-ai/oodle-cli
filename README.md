@@ -315,7 +315,7 @@ Rule fields:
 | Field               | Description |
 |---------------------|-------------|
 | `name`              | Name of the rule. |
-| `filter`            | Which log lines to read. One of `match` (`field`, `operator`, `value`, optional `jsonPath`), `all` (list, every filter must match), `any` (list, one or more must match), or `not` (one filter). Operators: `is`, `contains`, `matches regex`, `exists`. |
+| `filter`            | Which log lines to read. One of: a condition `{"field", "operator", "value", "jsonPath"}`; `{"all": [...]}` (every filter must match); `{"any": [...]}` (one or more must match); or `{"not": filter}`. Items in `all`, `any` and `not` use the same forms. Operators: `is`, `contains`, `matches regex`, `exists`. |
 | `labels`            | Labels for each metric. Each has a `name` and either a static `value` or a `valueExtractor` (`field`, optional `jsonPath`, optional `regex`). |
 | `metricDefinitions` | Metrics to make. Each has a `name` and a `type`: `log_count`, `counter`, `gauge` or `histogram`. `counter`, `gauge` and `histogram` read the value from `field`, with an optional `jsonPath` or `regex`. |
 
@@ -334,8 +334,8 @@ captures from the `message` field.
   "name": "login-failures",
   "filter": {
     "all": [
-      {"match": {"field": "service", "operator": "is", "value": "auth"}},
-      {"match": {"field": "message", "operator": "matches regex", "value": "login failed for user \\S+"}}
+      {"field": "service", "operator": "is", "value": "auth"},
+      {"field": "message", "operator": "matches regex", "value": "login failed for user \\S+"}
     ]
   },
   "labels": [
@@ -501,9 +501,11 @@ Metrics functions: `rate`, `count_over_time`, `avg_over_time`,
 `quantile_over_time`, with an optional `by (...)`.
 
 Not supported yet: scalar filters such as `| count() > 2`, `&&` between two
-spansets (`{A} && {B}`; write `{ A && B }`), structural operators (`>>`, `<<`,
-`>`, `<`, `~`), the `parent.` and `link.` scopes, and existence checks such
-as `{ span.foo }` (write `{ span.foo != nil }`).
+spansets (`{A} && {B}`; write `{ A && B }`), structural operators between
+two spansets (`>>`, `<<`, `>`, `<`, `~`, as in `{A} > {B}`), the `parent.`
+and `link.` scopes, and existence checks such as `{ span.foo }` (write
+`{ span.foo != nil }`). Comparisons inside one filter, such as
+`{ duration > 10s }`, work.
 
 Monitors cannot run TraceQL. To alert on traces, use PromQL on
 `oodle_trace_metrics` or on the `oodle_genai_*` metrics.

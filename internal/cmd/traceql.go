@@ -96,7 +96,9 @@ Not supported yet:
   - Scalar filters, such as { ... } | count() > 2
   - "&&" between two spansets, such as {A} && {B}. Put both conditions in one
     filter: { A && B }. "||" between spansets is supported.
-  - Structural operators: >>, <<, >, <, ~
+  - Structural operators between two spansets: >>, <<, >, <, ~, as in
+    {A} > {B}. Comparisons inside one filter, such as { duration > 10s },
+    work.
   - The parent. and link. scopes, and the rootName intrinsic
   - Existence checks such as { span.foo }. Use { span.foo != nil }.
 
