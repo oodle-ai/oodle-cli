@@ -120,8 +120,8 @@ and --search. For conditions on any span attribute, use
 			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	cmd.Flags().StringVar(&service, "service", "", "Filter by service name")
 	cmd.Flags().StringVar(&operation, "operation", "", "Filter by operation name")
 	cmd.Flags().StringVar(&minDuration, "min-duration", "", "Minimum trace duration (e.g. 100ms, 1s)")
@@ -176,8 +176,8 @@ func newTracesGetCmd() *cobra.Command {
 			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	_ = cmd.MarkFlagRequired("start")
 	_ = cmd.MarkFlagRequired("end")
 	return cmd
@@ -226,8 +226,8 @@ func newTracesLabelsCmd() *cobra.Command {
 			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return cmd
 }
 
@@ -318,8 +318,8 @@ matches. An unknown label name fails with a suggestion.`,
 			return printStringSlice(cmd, format, values, "Value")
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return cmd
 }
 

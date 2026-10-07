@@ -132,9 +132,9 @@ func newTracesTraceQLCmd() *cobra.Command {
 func addTraceQLTimeFlags(cmd *cobra.Command) func() (start, end int64, err error) {
 	var startStr, endStr string
 	cmd.Flags().StringVar(&startStr, "start", defaultStartOffset,
-		"Start of the time range ('now', relative like -1h, or epoch seconds)")
+		"Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	cmd.Flags().StringVar(&endStr, "end", defaultEndValue,
-		"End of the time range ('now', relative like -1h, or epoch seconds)")
+		"End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return func() (int64, int64, error) {
 		start, err := parseTraceQLTime(startStr)
 		if err != nil {
@@ -151,31 +151,10 @@ func addTraceQLTimeFlags(cmd *cobra.Command) func() (start, end int64, err error
 	}
 }
 
-// parseTraceQLTime parses a time flag to epoch seconds.
+// parseTraceQLTime parses a time flag to epoch seconds. parseTimeFlagSec
+// converts an epoch in ms, µs or ns to seconds by its magnitude.
 func parseTraceQLTime(value string) (int64, error) {
-	n, err := parseTimeFlagSec(value)
-	if err != nil {
-		return 0, err
-	}
-	return epochToSeconds(n), nil
-}
-
-// epochToSeconds converts an epoch value in seconds, milliseconds,
-// microseconds or nanoseconds to seconds. Other trace commands take epoch
-// microseconds, so a user can easily give a value in the wrong unit. The
-// server reads seconds, and a value in a smaller unit would put the range far
-// in the future and return no data without an error.
-func epochToSeconds(n int64) int64 {
-	switch {
-	case n >= 1e17:
-		return n / 1e9
-	case n >= 1e14:
-		return n / 1e6
-	case n >= 1e11:
-		return n / 1e3
-	default:
-		return n
-	}
+	return parseTimeFlagSec(value)
 }
 
 // parseTraceQLStep parses a step such as 30s, 5m, 1h, 1d or a number of

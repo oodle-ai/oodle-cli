@@ -117,8 +117,8 @@ Example NDJSON file contents:
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to NDJSON query file")
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }

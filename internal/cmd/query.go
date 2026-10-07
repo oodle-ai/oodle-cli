@@ -108,7 +108,7 @@ func newMetricsQueryCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "PromQL expression (e.g. sum(up))")
-	cmd.Flags().StringVar(&timeStr, "time", "", "Evaluation timestamp (Unix seconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&timeStr, "time", "", "Evaluation timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd
 }

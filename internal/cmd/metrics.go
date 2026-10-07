@@ -33,8 +33,8 @@ type valueEntry struct {
 // same flag wiring, so this helper keeps them in lockstep.
 func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	return func() (int64, int64, error) {
 		if startStr == "" {
 			startStr = defaultStartOffset
@@ -61,8 +61,8 @@ func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error
 // uses the seconds precision required by the Prometheus query_range API.
 func addTimeRangeFlagsSeconds(cmd *cobra.Command) func() (start, end float64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	return func() (float64, float64, error) {
 		if startStr == "" {
 			startStr = defaultStartOffset

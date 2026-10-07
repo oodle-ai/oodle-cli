@@ -323,8 +323,8 @@ func newMonitorsStateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&historyRange, "history-range", "", "Raw time range for monitor history, \"<start>-<end>\" in epoch seconds (e.g. 1705036708-1705123108). Prefer --start/--end")
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the monitor history range (epoch seconds, 'now', or relative like -7d). Defaults to "+defaultHistoryStartOffset+" if only --end is given")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the monitor history range (epoch seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if only --start is given")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the monitor history range (relative like -7d, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultHistoryStartOffset+" if only --end is given")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the monitor history range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if only --start is given")
 	cmd.MarkFlagsMutuallyExclusive("history-range", "start")
 	cmd.MarkFlagsMutuallyExclusive("history-range", "end")
 	return cmd

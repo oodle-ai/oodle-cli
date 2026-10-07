@@ -206,7 +206,8 @@ func unmarshalYAMLAsJSON(data []byte, v any) error {
 //   - "now"            => current time
 //   - "-1h", "-30m"    => relative durations (Go's time.ParseDuration)
 //   - "-7d"            => days; converted to hours
-//   - integer          => epoch microseconds, returned as-is
+//   - RFC3339          => for example 2026-01-02T15:04:05Z
+//   - integer          => epoch in s, ms, µs or ns (see epochToUnit)
 //
 // See parseTimeFlagMs for the millisecond-precision variant used by
 // endpoints that expect epoch ms (e.g. metrics).
@@ -231,8 +232,9 @@ func parseTimeFlagSec(value string) (int64, error) {
 // parseTimeFlagAs is the shared core for parseTimeFlag and parseTimeFlagMs.
 // unitName is the human-readable unit used in error messages ("microseconds",
 // "milliseconds"). toEpoch converts a time.Time to the desired epoch unit
-// (e.g. time.Time.UnixMicro). Integer literals are passed through verbatim
-// and are assumed to be in the requested unit already.
+// (e.g. time.Time.UnixMicro). An integer literal is converted to the
+// requested unit by its magnitude (see epochToUnit), so a value that is
+// already in that unit does not change.
 func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
@@ -248,12 +250,42 @@ func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int
 		}
 		// Fall through to int parsing in case it's a negative epoch (rare).
 	}
-	// Integer literal: assumed to already be in the requested unit.
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		return toEpoch(t), nil
+	}
 	n, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch %s, 'now', or relative duration like -1h, -7d", value, unitName)
+		return 0, fmt.Errorf("invalid time %q: expected epoch %s, RFC3339, 'now', or relative duration like -1h, -7d", value, unitName)
 	}
-	return n, nil
+	return epochToUnit(n, toEpoch(time.Unix(1, 0))), nil
+}
+
+// epochToUnit converts an epoch value in seconds, milliseconds, microseconds
+// or nanoseconds to a unit with perSec units in one second. The input unit is
+// found from the magnitude: a present-day epoch has 10 digits in seconds, 13
+// in ms, 16 in µs and 19 in ns.
+//
+// Commands in this CLI read different units, and the server returns no data,
+// without an error, for a range in the wrong unit. A value that is already in
+// the requested unit does not change for dates after 1973.
+func epochToUnit(n, perSec int64) int64 {
+	var from int64
+	switch {
+	case n >= 1e17:
+		from = 1e9
+	case n >= 1e14:
+		from = 1e6
+	case n >= 1e11:
+		from = 1e3
+	case n > 0:
+		from = 1
+	default:
+		return n
+	}
+	if from >= perSec {
+		return n / (from / perSec)
+	}
+	return n * (perSec / from)
 }
 
 // parseTimeFlagSeconds converts a time flag value to epoch seconds as float64.
@@ -266,7 +298,9 @@ func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int
 //   - "now"            => current time
 //   - "-1h", "-30m"    => relative durations
 //   - "-7d"            => days; converted to hours
-//   - number           => epoch seconds, returned as-is (supports both int and float)
+//   - RFC3339          => for example 2026-01-02T15:04:05Z
+//   - number           => epoch seconds (int or float); an integer in ms,
+//     µs or ns is converted by its magnitude
 func parseTimeFlagSeconds(value string) (float64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
@@ -282,10 +316,17 @@ func parseTimeFlagSeconds(value string) (float64, error) {
 		}
 		// Fall through to float parsing in case it's a negative epoch (rare).
 	}
-	// Numeric literal: epoch seconds (supports both int and float).
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		return float64(t.UnixNano()) / 1e9, nil
+	}
+	// Numeric literal: epoch seconds (supports both int and float). An
+	// integer in ms, µs or ns is converted to seconds by its magnitude.
 	f, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch seconds, 'now', or relative duration like -1h, -7d", value)
+		return 0, fmt.Errorf("invalid time %q: expected epoch seconds, RFC3339, 'now', or relative duration like -1h, -7d", value)
+	}
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 1e11 {
+		return float64(epochToUnit(n, 1e3)) / 1e3, nil
 	}
 	return f, nil
 }

@@ -315,15 +315,6 @@ func TestIsTraceQLMetricsQuery(t *testing.T) {
 	}
 }
 
-func TestEpochToSeconds(t *testing.T) {
-	const sec = int64(1700000000)
-	for _, n := range []int64{sec, sec * 1e3, sec * 1e6, sec * 1e9} {
-		if got := epochToSeconds(n); got != sec {
-			t.Errorf("epochToSeconds(%d) = %d, want %d", n, got, sec)
-		}
-	}
-}
-
 func TestParseTraceQLStep(t *testing.T) {
 	tests := map[string]int64{"30s": 30, "5m": 300, "1h": 3600, "1d": 86400, "90": 90}
 	for in, want := range tests {
