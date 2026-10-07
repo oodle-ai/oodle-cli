@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -122,6 +123,59 @@ func readInputFile(path string, v any) error {
 		}
 	}
 	return nil
+}
+
+// readInputFileJSON reads a JSON or YAML file and returns it as the bytes of
+// one JSON object. It uses the same format rules as readInputFile. A JSON
+// file is returned without change.
+//
+// Use it for request bodies whose shape the generated types cannot hold.
+// Decoding such a file into a generated type drops the fields that the type
+// does not know, and the server then gets a different object than the file.
+func readInputFileJSON(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	var out []byte
+	switch {
+	case ext == ".json":
+		if !json.Valid(data) {
+			var v any
+			err := json.Unmarshal(data, &v)
+			return nil, fmt.Errorf("parsing JSON from %s: %w", path, err)
+		}
+		out = data
+	case ext == ".yaml" || ext == ".yml":
+		if out, err = yamlToJSON(data); err != nil {
+			return nil, fmt.Errorf("parsing YAML from %s: %w", path, err)
+		}
+	case json.Valid(data):
+		out = data
+	default:
+		if out, err = yamlToJSON(data); err != nil {
+			return nil, fmt.Errorf("parsing %s (tried YAML and JSON): %w", path, err)
+		}
+	}
+	trimmed := bytes.TrimSpace(out)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, fmt.Errorf("%s must contain one JSON or YAML object", path)
+	}
+	return trimmed, nil
+}
+
+// yamlToJSON converts a YAML document to JSON.
+func yamlToJSON(data []byte) ([]byte, error) {
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("converting YAML to JSON: %w", err)
+	}
+	return out, nil
 }
 
 // unmarshalYAMLAsJSON decodes YAML by transcoding it to JSON first, so the
