@@ -645,6 +645,32 @@ var traceQLTagColumns = []output.Column{
 	{Header: "TAG", Field: "Tag"},
 }
 
+// traceQLKeepScope removes the other scopes from a tags response, so that
+// JSON and YAML output follow --scope as the table does. The server returns
+// every scope. A body that is not the expected shape is returned as it is.
+func traceQLKeepScope(body []byte, scope string) []byte {
+	var resp map[string]any
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return body
+	}
+	scopes, ok := resp["scopes"].([]any)
+	if !ok {
+		return body
+	}
+	kept := []any{}
+	for _, s := range scopes {
+		if m, ok := s.(map[string]any); ok && m["name"] == scope {
+			kept = append(kept, s)
+		}
+	}
+	resp["scopes"] = kept
+	out, err := json.Marshal(resp)
+	if err != nil {
+		return body
+	}
+	return out
+}
+
 // traceQLTagRows lists the tags of the given scope, or of all scopes when
 // scope is "all". The CLI filters by scope itself because the server returns
 // every scope. Names are shown as a query uses them: span.http.route,
@@ -705,6 +731,9 @@ Use --query to list only the names on spans that match a filter.
 		body, err := traceQLGet(cmd, "tags", params)
 		if err != nil {
 			return err
+		}
+		if scope != "all" {
+			body = traceQLKeepScope(body, scope)
 		}
 		var resp traceQLTagsResponse
 		decodeErr := json.Unmarshal(body, &resp)

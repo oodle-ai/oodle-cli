@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -263,6 +264,22 @@ func TestTraceQLTags_Scope(t *testing.T) {
 	}
 	if !strings.Contains(out, "span.http.route") {
 		t.Errorf("output does not contain span.http.route:\n%s", out)
+	}
+}
+
+// JSON output is what agents read, so it must follow --scope too.
+func TestTraceQLTags_ScopeJSON(t *testing.T) {
+	srv, _ := newTraceQLTestServer(t, 200, traceQLTagsBody)
+	out, err := runTraceQLCmd(t, srv, newTraceQLTagsCmd(), output.FormatJSON, "inst", "--scope", "intrinsic")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var got traceQLTagsResponse
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("output is not JSON: %v\n%s", err, out)
+	}
+	if len(got.Scopes) != 1 || got.Scopes[0].Name != "intrinsic" {
+		t.Errorf("scopes = %+v, want only intrinsic", got.Scopes)
 	}
 }
 
