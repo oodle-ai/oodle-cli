@@ -1,7 +1,11 @@
 package output
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"strings"
 	"unicode"
 
@@ -26,6 +30,20 @@ import (
 // starts with a space or tab or comes after a line of only
 // spaces.
 func MarshalYAML(v any) ([]byte, error) {
+	out, err := marshalYAMLBlocks(v)
+	if err == nil {
+		return out, nil
+	}
+	// yaml.v3 writes some multi-line strings as blocks that it cannot
+	// read back, for example a string that starts with a line break in
+	// a sequence. Its value encoder then fails, so the fallback builds
+	// the node tree itself and double-quotes every string, which holds
+	// every value exactly. The output is harder to edit but correct.
+	return marshalYAMLQuoted(v)
+}
+
+// marshalYAMLBlocks is MarshalYAML without the fallback.
+func marshalYAMLBlocks(v any) ([]byte, error) {
 	var root yaml.Node
 	if err := root.Encode(v); err != nil {
 		return nil, err
@@ -171,5 +189,56 @@ func writeLiteralBlock(b *strings.Builder, s, pad string) {
 		if line != "" {
 			b.WriteString(pad + line)
 		}
+	}
+}
+
+// marshalYAMLQuoted encodes v through its JSON form, so that the
+// tree has only maps, lists and scalars, and writes every string
+// double-quoted.
+func marshalYAMLQuoted(v any) ([]byte, error) {
+	raw, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber()
+	var generic any
+	if err := dec.Decode(&generic); err != nil {
+		return nil, err
+	}
+	return yaml.Marshal(quotedNode(generic))
+}
+
+func quotedNode(v any) *yaml.Node {
+	switch x := v.(type) {
+	case map[string]any:
+		n := &yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
+		keys := make([]string, 0, len(x))
+		for k := range x {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			n.Content = append(n.Content, quotedNode(k), quotedNode(x[k]))
+		}
+		return n
+	case []any:
+		n := &yaml.Node{Kind: yaml.SequenceNode, Tag: "!!seq"}
+		for _, c := range x {
+			n.Content = append(n.Content, quotedNode(c))
+		}
+		return n
+	case string:
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: x, Style: yaml.DoubleQuotedStyle}
+	case json.Number:
+		tag := "!!int"
+		if _, err := x.Int64(); err != nil {
+			tag = "!!float"
+		}
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: tag, Value: x.String()}
+	case bool:
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!bool", Value: strconv.FormatBool(x)}
+	default:
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}
 	}
 }
