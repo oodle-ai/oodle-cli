@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"strconv"
 	"strings"
@@ -57,7 +58,6 @@ func newMonitorsListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListMonitorsWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -69,7 +69,7 @@ func newMonitorsListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, monitorListColumns)
 		},
 	}
 }
@@ -82,7 +82,6 @@ func newMonitorsGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetMonitorsByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -94,10 +93,7 @@ func newMonitorsGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 }
@@ -107,18 +103,33 @@ func newMonitorsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a monitor from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a monitor from a JSON/YAML file.
+
+A monitor runs a PromQL query on metrics and fires when the result crosses
+its thresholds. A monitor cannot run a log query or a TraceQL query.
+
+To alert on logs, first make a metric from the logs with a log metrics rule
+('oodle log-metrics --help'). Then use that oodle_logs_* metric in the
+monitor query.
+
+To alert on traces, use the trace metrics in the monitor query:
+oodle_trace_metrics for spans, or the oodle_genai_* metrics for GenAI spans.
+Use 'oodle traces traceql metrics' to try a trace query first.
+
+Run 'oodle monitors get <id> -o yaml' on an existing monitor to see the file
+format.`,
+		Example: `  oodle monitors create -f monitor.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateMonitorsJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.CreateMonitorsWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateMonitorsWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -128,10 +139,7 @@ func newMonitorsCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with monitor definition")
@@ -144,18 +152,22 @@ func newMonitorsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a monitor from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a monitor from a JSON or YAML file.
+
+The file replaces the monitor. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle monitors get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.UpdateMonitorsByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.UpdateMonitorsByIdWithResponse(cmd.Context(), instance, args[0], body)
+			resp, err := c.Inner.UpdateMonitorsByIdWithBodyWithResponse(cmd.Context(), instance, args[0], "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -165,10 +177,7 @@ func newMonitorsUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Monitor{*resp.JSON200}, monitorListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, monitorListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Monitor{*resp.JSON200}, monitorListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with monitor definition")
@@ -307,8 +316,8 @@ func newMonitorsStateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&historyRange, "history-range", "", "Raw time range for monitor history, \"<start>-<end>\" in epoch seconds (e.g. 1705036708-1705123108). Prefer --start/--end")
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the monitor history range (epoch seconds, 'now', or relative like -7d). Defaults to "+defaultHistoryStartOffset+" if only --end is given")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the monitor history range (epoch seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if only --start is given")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the monitor history range (relative like -7d, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultHistoryStartOffset+" if only --end is given")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the monitor history range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if only --start is given")
 	cmd.MarkFlagsMutuallyExclusive("history-range", "start")
 	cmd.MarkFlagsMutuallyExclusive("history-range", "end")
 	return cmd
@@ -355,7 +364,6 @@ func newMonitorsTriggersCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListMonitorTriggersWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -367,7 +375,7 @@ func newMonitorsTriggersCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, monitorTriggerColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, monitorTriggerColumns)
 		},
 	}
 }

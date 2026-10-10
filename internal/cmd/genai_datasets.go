@@ -273,7 +273,7 @@ func newGenAIDatasetItemsListCmd() *cobra.Command {
 	cmd.Flags().StringVar(
 		&at, "at", "",
 		"Return the dataset as it stood at this time: RFC3339, "+
-			"'now', or a relative duration like -7d",
+			"'now', an epoch, or a relative duration like -7d",
 	)
 	return cmd
 }

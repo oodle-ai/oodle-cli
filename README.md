@@ -229,6 +229,15 @@ oodle monitors delete mon-abc123 --force
 oodle monitors triggers -o json
 ```
 
+Monitors use PromQL queries on metrics.
+
+- **Alerting on logs:** create a [log metrics rule](#log-metrics--oodle-log-metrics)
+  that counts or measures the log lines, then create a monitor on the
+  `oodle_logs_*` metric that the rule makes.
+- **Alerting on traces:** monitors cannot run TraceQL. Use the
+  `oodle_trace_metrics` metric, or the `oodle_genai_*` metrics for GenAI
+  spans, in the monitor query.
+
 ### Notifiers — `oodle notifiers`
 
 Alias: `notifier`.
@@ -295,6 +304,51 @@ Aliases: `lm`, `logmetrics`.
 oodle log-metrics list
 oodle lm create -f log-metric.yaml
 ```
+
+A log metrics rule turns matching log lines into metrics. To alert on logs,
+create a rule, then create a monitor on the metric that it makes. A rule reads
+only logs that arrive after you create or change it; it does not fill in
+metrics for older logs. You do not need a log transform to use a rule.
+
+Rule fields:
+
+| Field               | Description |
+|---------------------|-------------|
+| `name`              | Name of the rule. |
+| `filter`            | Which log lines to read. One of: a condition `{"field", "operator", "value", "jsonPath"}`; `{"all": [...]}` (every filter must match); `{"any": [...]}` (one or more must match); or `{"not": filter}`. Items in `all`, `any` and `not` use the same forms. Operators: `is`, `contains`, `matches regex`, `exists`. |
+| `labels`            | Labels for each metric. Each has a `name` and either a static `value` or a `valueExtractor` (`field`, optional `jsonPath`, optional `regex`). |
+| `metricDefinitions` | Metrics to make. Each has a `name` and a `type`: `log_count`, `counter`, `gauge` or `histogram`. `counter`, `gauge` and `histogram` read the value from `field`, with an optional `jsonPath` or `regex`. |
+
+A field is a top-level log field. Use `jsonPath` to read a nested value in a
+JSON field. Regexes use Rust syntax. When a regex extracts a value, capture
+group 1 is the value.
+
+Each metric is written as `oodle_logs_<name>`. A histogram also writes the
+`_bucket`, `_sum` and `_count` series.
+
+Example: count failed logins, labelled with the user name that a regex
+captures from the `message` field.
+
+```json
+{
+  "name": "login-failures",
+  "filter": {
+    "all": [
+      {"field": "service", "operator": "is", "value": "auth"},
+      {"field": "message", "operator": "matches regex", "value": "login failed for user \\S+"}
+    ]
+  },
+  "labels": [
+    {"name": "user", "valueExtractor": {"field": "message", "regex": "login failed for user (\\S+)"}}
+  ],
+  "metricDefinitions": [
+    {"name": "login_failures", "type": "log_count"}
+  ]
+}
+```
+
+This rule makes `oodle_logs_login_failures`. A monitor can then use
+`sum by (user) (increase(oodle_logs_login_failures[5m])) > 10`.
 
 ### Synthetic Monitors — `oodle synthetic-monitors`
 
@@ -385,12 +439,16 @@ Alias: `trace`. Query traces, trace labels, and label values.
 | `get <id>`            | Get a trace by ID                      |
 | `labels`              | List trace label names                 |
 | `label-values <label>`| List values for a trace label          |
+| `traceql`             | Run TraceQL search and metrics queries |
 
 ```bash
 oodle traces labels -o json
-oodle traces list
+oodle traces list --start -1h --end now --service api
+oodle traces get <trace_id> --start -1h --end now -o json
 oodle traces label-values resource::service.name --start -1h
 ```
+
+`list` and `get` need `--start` and `--end`.
 
 Trace label names have a scope prefix, for example
 `resource::service.name` or `span::http.method`. If you give a
@@ -398,6 +456,85 @@ name without a prefix, such as `service.name`, `label-values`
 uses the scoped label when exactly one scope has it. If the
 label does not exist, the command fails and suggests the
 closest label names.
+
+#### TraceQL — `oodle traces traceql`
+
+Alias: `tql`.
+
+| Subcommand          | Description                                        |
+|---------------------|----------------------------------------------------|
+| `search <query>`    | Find traces that match a TraceQL filter            |
+| `metrics <query>`   | Compute time series with a TraceQL metrics query   |
+| `tags`              | List attribute names to use in a query             |
+| `tag-values <tag>`  | List the values of an attribute                    |
+
+`search` and `metrics` take `--start` (default `-1h`) and `--end` (default
+`now`). They accept `now`, a relative time such as `-6h`, or an epoch timestamp in
+seconds (milliseconds, microseconds and nanoseconds are also detected).
+`search` takes `--limit` (default 20, at most 1000). `metrics` takes `--step`,
+such as `5m`; the default is `1m`, or larger for long ranges. `tags` takes
+`--scope` (`resource`, `span`, `intrinsic` or `all`). `tags` and `tag-values`
+read only the last hour; use `-q` to narrow the spans.
+
+```bash
+# Traces with an error span in the api service
+oodle traces traceql search '{ resource.service.name="api" && status=error }'
+
+# Error rate per route
+oodle traces traceql metrics \
+  '{ resource.service.name="api" && status=error } | rate() by (span.http.route)'
+
+# Slow tool calls, counted per tool
+oodle traces traceql metrics \
+  '{ name=~"execute_tool.*" && duration > 10s } | count_over_time() by (span.gen_ai.tool.name)'
+
+# p95 span duration, as a chart
+oodle traces traceql metrics \
+  '{ resource.service.name="api" } | quantile_over_time(duration, .95)' -o graph
+
+# Attribute names and values to build a query
+oodle traces traceql tags --scope span
+oodle traces traceql tag-values resource.service.name
+```
+
+Metrics functions: `rate`, `count_over_time`, `avg_over_time`,
+`min_over_time`, `max_over_time`, `sum_over_time`, `histogram_over_time`,
+`quantile_over_time`, with an optional `by (...)`.
+
+Not supported yet: scalar filters such as `| count() > 2`, `&&` between two
+spansets (`{A} && {B}`; write `{ A && B }`), structural operators between
+two spansets (`>>`, `<<`, `>`, `<`, `~`, as in `{A} > {B}`), the `parent.`
+and `link.` scopes, and existence checks such as `{ span.foo }` (write
+`{ span.foo != nil }`). Comparisons inside one filter, such as
+`{ duration > 10s }`, work.
+
+Monitors cannot run TraceQL. To alert on traces, use PromQL on
+`oodle_trace_metrics` or on the `oodle_genai_*` metrics.
+
+### Logs — `oodle logs`
+
+Alias: `log`.
+
+| Subcommand        | Description                                              |
+|-------------------|----------------------------------------------------------|
+| `query -f <file>` | Search logs with an OpenSearch-compatible NDJSON query   |
+| `index-patterns`  | List the log index patterns                              |
+
+`query` reads an NDJSON file: a header line that selects the index, then a
+line with an OpenSearch Query DSL body. The command adds a time range filter
+from `--start` and `--end` (default: the last hour). The body can also have
+`aggs` for aggregations. `regexp` queries are not supported.
+
+```bash
+oodle logs index-patterns
+cat > errors.ndjson <<'EOF'
+{"index": "logs-*"}
+{"query": {"match": {"level": "error"}}, "size": 20}
+EOF
+oodle logs query -f errors.ndjson --start -30m -o json
+```
+
+To alert on logs, use [log metrics](#log-metrics--oodle-log-metrics).
 
 ### GenAI — `oodle genai`
 

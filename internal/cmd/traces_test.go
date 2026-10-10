@@ -3,6 +3,10 @@ package cmd
 import (
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
+
+	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
 var testTraceLabels = []string{
@@ -90,5 +94,53 @@ func TestLevenshtein(t *testing.T) {
 		if got := levenshtein(tt.a, tt.b); got != tt.want {
 			t.Errorf("levenshtein(%q, %q) = %d, want %d", tt.a, tt.b, got, tt.want)
 		}
+	}
+}
+
+// testTracesBody has one trace. The child span starts first and ends last,
+// so the start and duration must come from all spans, not from the root.
+const testTracesBody = `{"data":[{"traceID":"t1","processes":{"p1":{"serviceName":"api"},"p2":{"serviceName":"db"}},` +
+	`"spans":[` +
+	`{"traceID":"t1","spanID":"s2","parentSpanID":"s1","operationName":"SELECT","processID":"p2",` +
+	`"startTime":1699999999000000,"duration":3000000},` +
+	`{"traceID":"t1","spanID":"s1","parentSpanID":"","operationName":"GET /users","processID":"p1",` +
+	`"startTime":1700000000000000,"duration":1500000}]}],` +
+	`"limit":20,"offset":0,"total":1,"future_field":1}`
+
+func TestTracesTable(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  func() *cobra.Command
+		args []string
+	}{
+		{"list", newTracesListCmd, []string{"--start", "-1h", "--end", "now"}},
+		{"get", newTracesGetCmd, []string{"t1", "--start", "-1h", "--end", "now"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _, _ := logMetricsServer(t, testTracesBody)
+			out, err := runLogMetricsCmd(t, srv.URL, tt.cmd(), output.FormatTable, tt.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, want := range []string{"TRACE ID", "ROOT SERVICE", "t1", "api", "GET /users",
+				"2023-11-14 22:13:19", "3s", "2"} {
+				if !strings.Contains(out, want) {
+					t.Errorf("table output does not contain %q:\n%s", want, out)
+				}
+			}
+			if strings.Contains(out, "{") {
+				t.Errorf("table output has JSON:\n%s", out)
+			}
+
+			srv, _, _ = logMetricsServer(t, testTracesBody)
+			out, err = runLogMetricsCmd(t, srv.URL, tt.cmd(), output.FormatJSON, tt.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !strings.Contains(out, "future_field") {
+				t.Errorf("JSON output dropped an unknown field:\n%s", out)
+			}
+		})
 	}
 }

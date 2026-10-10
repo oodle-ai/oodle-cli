@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
-	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -32,7 +32,6 @@ func newDashboardsListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListDashboardsWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -50,7 +49,7 @@ func newDashboardsListCmd() *cobra.Command {
 				{Header: "TYPE", Field: "Type"},
 				{Header: "FOLDER", Field: "FolderTitle"},
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, columns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, columns)
 		},
 	}
 }
@@ -76,11 +75,9 @@ func newDashboardsGetCmd() *cobra.Command {
 				return fmt.Errorf("unexpected empty response")
 			}
 			// Dashboards are complex nested objects; tables don't make sense
-			// here. Override the table format to JSON.
-			if format == output.FormatTable {
-				format = output.FormatJSON
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			// here, so every format except YAML prints JSON. The body is
+			// printed without change, so no field is lost.
+			return printResponseBody(cmd, format, resp.Body)
 		},
 	}
 }
@@ -90,17 +87,32 @@ func newDashboardsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create or update a dashboard from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create or update a dashboard from a JSON or YAML file.
+
+The file is a save request, not the output of 'dashboards get':
+  {"dashboard": {...}, "folderUid": "<folder>", "overwrite": true}
+
+"dashboard" is Grafana dashboard JSON. Without "folderUid" the dashboard
+is saved in the root folder. With "overwrite": true, the dashboard with the
+same uid is replaced as a whole: panels that are not in the file are removed.
+
+To change a dashboard:
+  oodle dashboards get <uid> -o json > current.json
+  jq '{dashboard: .dashboard, folderUid: .meta.folderUid, overwrite: true}' \
+    current.json > save.json
+  # edit save.json
+  oodle dashboards create -f save.json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
 			format := getOutputFormat(cmd)
 
-			var body client.CreateDashboardsJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
-			resp, err := c.Inner.CreateDashboardsWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateDashboardsWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -110,10 +122,7 @@ func newDashboardsCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable {
-				format = output.FormatJSON
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			return printResponseBody(cmd, format, resp.Body)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON or YAML file with the dashboard (required)")

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -41,7 +42,6 @@ func newNotificationPoliciesListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListNotificationPoliciesWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -53,7 +53,7 @@ func newNotificationPoliciesListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, notificationPolicyListColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, notificationPolicyListColumns)
 		},
 	}
 }
@@ -66,7 +66,6 @@ func newNotificationPoliciesGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetNotificationPoliciesByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -78,10 +77,7 @@ func newNotificationPoliciesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notificationPolicyListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
 		},
 	}
 }
@@ -91,18 +87,21 @@ func newNotificationPoliciesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a notification policy from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a notification policy from a JSON/YAML file.
+
+Run 'oodle notification-policies get <id> -o json' on an existing policy for a template.`,
+		Example: `  oodle notification-policies create -f policy.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateNotificationPoliciesJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.CreateNotificationPoliciesWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateNotificationPoliciesWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -112,10 +111,7 @@ func newNotificationPoliciesCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notificationPolicyListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with notification policy definition")
@@ -128,18 +124,22 @@ func newNotificationPoliciesUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a notification policy from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a notification policy from a JSON or YAML file.
+
+The file replaces the notification policy. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle notification-policies get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.UpdateNotificationPoliciesByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.UpdateNotificationPoliciesByIdWithResponse(cmd.Context(), instance, args[0], body)
+			resp, err := c.Inner.UpdateNotificationPoliciesByIdWithBodyWithResponse(cmd.Context(), instance, args[0], "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -149,10 +149,7 @@ func newNotificationPoliciesUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notificationPolicyListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.NotificationPolicy{*resp.JSON200}, notificationPolicyListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with notification policy definition")

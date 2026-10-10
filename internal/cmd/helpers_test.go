@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"bytes"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/oodle-ai/oodle-cli/internal/client"
+	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
 type sample struct {
@@ -358,5 +361,76 @@ func TestReadInputFile_YAMLPopulatesOneOfUnion(t *testing.T) {
 	}
 	if got := wrapper.AzureMetricsIntegration.SubscriptionName; got == nil || *got != "from-yaml" {
 		t.Errorf("SubscriptionName = %v, want from-yaml", got)
+	}
+}
+
+func TestEpochToUnit(t *testing.T) {
+	const sec = int64(1700000000)
+	inputs := []int64{sec, sec * 1e3, sec * 1e6, sec * 1e9}
+	for _, perSec := range []int64{1, 1e3, 1e6} {
+		for _, n := range inputs {
+			if got, want := epochToUnit(n, perSec), sec*perSec; got != want {
+				t.Errorf("epochToUnit(%d, %d) = %d, want %d", n, perSec, got, want)
+			}
+		}
+	}
+	if got := epochToUnit(0, 1e6); got != 0 {
+		t.Errorf("epochToUnit(0) = %d, want 0", got)
+	}
+}
+
+// TestParseTimeFlag_WrongUnit checks that an epoch in another unit is
+// converted. Without this, a range in the wrong unit returns no data.
+func TestParseTimeFlag_WrongUnit(t *testing.T) {
+	const sec = int64(1700000000)
+	for _, lit := range []string{"1700000000", "1700000000000", "1700000000000000", "1700000000000000000"} {
+		if got, _ := parseTimeFlag(lit); got != sec*1e6 {
+			t.Errorf("parseTimeFlag(%s) = %d, want %d", lit, got, sec*1e6)
+		}
+		if got, _ := parseTimeFlagMs(lit); got != sec*1e3 {
+			t.Errorf("parseTimeFlagMs(%s) = %d, want %d", lit, got, sec*1e3)
+		}
+		if got, _ := parseTimeFlagSec(lit); got != sec {
+			t.Errorf("parseTimeFlagSec(%s) = %d, want %d", lit, got, sec)
+		}
+		if got, _ := parseTimeFlagSeconds(lit); got != float64(sec) {
+			t.Errorf("parseTimeFlagSeconds(%s) = %v, want %d", lit, got, sec)
+		}
+	}
+	if got, _ := parseTimeFlagSeconds("1700000000.5"); got != 1700000000.5 {
+		t.Errorf("fractional seconds changed: %v", got)
+	}
+}
+
+func TestParseTimeFlag_RFC3339(t *testing.T) {
+	const lit = "2023-11-14T22:13:20Z" // 1700000000
+	if got, err := parseTimeFlag(lit); err != nil || got != 1700000000*1e6 {
+		t.Errorf("parseTimeFlag(%s) = %d, %v", lit, got, err)
+	}
+	if got, err := parseTimeFlagSeconds(lit); err != nil || got != 1700000000 {
+		t.Errorf("parseTimeFlagSeconds(%s) = %v, %v", lit, got, err)
+	}
+}
+
+func TestDecodeJSONForYAML_KeepsWholeNumbers(t *testing.T) {
+	body := []byte(`{"updated_at_epoch_ms": 1700000000123, "big": 1760000000000000123, "ratio": 0.5, "items": [1234567]}`)
+	v, err := decodeJSONForYAML(body)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := output.Print(&buf, output.FormatYAML, v, nil); err != nil {
+		t.Fatalf("print: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{
+		"updated_at_epoch_ms: 1700000000123",
+		"big: 1760000000000000123",
+		"ratio: 0.5",
+		"- 1234567",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("YAML output missing %q:\n%s", want, got)
+		}
 	}
 }

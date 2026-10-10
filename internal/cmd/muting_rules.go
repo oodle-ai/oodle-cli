@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -43,7 +44,6 @@ func newMutingRulesListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListMutingRulesWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -55,7 +55,7 @@ func newMutingRulesListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, mutingRuleListColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, mutingRuleListColumns)
 		},
 	}
 }
@@ -68,7 +68,6 @@ func newMutingRulesGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetMutingRulesByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -80,10 +79,7 @@ func newMutingRulesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.MutingRule{*resp.JSON200}, mutingRuleListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, mutingRuleListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.MutingRule{*resp.JSON200}, mutingRuleListColumns)
 		},
 	}
 }
@@ -93,18 +89,21 @@ func newMutingRulesCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a muting rule from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a muting rule from a JSON/YAML file.
+
+Run 'oodle muting-rules get <id> -o json' on an existing muting rule for a template.`,
+		Example: `  oodle muting-rules create -f mute.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateMutingRulesJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.CreateMutingRulesWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateMutingRulesWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -114,10 +113,7 @@ func newMutingRulesCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.MutingRule{*resp.JSON200}, mutingRuleListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, mutingRuleListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.MutingRule{*resp.JSON200}, mutingRuleListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with muting rule definition")

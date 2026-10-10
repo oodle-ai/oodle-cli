@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -124,6 +125,59 @@ func readInputFile(path string, v any) error {
 	return nil
 }
 
+// readInputFileJSON reads a JSON or YAML file and returns it as the bytes of
+// one JSON object. It uses the same format rules as readInputFile. A JSON
+// file is returned without change.
+//
+// Use it for request bodies whose shape the generated types cannot hold.
+// Decoding such a file into a generated type drops the fields that the type
+// does not know, and the server then gets a different object than the file.
+func readInputFileJSON(path string) ([]byte, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+	ext := strings.ToLower(filepath.Ext(path))
+	var out []byte
+	switch {
+	case ext == ".json":
+		if !json.Valid(data) {
+			var v any
+			err := json.Unmarshal(data, &v)
+			return nil, fmt.Errorf("parsing JSON from %s: %w", path, err)
+		}
+		out = data
+	case ext == ".yaml" || ext == ".yml":
+		if out, err = yamlToJSON(data); err != nil {
+			return nil, fmt.Errorf("parsing YAML from %s: %w", path, err)
+		}
+	case json.Valid(data):
+		out = data
+	default:
+		if out, err = yamlToJSON(data); err != nil {
+			return nil, fmt.Errorf("parsing %s (tried YAML and JSON): %w", path, err)
+		}
+	}
+	trimmed := bytes.TrimSpace(out)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return nil, fmt.Errorf("%s must contain one JSON or YAML object", path)
+	}
+	return trimmed, nil
+}
+
+// yamlToJSON converts a YAML document to JSON.
+func yamlToJSON(data []byte) ([]byte, error) {
+	var v any
+	if err := yaml.Unmarshal(data, &v); err != nil {
+		return nil, err
+	}
+	out, err := json.Marshal(v)
+	if err != nil {
+		return nil, fmt.Errorf("converting YAML to JSON: %w", err)
+	}
+	return out, nil
+}
+
 // unmarshalYAMLAsJSON decodes YAML by transcoding it to JSON first, so the
 // target is filled through its JSON decoding path.
 //
@@ -152,7 +206,8 @@ func unmarshalYAMLAsJSON(data []byte, v any) error {
 //   - "now"            => current time
 //   - "-1h", "-30m"    => relative durations (Go's time.ParseDuration)
 //   - "-7d"            => days; converted to hours
-//   - integer          => epoch microseconds, returned as-is
+//   - RFC3339          => for example 2026-01-02T15:04:05Z
+//   - integer          => epoch in s, ms, µs or ns (see epochToUnit)
 //
 // See parseTimeFlagMs for the millisecond-precision variant used by
 // endpoints that expect epoch ms (e.g. metrics).
@@ -177,8 +232,9 @@ func parseTimeFlagSec(value string) (int64, error) {
 // parseTimeFlagAs is the shared core for parseTimeFlag and parseTimeFlagMs.
 // unitName is the human-readable unit used in error messages ("microseconds",
 // "milliseconds"). toEpoch converts a time.Time to the desired epoch unit
-// (e.g. time.Time.UnixMicro). Integer literals are passed through verbatim
-// and are assumed to be in the requested unit already.
+// (e.g. time.Time.UnixMicro). An integer literal is converted to the
+// requested unit by its magnitude (see epochToUnit), so a value that is
+// already in that unit does not change.
 func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
@@ -194,12 +250,42 @@ func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int
 		}
 		// Fall through to int parsing in case it's a negative epoch (rare).
 	}
-	// Integer literal: assumed to already be in the requested unit.
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		return toEpoch(t), nil
+	}
 	n, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch %s, 'now', or relative duration like -1h, -7d", value, unitName)
+		return 0, fmt.Errorf("invalid time %q: expected epoch %s, RFC3339, 'now', or relative duration like -1h, -7d", value, unitName)
 	}
-	return n, nil
+	return epochToUnit(n, toEpoch(time.Unix(1, 0))), nil
+}
+
+// epochToUnit converts an epoch value in seconds, milliseconds, microseconds
+// or nanoseconds to a unit with perSec units in one second. The input unit is
+// found from the magnitude: a present-day epoch has 10 digits in seconds, 13
+// in ms, 16 in µs and 19 in ns.
+//
+// Commands in this CLI read different units, and the server returns no data,
+// without an error, for a range in the wrong unit. A value that is already in
+// the requested unit does not change for dates after 1973.
+func epochToUnit(n, perSec int64) int64 {
+	var from int64
+	switch {
+	case n >= 1e17:
+		from = 1e9
+	case n >= 1e14:
+		from = 1e6
+	case n >= 1e11:
+		from = 1e3
+	case n > 0:
+		from = 1
+	default:
+		return n
+	}
+	if from >= perSec {
+		return n / (from / perSec)
+	}
+	return n * (perSec / from)
 }
 
 // parseTimeFlagSeconds converts a time flag value to epoch seconds as float64.
@@ -212,7 +298,9 @@ func parseTimeFlagAs(value, unitName string, toEpoch func(time.Time) int64) (int
 //   - "now"            => current time
 //   - "-1h", "-30m"    => relative durations
 //   - "-7d"            => days; converted to hours
-//   - number           => epoch seconds, returned as-is (supports both int and float)
+//   - RFC3339          => for example 2026-01-02T15:04:05Z
+//   - number           => epoch seconds (int or float); an integer in ms,
+//     µs or ns is converted by its magnitude
 func parseTimeFlagSeconds(value string) (float64, error) {
 	v := strings.TrimSpace(value)
 	if v == "" {
@@ -228,10 +316,17 @@ func parseTimeFlagSeconds(value string) (float64, error) {
 		}
 		// Fall through to float parsing in case it's a negative epoch (rare).
 	}
-	// Numeric literal: epoch seconds (supports both int and float).
+	if t, err := time.Parse(time.RFC3339, v); err == nil {
+		return float64(t.UnixNano()) / 1e9, nil
+	}
+	// Numeric literal: epoch seconds (supports both int and float). An
+	// integer in ms, µs or ns is converted to seconds by its magnitude.
 	f, err := strconv.ParseFloat(v, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid time %q: expected epoch seconds, 'now', or relative duration like -1h, -7d", value)
+		return 0, fmt.Errorf("invalid time %q: expected epoch seconds, RFC3339, 'now', or relative duration like -1h, -7d", value)
+	}
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil && n >= 1e11 {
+		return float64(epochToUnit(n, 1e3)) / 1e3, nil
 	}
 	return f, nil
 }
@@ -282,4 +377,89 @@ func confirmAction(prompt string, force bool) bool {
 	}
 	answer := strings.TrimSpace(strings.ToLower(line))
 	return answer == "y" || answer == "yes"
+}
+
+// hintNoData writes a hint to stderr when a read in a time range returns
+// nothing. An empty table alone reads as proof that the data does not
+// exist, when the data is often only outside the range. stdout stays
+// clean, so -o json output is not changed.
+func hintNoData(cmd *cobra.Command, what string, start, end time.Time) {
+	fmt.Fprintf(cmd.ErrOrStderr(),
+		"No %s between %s and %s. Only this range is read; widen it (for example --start -7d) before you decide that the data does not exist.\n",
+		what, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
+}
+
+// decodeJSONForYAML decodes a JSON body for YAML output. Whole numbers
+// become int64, so that large values such as epoch milliseconds keep their
+// digits instead of printing as floats like 1.7e+12.
+func decodeJSONForYAML(body []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	return convertJSONNumbers(v), nil
+}
+
+// convertJSONNumbers replaces each json.Number in v with an int64 when it is
+// a whole number that fits, and with a float64 otherwise.
+func convertJSONNumbers(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, e := range t {
+			t[k] = convertJSONNumbers(e)
+		}
+	case []any:
+		for i, e := range t {
+			t[i] = convertJSONNumbers(e)
+		}
+	case json.Number:
+		if n, err := t.Int64(); err == nil {
+			return n
+		}
+		if f, err := t.Float64(); err == nil {
+			return f
+		}
+		return t.String()
+	}
+	return v
+}
+
+// printResponseBody prints a response body that has no table form. JSON
+// output is the body without change, and YAML output is converted from it.
+// Other formats print JSON. Decoding the body into a generated type first
+// drops the fields that the type does not know.
+func printResponseBody(cmd *cobra.Command, format output.Format, body []byte) error {
+	if len(bytes.TrimSpace(body)) == 0 {
+		return fmt.Errorf("unexpected empty response")
+	}
+	if format == output.FormatYAML {
+		parsed, err := decodeJSONForYAML(body)
+		if err != nil {
+			return fmt.Errorf("parsing response: %w", err)
+		}
+		return output.Print(cmd.OutOrStdout(), format, parsed, nil)
+	}
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, body, "", "  "); err != nil {
+		return fmt.Errorf("parsing response: %w", err)
+	}
+	buf.WriteByte('\n')
+	_, err := cmd.OutOrStdout().Write(buf.Bytes())
+	return err
+}
+
+// printBodyOrTable prints body without change for JSON and YAML output, and
+// rows with columns for the table formats. Use it for resources that users
+// get, edit and give back to update: a body decoded into a generated type
+// and encoded again loses the fields that the type does not know, and the
+// update then removes them on the server.
+func printBodyOrTable(cmd *cobra.Command, body []byte, rows any, columns []output.Column) error {
+	format := getOutputFormat(cmd)
+	switch format {
+	case output.FormatJSON, output.FormatYAML, "":
+		return printResponseBody(cmd, format, body)
+	}
+	return output.Print(cmd.OutOrStdout(), format, rows, columns)
 }
