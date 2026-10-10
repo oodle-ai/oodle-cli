@@ -103,6 +103,8 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	root.AddCommand(newApiKeysCmd())
 	root.AddCommand(newUsersCmd())
 	root.AddCommand(newLogsCmd())
+	root.AddCommand(newRUMCmd())
+	root.AddCommand(newDBMCmd())
 	root.AddCommand(newIntegrationsCmd())
 	root.AddCommand(newGrafanaCmd())
 	root.AddCommand(newSkillsCmd())

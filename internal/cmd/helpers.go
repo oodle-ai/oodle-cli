@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -462,4 +463,101 @@ func printBodyOrTable(cmd *cobra.Command, body []byte, rows any, columns []outpu
 		return printResponseBody(cmd, format, body)
 	}
 	return output.Print(cmd.OutOrStdout(), format, rows, columns)
+}
+
+// addMsRangeFlags adds --start and --end to cmd. The returned function gives
+// the range in epoch milliseconds, the unit that the RUM and database
+// monitoring routes read.
+func addMsRangeFlags(cmd *cobra.Command) func() (start, end int64, err error) {
+	var startStr, endStr string
+	cmd.Flags().StringVar(&startStr, "start", defaultStartOffset,
+		"Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", defaultEndValue,
+		"End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	return func() (int64, int64, error) {
+		start, err := parseTimeFlagMs(startStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--start: %w", err)
+		}
+		end, err := parseTimeFlagMs(endStr)
+		if err != nil {
+			return 0, 0, fmt.Errorf("--end: %w", err)
+		}
+		if start >= end {
+			return 0, 0, fmt.Errorf("--start must be before --end")
+		}
+		return start, end, nil
+	}
+}
+
+// msRangeParams returns the startTimeEpochMs and endTimeEpochMs parameters.
+func msRangeParams(start, end int64) url.Values {
+	params := url.Values{}
+	params.Set("startTimeEpochMs", strconv.FormatInt(start, 10))
+	params.Set("endTimeEpochMs", strconv.FormatInt(end, 10))
+	return params
+}
+
+// setIfNotEmpty sets params[key] only when value is not empty, so that the
+// server applies no filter for a flag that the user did not set.
+func setIfNotEmpty(params url.Values, key, value string) {
+	if value != "" {
+		params.Set(key, value)
+	}
+}
+
+// shortCell makes s one line and cuts it to max runes. Long messages and
+// SQL statements in a table cell push the other columns off the screen. The
+// full value stays in -o json.
+func shortCell(s string, max int) string {
+	s = strings.Join(strings.Fields(s), " ")
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max-3]) + "..."
+}
+
+// utcCell formats an RFC3339 time as "2006-01-02 15:04:05" in UTC. A value
+// that does not parse is returned without change.
+func utcCell(s string) string {
+	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
+		return t.UTC().Format("2006-01-02 15:04:05")
+	}
+	return s
+}
+
+// msCell formats epoch milliseconds as "2006-01-02 15:04:05" in UTC.
+func msCell(ms int64) string {
+	if ms <= 0 {
+		return ""
+	}
+	return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04:05")
+}
+
+// filterJSONArray keeps the items of a JSON array body for which keep
+// returns true, and returns the kept items as a JSON array. Each item is
+// kept as raw bytes, so JSON output keeps every field that the server sent.
+func filterJSONArray[T any](body []byte, keep func(T) bool) ([]byte, []T, error) {
+	var raw []json.RawMessage
+	if err := json.Unmarshal(body, &raw); err != nil {
+		return nil, nil, err
+	}
+	keptRaw := make([]json.RawMessage, 0, len(raw))
+	kept := make([]T, 0, len(raw))
+	for _, r := range raw {
+		var item T
+		if err := json.Unmarshal(r, &item); err != nil {
+			return nil, nil, err
+		}
+		if keep(item) {
+			keptRaw = append(keptRaw, r)
+			kept = append(kept, item)
+		}
+	}
+	out, err := json.Marshal(keptRaw)
+	if err != nil {
+		return nil, nil, err
+	}
+	return out, kept, nil
 }

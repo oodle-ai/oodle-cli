@@ -197,14 +197,20 @@ func defaultTraceQLStep(rangeSec int64) int64 {
 // traceQLGet sends a GET to a TraceQL route of the current instance and
 // returns the body of a 2xx response.
 func traceQLGet(cmd *cobra.Command, route string, params url.Values) ([]byte, error) {
+	return instanceGet(cmd, "traces/traceql/"+route, params)
+}
+
+// instanceGet sends a GET to a route under /v1/api/instance/<instance>/ and
+// returns the body of a 2xx response. Use it for routes that the generated
+// client does not have.
+func instanceGet(cmd *cobra.Command, route string, params url.Values) ([]byte, error) {
 	c := getClient(cmd)
 	if c == nil || c.Config == nil {
 		return nil, fmt.Errorf("no API client configured")
 	}
 	instance := getInstance(cmd)
 	u := strings.TrimRight(c.Config.APIURL, "/") +
-		"/v1/api/instance/" + url.PathEscape(instance) +
-		"/traces/traceql/" + route
+		"/v1/api/instance/" + url.PathEscape(instance) + "/" + route
 	if len(params) > 0 {
 		u += "?" + params.Encode()
 	}

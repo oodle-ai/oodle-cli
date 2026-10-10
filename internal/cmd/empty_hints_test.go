@@ -70,6 +70,16 @@ func TestEmptyResultHints(t *testing.T) {
 		{"traceql metrics", newTraceQLMetricsCmd, `{"series":[]}`, []string{"{ } | rate()"}, "No series between"},
 		{"traceql tag-values", newTraceQLTagValuesCmd, `{"tagValues":[]}`, []string{"span.x"}, "No values for span.x in the last hour"},
 		{"traceql tags", newTraceQLTagsCmd, `{"scopes":[]}`, nil, "reads only the last hour"},
+		{"rum sessions", newRUMSessionsCmd, `[]`, nil, "No sessions between"},
+		{"rum sessions post-filter", newRUMSessionsCmd, `[{"session_id":"s","error_count":0}]`,
+			[]string{"--has-errors"}, "No sessions between"},
+		{"rum session-events", newRUMSessionEventsCmd, `[]`, []string{"s1"}, "No events for session s1 between"},
+		{"rum issues", newRUMIssuesCmd, `[]`, nil, "No issues between"},
+		{"rum errors", newRUMErrorsCmd, `[]`, nil, "No error events between"},
+		{"dbm hosts", newDBMHostsCmd, `[]`, nil, "No database hosts between"},
+		{"dbm samples", newDBMSamplesCmd, `[]`, nil, "No query samples between"},
+		{"dbm activity", newDBMActivityCmd, `[]`, []string{"--query-signature", "x"}, "No database activity between"},
+		{"dbm explain", newDBMExplainCmd, `[]`, []string{"x"}, "No explain plans for x between"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
