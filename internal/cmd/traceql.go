@@ -253,8 +253,8 @@ func printTraceQLBody(cmd *cobra.Command, format output.Format, body []byte) (bo
 	case output.FormatJSON, "":
 		return true, printRawJSON(cmd, body)
 	case output.FormatYAML:
-		var parsed any
-		if err := json.Unmarshal(body, &parsed); err != nil {
+		parsed, err := decodeJSONForYAML(body)
+		if err != nil {
 			return true, fmt.Errorf("parsing response: %w", err)
 		}
 		return true, output.Print(cmd.OutOrStdout(), format, parsed, nil)

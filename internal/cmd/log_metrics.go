@@ -125,8 +125,8 @@ func printLogMetricsResponse(cmd *cobra.Command, httpResp *http.Response, list b
 		_, err := w.Write(buf.Bytes())
 		return err
 	case output.FormatYAML:
-		var parsed any
-		if err := json.Unmarshal(body, &parsed); err != nil {
+		parsed, err := decodeJSONForYAML(body)
+		if err != nil {
 			return fmt.Errorf("parsing response: %w", err)
 		}
 		return output.Print(w, format, parsed, nil)

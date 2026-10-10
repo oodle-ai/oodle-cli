@@ -389,6 +389,43 @@ func hintNoData(cmd *cobra.Command, what string, start, end time.Time) {
 		what, start.UTC().Format(time.RFC3339), end.UTC().Format(time.RFC3339))
 }
 
+// decodeJSONForYAML decodes a JSON body for YAML output. Whole numbers
+// become int64, so that large values such as epoch milliseconds keep their
+// digits instead of printing as floats like 1.7e+12.
+func decodeJSONForYAML(body []byte) (any, error) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var v any
+	if err := dec.Decode(&v); err != nil {
+		return nil, err
+	}
+	return convertJSONNumbers(v), nil
+}
+
+// convertJSONNumbers replaces each json.Number in v with an int64 when it is
+// a whole number that fits, and with a float64 otherwise.
+func convertJSONNumbers(v any) any {
+	switch t := v.(type) {
+	case map[string]any:
+		for k, e := range t {
+			t[k] = convertJSONNumbers(e)
+		}
+	case []any:
+		for i, e := range t {
+			t[i] = convertJSONNumbers(e)
+		}
+	case json.Number:
+		if n, err := t.Int64(); err == nil {
+			return n
+		}
+		if f, err := t.Float64(); err == nil {
+			return f
+		}
+		return t.String()
+	}
+	return v
+}
+
 // printResponseBody prints a response body that has no table form. JSON
 // output is the body without change, and YAML output is converted from it.
 // Other formats print JSON. Decoding the body into a generated type first
@@ -398,8 +435,8 @@ func printResponseBody(cmd *cobra.Command, format output.Format, body []byte) er
 		return fmt.Errorf("unexpected empty response")
 	}
 	if format == output.FormatYAML {
-		var parsed any
-		if err := json.Unmarshal(body, &parsed); err != nil {
+		parsed, err := decodeJSONForYAML(body)
+		if err != nil {
 			return fmt.Errorf("parsing response: %w", err)
 		}
 		return output.Print(cmd.OutOrStdout(), format, parsed, nil)

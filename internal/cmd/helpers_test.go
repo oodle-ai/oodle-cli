@@ -1,13 +1,16 @@
 package cmd
 
 import (
+	"bytes"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/oodle-ai/oodle-cli/internal/client"
+	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
 type sample struct {
@@ -406,5 +409,28 @@ func TestParseTimeFlag_RFC3339(t *testing.T) {
 	}
 	if got, err := parseTimeFlagSeconds(lit); err != nil || got != 1700000000 {
 		t.Errorf("parseTimeFlagSeconds(%s) = %v, %v", lit, got, err)
+	}
+}
+
+func TestDecodeJSONForYAML_KeepsWholeNumbers(t *testing.T) {
+	body := []byte(`{"updated_at_epoch_ms": 1700000000123, "big": 1760000000000000123, "ratio": 0.5, "items": [1234567]}`)
+	v, err := decodeJSONForYAML(body)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	var buf bytes.Buffer
+	if err := output.Print(&buf, output.FormatYAML, v, nil); err != nil {
+		t.Fatalf("print: %v", err)
+	}
+	got := buf.String()
+	for _, want := range []string{
+		"updated_at_epoch_ms: 1700000000123",
+		"big: 1760000000000000123",
+		"ratio: 0.5",
+		"- 1234567",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("YAML output missing %q:\n%s", want, got)
+		}
 	}
 }
