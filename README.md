@@ -1139,6 +1139,24 @@ oodle dbm samples --min-duration 2s
 oodle dbm explain <query-signature>
 ```
 
+### Profiles — `oodle profiles`
+
+Continuous profiling data, read through the Pyroscope-compatible query API.
+
+| Subcommand              | Description                                         |
+|-------------------------|-----------------------------------------------------|
+| `types`                 | List profile types, such as CPU and memory          |
+| `labels`                | List label names on profiles                        |
+| `label-values <name>`   | List the values of one label                        |
+| `series`                | A profile type as time series                       |
+| `flamegraph`            | Top functions by CPU, memory or other resource      |
+
+```bash
+oodle profiles types
+oodle profiles series --type process_cpu:cpu:nanoseconds:cpu:nanoseconds --group-by service_name
+oodle profiles flamegraph --type memory:inuse_space:bytes:space:bytes --query '{service_name="api"}' --top 10
+```
+
 ### Docs — `oodle docs`
 
 Search the Oodle documentation. No login is necessary.

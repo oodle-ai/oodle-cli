@@ -472,3 +472,48 @@ func TestTracesAnomalies(t *testing.T) {
 func TestTracesAPMInsights(t *testing.T) {
 	listJSONTest(t, "traces", "apm-insights")
 }
+
+// profilesTypes runs 'profiles types' and returns the type IDs. It skips the
+// test when the server does not serve the profiles route (404), because the
+// route is not on all deployments yet.
+func profilesTypes(t *testing.T) []string {
+	t.Helper()
+	stdout, stderr, code := runOodle(t, "profiles", "types", "--output", "json")
+	if code != 0 {
+		if strings.Contains(stderr, "404") || strings.Contains(stderr, "Not Found") {
+			t.Skip("the server does not serve the profiles route")
+		}
+		t.Fatalf("profiles types failed: code=%d stderr=%s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+	var types []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &types); err != nil {
+		t.Fatalf("profiles types JSON does not parse: %v", err)
+	}
+	ids := make([]string, 0, len(types))
+	for _, pt := range types {
+		ids = append(ids, pt.ID)
+	}
+	return ids
+}
+
+func TestProfilesTypes(t *testing.T) {
+	profilesTypes(t)
+}
+
+func TestProfilesLabels(t *testing.T) {
+	profilesTypes(t)
+	listJSONTest(t, "profiles", "labels")
+	listJSONTest(t, "profiles", "label-values", "service_name")
+}
+
+func TestProfilesSeriesAndFlamegraph(t *testing.T) {
+	ids := profilesTypes(t)
+	if len(ids) == 0 {
+		t.Skip("no profile types in this environment")
+	}
+	listJSONTest(t, "profiles", "series", "--type", ids[0], "--group-by", "service_name")
+	listJSONTest(t, "profiles", "flamegraph", "--type", ids[0], "--top", "5")
+}
