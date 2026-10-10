@@ -449,3 +449,26 @@ func TestMetricsLabelValues_NoFlags(t *testing.T) {
 	}
 	assertValidJSON(t, stdout)
 }
+
+// The analysis commands are reads. Each must give JSON even when the
+// instance has no matching data.
+
+func TestAnomaliesList(t *testing.T) {
+	listJSONTest(t, "anomalies", "list")
+}
+
+func TestMonitorsNoise(t *testing.T) {
+	listJSONTest(t, "monitors", "noise", "--start", "-1d")
+}
+
+func TestMonitorsNoiseBreakdown(t *testing.T) {
+	listJSONTest(t, "monitors", "noise-breakdown", "--group-by", "namespace", "--start", "-1d")
+}
+
+func TestTracesAnomalies(t *testing.T) {
+	listJSONTest(t, "traces", "anomalies", "--service", "api", "--start", "-1h")
+}
+
+func TestTracesAPMInsights(t *testing.T) {
+	listJSONTest(t, "traces", "apm-insights")
+}

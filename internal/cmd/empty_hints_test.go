@@ -80,6 +80,14 @@ func TestEmptyResultHints(t *testing.T) {
 		{"dbm samples", newDBMSamplesCmd, `[]`, nil, "No query samples between"},
 		{"dbm activity", newDBMActivityCmd, `[]`, []string{"--query-signature", "x"}, "No database activity between"},
 		{"dbm explain", newDBMExplainCmd, `[]`, []string{"x"}, "No explain plans for x between"},
+		{"anomalies list", newAnomaliesListCmd, `{"anomalies":[]}`, nil, "No anomalies between"},
+		{"traces anomalies", newTracesAnomaliesCmd, `{"status":"success","data":{"resultType":"matrix","result":[]}}`,
+			[]string{"--service", "api"}, "No spans for service api between"},
+		{"traces apm-insights", newTracesAPMInsightsCmd, `{"insights":[],"countsByPattern":{}}`, nil, "Datadog traces only"},
+		{"monitors noise", newMonitorsNoiseCmd, `{"status":"success","data":{"resultType":"matrix","result":[]}}`,
+			nil, "No firing alerts between"},
+		{"monitors noise-breakdown", newMonitorsNoiseBreakdownCmd, `{"status":"success","data":{"resultType":"matrix","result":[]}}`,
+			[]string{"--group-by", "namespace", "--include-muted"}, "No firing alerts between"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

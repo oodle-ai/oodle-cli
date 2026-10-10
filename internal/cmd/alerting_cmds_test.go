@@ -49,7 +49,7 @@ func TestNewMonitorsCmd_Structure(t *testing.T) {
 	}
 
 	wantSubs := []string{
-		"create", "delete", "get", "list",
+		"create", "delete", "get", "list", "noise", "noise-breakdown",
 		"state", "template-files", "triggers", "update",
 	}
 	got := subcommandNames(cmd)

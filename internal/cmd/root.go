@@ -99,6 +99,7 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	root.AddCommand(newDropRulesCmd())
 	root.AddCommand(newMetricsCmd())
 	root.AddCommand(newTracesCmd())
+	root.AddCommand(newAnomaliesCmd())
 	root.AddCommand(newGenAICmd())
 	root.AddCommand(newApiKeysCmd())
 	root.AddCommand(newUsersCmd())
