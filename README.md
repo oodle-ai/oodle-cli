@@ -218,6 +218,8 @@ Aliases: `monitor`, `mon`.
 | `delete <id>`         | Delete a monitor (single ID) or many via `--ids`           |
 | `state <id>`          | Get a monitor's state                                      |
 | `triggers`            | List monitor triggers                                      |
+| `noise`               | Rank monitors by how often they fire, by category          |
+| `noise-breakdown`     | Firing time for each value of a label                      |
 
 | `template-files`      | Create monitor template files                              |
 
@@ -227,6 +229,8 @@ oodle monitors get mon-abc123 -o json
 oodle monitors create -f monitor.yaml
 oodle monitors delete mon-abc123 --force
 oodle monitors triggers -o json
+oodle monitors noise --start -30d                     # noisiest monitors, by category
+oodle monitors noise-breakdown --group-by namespace   # firing time per label value
 ```
 
 Monitors use PromQL queries on metrics.
@@ -440,12 +444,16 @@ Alias: `trace`. Query traces, trace labels, and label values.
 | `labels`              | List trace label names                 |
 | `label-values <label>`| List values for a trace label          |
 | `traceql`             | Run TraceQL search and metrics queries |
+| `anomalies`           | Error and latency spikes per period    |
+| `apm-insights`        | N+1 queries and sequential calls       |
 
 ```bash
 oodle traces labels -o json
 oodle traces list --start -1h --end now --service api
 oodle traces get <trace_id> --start -1h --end now -o json
 oodle traces label-values resource::service.name --start -1h
+oodle traces anomalies --service api --start -6h
+oodle traces apm-insights --start -7d
 ```
 
 `list` and `get` need `--start` and `--end`.
@@ -519,6 +527,8 @@ Alias: `log`.
 |-------------------|----------------------------------------------------------|
 | `query -f <file>` | Search logs with an OpenSearch-compatible NDJSON query   |
 | `index-patterns`  | List the log index patterns                              |
+| `field-values <field>` | Top values of a log field, with counts              |
+| `aggregate`       | Count logs by a field, in time buckets, or both          |
 
 `query` reads an NDJSON file: a header line that selects the index, then a
 line with an OpenSearch Query DSL body. The command adds a time range filter
@@ -534,14 +544,23 @@ EOF
 oodle logs query -f errors.ndjson --start -30m -o json
 ```
 
+`field-values` and `aggregate` need no query file. Both take a Lucene filter
+(`-q`) and `--start`/`--end`. For other aggregation types, use `query`.
+
+```bash
+oodle logs field-values container_name --index logs-* --size 20
+oodle logs aggregate --index logs-* --count-by user -q 'message:"credit exhausted"' --start -24h
+oodle logs aggregate --index logs-* --histogram 1h --count-by level --start -24h
+```
+
 To alert on logs, use [log metrics](#log-metrics--oodle-log-metrics).
 
 ### GenAI — `oodle genai`
 
-Aliases: `llmops`, `ai`. The evaluation side of Agent
-Observability: versioned prompts, evaluation datasets,
-evaluators, scores, and experiment runs. Reading GenAI
-telemetry stays under `oodle traces` and `oodle metrics`.
+Aliases: `llmops`, `ai`. Agent Observability: read GenAI
+traces, and manage versioned prompts, evaluation datasets,
+evaluators, scores, and experiment runs. GenAI metrics
+(`oodle_genai_*`) are read with `oodle metrics`.
 
 | Subcommand      | Description                                            |
 |-----------------|--------------------------------------------------------|
@@ -555,6 +574,19 @@ telemetry stays under `oodle traces` and `oodle metrics`.
 | `library`       | The `oodle_eval` reference for code evaluators         |
 | `code-libraries`| Your Python modules that code evaluators import        |
 | `backfills`     | Run evaluators over past traffic                       |
+| `traces`        | Search LLM and agent traces                            |
+| `trace <id>`    | One trace as agent, model and tool steps               |
+| `values`        | The fields and values to filter GenAI traces by        |
+| `agent-graph`   | Agent call graph with errors, latency and cost         |
+| `recommendations` | Findings about agent quality and cost                |
+
+```bash
+oodle genai traces --agent planner --errors --start -24h
+oodle genai trace <trace_id> --messages
+oodle genai values service agent model
+oodle genai agent-graph --edges
+oodle genai recommendations --severity high
+```
 
 #### Prompts — `oodle genai prompts`
 
@@ -1064,6 +1096,55 @@ oodle genai webhooks create --name "Support agent" \
   --request-template '{"query": {{input.question}}}' \
   --output-path answer --timeout 120
 oodle genai webhooks test "$WH" --input '{"question": "Is checkout slow?"}'
+```
+
+### Anomalies — `oodle anomalies`
+
+| Subcommand | Description                                  |
+|------------|----------------------------------------------|
+| `list`     | Metric anomalies around a time               |
+
+```bash
+oodle anomalies list --namespace prod --time -3h
+```
+
+### RUM — `oodle rum`
+
+Real user monitoring: browser sessions, what users did, and errors.
+
+| Subcommand                  | Description                         |
+|-----------------------------|-------------------------------------|
+| `sessions`                  | List sessions                       |
+| `session-events <id>`       | The events of one session           |
+| `issues`                    | Errors grouped into issues          |
+| `errors`                    | Error events                        |
+
+```bash
+oodle rum sessions --start -6h --has-errors
+oodle rum session-events <session-id>
+oodle rum issues --start -24h
+```
+
+### Database Monitoring — `oodle dbm`
+
+| Subcommand              | Description                                    |
+|-------------------------|------------------------------------------------|
+| `hosts`                 | List monitored database hosts                  |
+| `samples`               | Query samples, such as slow queries            |
+| `activity`              | Recent samples and blocking for a query        |
+| `explain <signature>`   | Stored explain plans of a query                |
+
+```bash
+oodle dbm samples --min-duration 2s
+oodle dbm explain <query-signature>
+```
+
+### Docs — `oodle docs`
+
+Search the Oodle documentation. No login is necessary.
+
+```bash
+oodle docs search "log metrics"
 ```
 
 ### API Keys — `oodle api-keys`
