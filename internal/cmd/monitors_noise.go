@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/http"
 	"slices"
 	"sort"
 	"strconv"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -50,10 +48,13 @@ var noiseRecommendations = map[string]string{
 	"uncategorized":  "Review alert configuration for optimization opportunities",
 }
 
-// noiseStepSec returns the query step in seconds for a range of days. A
-// longer range uses a longer step, so that each series stays inside the
-// point limit of a range query.
-func noiseStepSec(days float64) int64 {
+// noiseStepSec returns the query step in seconds for a range. A longer
+// range uses a longer step, so that each series stays inside the point
+// limit of a range query. A part of a day counts as a full day: if it is
+// rounded down, a range just below a day boundary gets the shorter step
+// and has too many points, and the server rejects the query.
+func noiseStepSec(rangeSec int64) int64 {
+	days := math.Ceil(float64(rangeSec) / 86400)
 	switch {
 	case days <= 1:
 		return 15
@@ -176,24 +177,6 @@ func (m noiseMonitor) routed() bool {
 		}
 	}
 	return false
-}
-
-// readRawBody reads the body of a 2xx response. The noise commands decode
-// the body into small types of their own: the generated types reject the
-// whole list when one object has a field that does not parse.
-func readRawBody(resp *http.Response, err error) ([]byte, error) {
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-	if err := api.CheckResponse(resp, body); err != nil {
-		return nil, err
-	}
-	return body, nil
 }
 
 // fetchNoiseMonitors returns the monitors by ID.
@@ -564,7 +547,7 @@ them. -o json adds the severities and a recommendation for each monitor.`,
   oodle monitors noise --sort mttr --top 20 -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addRangeFlagsSec(cmd, defaultHistoryStartOffset)
+	parseRange := addRangeFlags(cmd, defaultHistoryStartOffset, parseTimeFlagSec)
 	cmd.Flags().IntVar(&top, "top", defaultNoiseTop, "Number of monitors to show")
 	cmd.Flags().StringVar(&sortBy, "sort", "triggers", "Sort by: triggers or mttr")
 	cmd.Flags().StringVar(&category, "category", "", "Only show this category: "+strings.Join(noiseCategories, ", "))
@@ -591,7 +574,7 @@ them. -o json adds the severities and a recommendation for each monitor.`,
 		}
 		rangeSec := end - start
 		days := float64(rangeSec) / 86400
-		step := noiseStepSec(math.Ceil(days))
+		step := noiseStepSec(rangeSec)
 		selector := strings.Join(append([]string{`alertstate="firing"`}, matchers...), ", ")
 
 		firing, err := promQueryRange(cmd,
@@ -634,7 +617,7 @@ them. -o json adds the severities and a recommendation for each monitor.`,
 		if len(applied) > 0 {
 			res.Filters = applied
 		}
-		if err := printComputed(cmd, res, noiseRows(res.Monitors), noiseColumns); err != nil {
+		if err := printRows(cmd, res, noiseRows(res.Monitors), noiseColumns); err != nil {
 			return err
 		}
 		if len(firing) == 0 {
@@ -786,7 +769,7 @@ monitors are not counted; use --include-muted to count them.`,
   oodle monitors noise-breakdown --group-by env --start -30d -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addRangeFlagsSec(cmd, defaultHistoryStartOffset)
+	parseRange := addRangeFlags(cmd, defaultHistoryStartOffset, parseTimeFlagSec)
 	cmd.Flags().StringVar(&groupBy, "group-by", "", "Label to group by, such as namespace or service (required)")
 	cmd.Flags().StringVar(&monitorID, "monitor", "", "Only read the alerts of this monitor ID")
 	cmd.Flags().IntVar(&top, "top", defaultNoiseBreakdownTop, "Number of label values to show")
@@ -804,8 +787,7 @@ monitors are not counted; use --include-muted to count them.`,
 		if err != nil {
 			return err
 		}
-		days := math.Max(1, math.Floor(float64(end-start)/86400))
-		step := noiseStepSec(days)
+		step := noiseStepSec(end - start)
 
 		var muted map[string]bool
 		if !includeMuted {
@@ -840,7 +822,7 @@ monitors are not counted; use --include-muted to count them.`,
 				Percent:  formatPercent(e.PercentOfTotal),
 			})
 		}
-		if err := printComputed(cmd, res, rows, noiseBreakdownColumns(groupBy)); err != nil {
+		if err := printRows(cmd, res, rows, noiseBreakdownColumns(groupBy)); err != nil {
 			return err
 		}
 		if len(res.Breakdown) == 0 {

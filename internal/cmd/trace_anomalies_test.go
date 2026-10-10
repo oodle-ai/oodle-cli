@@ -128,10 +128,24 @@ func TestTraceAnomalyStepAndPeriod(t *testing.T) {
 		{7 * 86400, 420, 10080},
 	}
 	for _, tt := range tests {
-		step := traceAnomalyStep(tt.rangeSec)
+		step := stepForMaxPoints(tt.rangeSec, traceAnomalyMaxPoints)
 		period := traceAnomalyPeriod(tt.rangeSec, step)
 		if step != tt.step || period != tt.period {
 			t.Errorf("range %d: step %d period %d, want %d %d", tt.rangeSec, step, period, tt.step, tt.period)
 		}
+	}
+}
+
+func TestTracesAnomaliesYAMLUsesJSONKeys(t *testing.T) {
+	srv, _ := newTraceQLTestServer(t, 200, `{"status":"success","data":{"resultType":"matrix","result":[]}}`)
+	stdout, _, err := runCmdSplit(t, srv.URL, newTracesAnomaliesCmd(), output.FormatYAML, "--service", "api")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout, "service_name: api") || !strings.Contains(stdout, "overall_statistics:") {
+		t.Errorf("YAML keys are not the JSON keys:\n%s", stdout)
+	}
+	if strings.Contains(stdout, "namespace:") {
+		t.Errorf("YAML output has an empty field that JSON output leaves out:\n%s", stdout)
 	}
 }

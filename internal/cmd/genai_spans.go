@@ -1,12 +1,8 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -14,13 +10,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-
-	"github.com/oodle-ai/oodle-cli/internal/api"
 )
 
 // This file holds the GenAI span logic that the trace read commands
-// share: the filter flags, the request to the traces API, and the
-// reading of GenAI attributes from span tags.
+// share: the filter flags and the reading of GenAI attributes from span
+// tags.
 
 // genaiOperationLabel is on every GenAI span. A filter on it keeps
 // ordinary application traces out of the results. Without it, a read
@@ -174,67 +168,6 @@ var genaiExtraFields = func() string {
 	}
 	return strings.Join(fields, ",")
 }()
-
-// genaiGet sends a GET to a route of the current instance and returns
-// the body of a 2xx response. notFound, when set, replaces the error
-// of a 404 response.
-func genaiGet(cmd *cobra.Command, route string, params url.Values, notFound error) ([]byte, error) {
-	return instanceRequest(cmd, http.MethodGet, route, params, nil, notFound)
-}
-
-// instanceRequest sends a request to a route under
-// /v1/api/instance/<instance>/ and returns the body of a 2xx response.
-func instanceRequest(cmd *cobra.Command, method, route string, params url.Values, body io.Reader, notFound error) ([]byte, error) {
-	c := getClient(cmd)
-	if c == nil || c.Config == nil {
-		return nil, fmt.Errorf("no API client configured")
-	}
-	u := strings.TrimRight(c.Config.APIURL, "/") +
-		"/v1/api/instance/" + url.PathEscape(getInstance(cmd)) + "/" + route
-	if len(params) > 0 {
-		u += "?" + params.Encode()
-	}
-	req, err := http.NewRequestWithContext(cmd.Context(), method, u, body)
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.NewAuthedHTTPClient(0).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-	if resp.StatusCode == http.StatusNotFound && notFound != nil {
-		return nil, notFound
-	}
-	if err := api.CheckResponse(resp, data); err != nil {
-		return nil, err
-	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("unexpected empty response")
-	}
-	return data, nil
-}
-
-// printShaped prints a value that the CLI builds, for the output
-// formats that are not tables. The value goes through its JSON form,
-// so that YAML output has the same keys as JSON output.
-func printShaped(cmd *cobra.Command, v any) error {
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	enc.SetEscapeHTML(false)
-	if err := enc.Encode(v); err != nil {
-		return fmt.Errorf("encoding output: %w", err)
-	}
-	return printResponseBody(cmd, getOutputFormat(cmd), buf.Bytes())
-}
 
 // --- Trace response ---
 

@@ -1,10 +1,9 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -128,7 +127,7 @@ func graphTable(rows []graphRow, edges bool) []graphTableRow {
 			Type:      typ,
 			Requests:  strconv.FormatInt(r.Requests, 10),
 			Errors:    strconv.FormatInt(r.Errors, 10),
-			ErrorRate: strconv.FormatFloat(r.ErrorRate*100, 'f', 1, 64) + "%",
+			ErrorRate: formatPercent(r.ErrorRate * 100),
 			Avg:       formatDurationMs(r.AvgDurationMs),
 			Max:       formatDurationMs(r.MaxDurationMs),
 			PerTrace:  perTrace,
@@ -160,12 +159,12 @@ func graphColumns(edges bool) []output.Column {
 
 func newGenAIAgentGraphCmd() *cobra.Command {
 	var (
-		startStr string
-		endStr   string
-		env      string
-		service  string
-		edges    bool
-		limit    int
+		// parseRange is set after cmd exists, because the flags need cmd.
+		parseRange func() (start, end int64, err error)
+		env        string
+		service    string
+		edges      bool
+		limit      int
 	)
 	cmd := &cobra.Command{
 		Use:     "agent-graph",
@@ -190,24 +189,16 @@ YAML output have both.`,
 			if limit < 1 {
 				return fmt.Errorf("--limit must be 1 or more, got %d", limit)
 			}
-			start, err := parseTimeFlagMs(startStr)
+			start, end, err := parseRange()
 			if err != nil {
-				return fmt.Errorf("--start: %w", err)
+				return err
 			}
-			end, err := parseTimeFlagMs(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
-			}
-			reqBody, err := json.Marshal(map[string]any{
+			body, err := instancePostJSON(cmd, "graph/generate-genai-graph", map[string]any{
 				"startTimeEpochMs": start,
 				"endTimeEpochMs":   end,
 				"environment":      env,
 				"serviceName":      service,
 			})
-			if err != nil {
-				return fmt.Errorf("encoding request: %w", err)
-			}
-			body, err := instanceRequest(cmd, http.MethodPost, "graph/generate-genai-graph", nil, bytes.NewReader(reqBody), nil)
 			if err != nil {
 				return err
 			}
@@ -266,8 +257,7 @@ YAML output have both.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "-24h", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	cmd.Flags().StringVar(&endStr, "end", "now", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	parseRange = addRangeFlags(cmd, "-24h", parseTimeFlagMs)
 	cmd.Flags().StringVar(&env, "env", "", "Only this environment")
 	cmd.Flags().StringVar(&service, "service", "", "Only this service")
 	cmd.Flags().BoolVar(&edges, "edges", false, "Show the edges instead of the nodes in the table")
@@ -330,13 +320,13 @@ recurring, stale) and --category (text in the category or its group).`,
 				return fmt.Errorf("--limit must be 1 or more, got %d", limit)
 			}
 			severity, status = strings.ToLower(severity), strings.ToLower(status)
-			if severity != "" && !contains(genaiSeverities, severity) {
+			if severity != "" && !slices.Contains(genaiSeverities, severity) {
 				return fmt.Errorf("--severity must be one of %s, got %q", strings.Join(genaiSeverities, ", "), severity)
 			}
-			if status != "" && !contains(genaiRecStatuses, status) {
+			if status != "" && !slices.Contains(genaiRecStatuses, status) {
 				return fmt.Errorf("--status must be one of %s, got %q", strings.Join(genaiRecStatuses, ", "), status)
 			}
-			body, err := genaiGet(cmd, "genai/recommendations", nil, nil)
+			body, err := instanceGet(cmd, "genai/recommendations", nil)
 			if err != nil {
 				return err
 			}
@@ -412,13 +402,4 @@ recurring, stale) and --category (text in the category or its group).`,
 	cmd.Flags().StringVar(&category, "category", "", "Only categories that contain this text")
 	cmd.Flags().IntVar(&limit, "limit", 25, "Maximum number of recommendations")
 	return cmd
-}
-
-func contains(list []string, v string) bool {
-	for _, s := range list {
-		if s == v {
-			return true
-		}
-	}
-	return false
 }

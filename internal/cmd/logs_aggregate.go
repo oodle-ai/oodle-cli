@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"regexp"
 	"strconv"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
@@ -45,28 +43,6 @@ var logsIntervalRe = regexp.MustCompile(`^([1-9][0-9]*)(ms|s|m|h|d)$`)
 // logsAggRange holds the parsed --start and --end values.
 type logsAggRange struct {
 	startMs, endMs int64
-}
-
-// parseLogsAggRange applies the default range and parses --start and --end.
-func parseLogsAggRange(startStr, endStr string) (logsAggRange, error) {
-	if startStr == "" {
-		startStr = defaultStartOffset
-	}
-	if endStr == "" {
-		endStr = defaultEndValue
-	}
-	startMs, err := parseTimeFlagMs(startStr)
-	if err != nil {
-		return logsAggRange{}, fmt.Errorf("--start: %w", err)
-	}
-	endMs, err := parseTimeFlagMs(endStr)
-	if err != nil {
-		return logsAggRange{}, fmt.Errorf("--end: %w", err)
-	}
-	if startMs >= endMs {
-		return logsAggRange{}, fmt.Errorf("--start must be before --end")
-	}
-	return logsAggRange{startMs: startMs, endMs: endMs}, nil
 }
 
 // buildLogsAggBody returns the NDJSON body for one search on index that
@@ -150,17 +126,9 @@ type logsAggResult struct {
 func runLogsAgg(cmd *cobra.Command, body []byte, index, field string) (logsAggResult, error) {
 	c := getClient(cmd)
 	params := &client.QueryLogsParams{XOODLEINSTANCE: getInstance(cmd)}
-	httpResp, err := c.Inner.QueryLogsWithBody(cmd.Context(), params, "application/x-ndjson", bytes.NewReader(body))
+	respBody, err := readRawBody(c.Inner.QueryLogsWithBody(cmd.Context(), params, "application/x-ndjson", bytes.NewReader(body)))
 	if err != nil {
-		return logsAggResult{}, fmt.Errorf("API request failed: %w", err)
-	}
-	defer httpResp.Body.Close()
-	respBody, err := io.ReadAll(httpResp.Body)
-	if err != nil {
-		return logsAggResult{}, fmt.Errorf("reading response: %w", err)
-	}
-	if httpResp.StatusCode >= 300 {
-		return logsAggResult{}, api.CheckResponse(httpResp, respBody)
+		return logsAggResult{}, err
 	}
 	res, err := parseLogsAggResponse(respBody)
 	if err != nil && field != "" && strings.HasPrefix(err.Error(), "search failed") {
@@ -332,18 +300,23 @@ func validateLogsAggSize(size int) error {
 }
 
 // addLogsAggFlags adds the flags that field-values and aggregate share.
-func addLogsAggFlags(cmd *cobra.Command, index, query, startStr, endStr *string) {
+// The returned function gives the time range.
+func addLogsAggFlags(cmd *cobra.Command, index, query *string) func() (logsAggRange, error) {
 	cmd.Flags().StringVarP(index, "index", "i", "", "Log index pattern to read (run 'oodle logs index-patterns' to list them)")
 	cmd.Flags().StringVarP(query, "query", "q", "", "Lucene query that selects the logs to count, for example 'level:error AND cluster:prod'")
-	cmd.Flags().StringVar(startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	_ = cmd.MarkFlagRequired("index")
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
+	return func() (logsAggRange, error) {
+		start, end, err := parseRange()
+		return logsAggRange{startMs: start, endMs: end}, err
+	}
 }
 
 // newLogsFieldValuesCmd returns the `oodle logs field-values` subcommand.
 func newLogsFieldValuesCmd() *cobra.Command {
-	var index, query, startStr, endStr string
+	var index, query string
 	var size int
+	var parseRange func() (logsAggRange, error)
 	cmd := &cobra.Command{
 		Use:   "field-values <field>",
 		Short: "List the most frequent values of a log field",
@@ -367,7 +340,7 @@ Run 'oodle logs index-patterns' to list the index names.`,
 			if err := validateLogsAggSize(size); err != nil {
 				return err
 			}
-			r, err := parseLogsAggRange(startStr, endStr)
+			r, err := parseRange()
 			if err != nil {
 				return err
 			}
@@ -393,15 +366,16 @@ Run 'oodle logs index-patterns' to list the index names.`,
 			return nil
 		},
 	}
-	addLogsAggFlags(cmd, &index, &query, &startStr, &endStr)
+	parseRange = addLogsAggFlags(cmd, &index, &query)
 	cmd.Flags().IntVar(&size, "size", logsAggDefaultSize, fmt.Sprintf("Number of values to return (1-%d)", logsAggMaxSize))
 	return cmd
 }
 
 // newLogsAggregateCmd returns the `oodle logs aggregate` subcommand.
 func newLogsAggregateCmd() *cobra.Command {
-	var index, query, startStr, endStr, countBy, interval string
+	var index, query, countBy, interval string
 	var size int
+	var parseRange func() (logsAggRange, error)
 	cmd := &cobra.Command{
 		Use:   "aggregate",
 		Short: "Count logs by field value, over time, or both",
@@ -431,7 +405,7 @@ For other aggregations, write the query body yourself and use
 			if err := validateLogsAggSize(size); err != nil {
 				return err
 			}
-			r, err := parseLogsAggRange(startStr, endStr)
+			r, err := parseRange()
 			if err != nil {
 				return err
 			}
@@ -523,7 +497,7 @@ For other aggregations, write the query body yourself and use
 			return nil
 		},
 	}
-	addLogsAggFlags(cmd, &index, &query, &startStr, &endStr)
+	parseRange = addLogsAggFlags(cmd, &index, &query)
 	cmd.Flags().StringVar(&countBy, "count-by", "", "Field whose values to count")
 	cmd.Flags().StringVar(&interval, "histogram", "", "Count logs in time buckets of this size (for example 30s, 5m, 1h, 1d)")
 	cmd.Flags().IntVar(&size, "size", logsAggDefaultSize, fmt.Sprintf("Number of --count-by values to return, in each time bucket with --histogram (1-%d)", logsAggMaxSize))

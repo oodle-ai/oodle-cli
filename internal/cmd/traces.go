@@ -247,7 +247,7 @@ func traceRows(resp *client.TracesResponse) []traceRow {
 				row.Service = p.ServiceName
 			}
 		}
-		row.Start = time.UnixMicro(int64(first)).UTC().Format("2006-01-02 15:04:05")
+		row.Start = timeCell(time.UnixMicro(int64(first)))
 		row.Duration = (time.Duration(last-first) * time.Microsecond).String()
 		rows = append(rows, row)
 	}

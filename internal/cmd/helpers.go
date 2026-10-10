@@ -6,6 +6,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -465,21 +467,23 @@ func printBodyOrTable(cmd *cobra.Command, body []byte, rows any, columns []outpu
 	return output.Print(cmd.OutOrStdout(), format, rows, columns)
 }
 
-// addMsRangeFlags adds --start and --end to cmd. The returned function gives
-// the range in epoch milliseconds, the unit that the RUM and database
-// monitoring routes read.
-func addMsRangeFlags(cmd *cobra.Command) func() (start, end int64, err error) {
+// addRangeFlags adds --start and --end to cmd, with defaultStart and now as
+// the defaults. The returned function parses both values with parse, which
+// gives the epoch unit that the route reads. It also checks that the start
+// is before the end, because some routes return an empty result for a
+// reversed range and the user then sees no error.
+func addRangeFlags(cmd *cobra.Command, defaultStart string, parse func(string) (int64, error)) func() (start, end int64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", defaultStartOffset,
-		"Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&startStr, "start", defaultStart,
+		"Start of the time range (relative like "+defaultStart+", 'now', RFC3339, or epoch s/ms/µs/ns)")
 	cmd.Flags().StringVar(&endStr, "end", defaultEndValue,
 		"End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return func() (int64, int64, error) {
-		start, err := parseTimeFlagMs(startStr)
+		start, err := parse(startStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("--start: %w", err)
 		}
-		end, err := parseTimeFlagMs(endStr)
+		end, err := parse(endStr)
 		if err != nil {
 			return 0, 0, fmt.Errorf("--end: %w", err)
 		}
@@ -506,6 +510,148 @@ func setIfNotEmpty(params url.Values, key, value string) {
 	}
 }
 
+// stepForMaxPoints returns a query step in seconds: one minute, or a larger
+// whole number of minutes so that the range has at most maxPoints points.
+// Too many points make a query slow, or make the server reject it.
+func stepForMaxPoints(rangeSec, maxPoints int64) int64 {
+	step := int64(60)
+	if rangeSec/step <= maxPoints {
+		return step
+	}
+	perPoint := (rangeSec + maxPoints - 1) / maxPoints
+	return (perPoint + 59) / 60 * 60
+}
+
+// readRawBody reads the body of a 2xx response, and gives an error for
+// other responses. Commands that decode the body into small types of their
+// own use it, because a generated type rejects the whole list when one
+// object has a field that does not parse.
+func readRawBody(resp *http.Response, err error) ([]byte, error) {
+	if err != nil {
+		return nil, fmt.Errorf("API request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading response: %w", err)
+	}
+	if err := api.CheckResponse(resp, body); err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+// apiCall is one request to a route that the generated client does not
+// have.
+type apiCall struct {
+	method string
+	// path is the path from the root of the API host.
+	path   string
+	params url.Values
+	// payload, when it is not nil, is sent as a JSON body.
+	payload any
+	header  map[string]string
+	// notFound, when it is not nil, replaces the error of a 404 response.
+	notFound error
+}
+
+// do sends the request with the credentials of the other commands, and
+// returns the body of a 2xx response. An empty body is an error, so that a
+// failed read does not look like an empty result.
+func (a apiCall) do(cmd *cobra.Command) ([]byte, error) {
+	c := getClient(cmd)
+	if c == nil || c.Config == nil {
+		return nil, fmt.Errorf("no API client configured")
+	}
+	u := strings.TrimRight(c.Config.APIURL, "/") + a.path
+	if len(a.params) > 0 {
+		u += "?" + a.params.Encode()
+	}
+	var reqBody io.Reader
+	if a.payload != nil {
+		data, err := json.Marshal(a.payload)
+		if err != nil {
+			return nil, fmt.Errorf("encoding request: %w", err)
+		}
+		reqBody = bytes.NewReader(data)
+	}
+	req, err := http.NewRequestWithContext(cmd.Context(), a.method, u, reqBody)
+	if err != nil {
+		return nil, fmt.Errorf("building request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	if reqBody != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	for k, v := range a.header {
+		req.Header.Set(k, v)
+	}
+	resp, err := c.NewAuthedHTTPClient(0).Do(req)
+	if err == nil && resp.StatusCode == http.StatusNotFound && a.notFound != nil {
+		_ = resp.Body.Close()
+		return nil, a.notFound
+	}
+	body, err := readRawBody(resp, err)
+	if err != nil {
+		return nil, err
+	}
+	if len(bytes.TrimSpace(body)) == 0 {
+		return nil, fmt.Errorf("unexpected empty response")
+	}
+	return body, nil
+}
+
+// instancePath returns the path of a route under
+// /v1/api/instance/<instance>/.
+func instancePath(cmd *cobra.Command, route string) string {
+	return "/v1/api/instance/" + url.PathEscape(getInstance(cmd)) + "/" + route
+}
+
+// instanceGet sends a GET to a route of the current instance and returns
+// the body of a 2xx response.
+func instanceGet(cmd *cobra.Command, route string, params url.Values) ([]byte, error) {
+	return apiCall{method: http.MethodGet, path: instancePath(cmd, route), params: params}.do(cmd)
+}
+
+// instancePostJSON sends payload as JSON with POST to a route of the
+// current instance and returns the body of a 2xx response.
+func instancePostJSON(cmd *cobra.Command, route string, payload any) ([]byte, error) {
+	return apiCall{method: http.MethodPost, path: instancePath(cmd, route), payload: payload}.do(cmd)
+}
+
+// printShaped prints a value that the CLI builds, for the output formats
+// that are not tables. The value goes through its JSON form, so that YAML
+// output has the same keys as JSON output. Without this, YAML uses the Go
+// field names of a type that has only JSON tags.
+func printShaped(cmd *cobra.Command, v any) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
+		return fmt.Errorf("encoding output: %w", err)
+	}
+	// Encode adds a line break, and printResponseBody adds one more.
+	return printResponseBody(cmd, getOutputFormat(cmd), bytes.TrimRight(buf.Bytes(), "\n"))
+}
+
+// printResult prints a result that the CLI builds. JSON and YAML output
+// print v with printShaped; the other formats call table.
+func printResult(cmd *cobra.Command, v any, table func(output.Format) error) error {
+	format := getOutputFormat(cmd)
+	switch format {
+	case output.FormatJSON, output.FormatYAML, "":
+		return printShaped(cmd, v)
+	}
+	return table(format)
+}
+
+// printRows is printResult for a table that is rows with columns.
+func printRows(cmd *cobra.Command, v any, rows any, columns []output.Column) error {
+	return printResult(cmd, v, func(format output.Format) error {
+		return output.Print(cmd.OutOrStdout(), format, rows, columns)
+	})
+}
+
 // shortCell makes s one line and cuts it to max runes. Long messages and
 // SQL statements in a table cell push the other columns off the screen. The
 // full value stays in -o json.
@@ -518,37 +664,48 @@ func shortCell(s string, max int) string {
 	return string(r[:max-3]) + "..."
 }
 
-// utcCell formats an RFC3339 time as "2006-01-02 15:04:05" in UTC. A value
-// that does not parse is returned without change.
+// cellTimeLayout is the layout of a time in a table cell. It has no zone,
+// so the column header says UTC.
+const cellTimeLayout = "2006-01-02 15:04:05"
+
+// timeCell formats t in UTC for a table cell.
+func timeCell(t time.Time) string {
+	return t.UTC().Format(cellTimeLayout)
+}
+
+// utcCell formats an RFC3339 time for a table cell. A value that does not
+// parse is returned without change.
 func utcCell(s string) string {
 	if t, err := time.Parse(time.RFC3339Nano, s); err == nil {
-		return t.UTC().Format("2006-01-02 15:04:05")
+		return timeCell(t)
 	}
 	return s
 }
 
-// msCell formats epoch milliseconds as "2006-01-02 15:04:05" in UTC.
+// msCell formats epoch milliseconds for a table cell.
 func msCell(ms int64) string {
 	if ms <= 0 {
 		return ""
 	}
-	return time.UnixMilli(ms).UTC().Format("2006-01-02 15:04:05")
+	return timeCell(time.UnixMilli(ms))
 }
 
 // filterJSONArray keeps the items of a JSON array body for which keep
 // returns true, and returns the kept items as a JSON array. Each item is
 // kept as raw bytes, so JSON output keeps every field that the server sent.
+// When body does not decode, it is returned without change with the error,
+// so that JSON output can still print what the server sent.
 func filterJSONArray[T any](body []byte, keep func(T) bool) ([]byte, []T, error) {
 	var raw []json.RawMessage
 	if err := json.Unmarshal(body, &raw); err != nil {
-		return nil, nil, err
+		return body, nil, err
 	}
 	keptRaw := make([]json.RawMessage, 0, len(raw))
 	kept := make([]T, 0, len(raw))
 	for _, r := range raw {
 		var item T
 		if err := json.Unmarshal(r, &item); err != nil {
-			return nil, nil, err
+			return body, nil, err
 		}
 		if keep(item) {
 			keptRaw = append(keptRaw, r)
@@ -557,7 +714,7 @@ func filterJSONArray[T any](body []byte, keep func(T) bool) ([]byte, []T, error)
 	}
 	out, err := json.Marshal(keptRaw)
 	if err != nil {
-		return nil, nil, err
+		return body, nil, err
 	}
 	return out, kept, nil
 }

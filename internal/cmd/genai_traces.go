@@ -230,7 +230,7 @@ func genaiTraceTable(rows []genaiTraceRow) []genaiTraceTableRow {
 	for _, r := range rows {
 		start := r.StartTime
 		if r.startUs > 0 {
-			start = time.UnixMicro(r.startUs).UTC().Format("2006-01-02 15:04:05")
+			start = timeCell(time.UnixMicro(r.startUs))
 		}
 		out = append(out, genaiTraceTableRow{
 			TraceID:  r.TraceID,
@@ -258,7 +258,7 @@ func genaiGroupTable(rows []genaiGroupRow) []genaiGroupTableRow {
 	for _, g := range rows {
 		last := g.LastSeen
 		if g.lastUs > 0 {
-			last = time.UnixMicro(g.lastUs).UTC().Format("2006-01-02 15:04:05")
+			last = timeCell(time.UnixMicro(g.lastUs))
 		}
 		user := ""
 		if g.SessionID != "" {
@@ -297,9 +297,9 @@ func genaiGroupColumns(by string) []output.Column {
 
 func newGenAITracesCmd() *cobra.Command {
 	var (
+		// parseRange is set after cmd exists, because the flags need cmd.
+		parseRange  func() (start, end int64, err error)
 		filters     genaiFilterFlags
-		startStr    string
-		endStr      string
 		errorsOnly  bool
 		search      string
 		minDuration string
@@ -348,13 +348,9 @@ For the full span tree of a trace, use 'oodle genai trace <id>' or
 			default:
 				return fmt.Errorf("--group-by must be trace, session or user, got %q", groupBy)
 			}
-			start, err := parseTimeFlag(startStr)
+			start, end, err := parseRange()
 			if err != nil {
-				return fmt.Errorf("--start: %w", err)
-			}
-			end, err := parseTimeFlag(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
+				return err
 			}
 			matchers, err := filters.matchers()
 			if err != nil {
@@ -387,7 +383,7 @@ For the full span tree of a trace, use 'oodle genai trace <id>' or
 				}
 			}
 
-			body, err := genaiGet(cmd, "traces/traces", params, nil)
+			body, err := instanceGet(cmd, "traces/traces", params)
 			if err != nil {
 				return err
 			}
@@ -455,8 +451,7 @@ For the full span tree of a trace, use 'oodle genai trace <id>' or
 		},
 	}
 	filters.addTo(cmd)
-	cmd.Flags().StringVar(&startStr, "start", "-6h", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	cmd.Flags().StringVar(&endStr, "end", "now", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	parseRange = addRangeFlags(cmd, "-6h", parseTimeFlag)
 	cmd.Flags().BoolVar(&errorsOnly, "errors", false, "Only traces that have a span with error status")
 	cmd.Flags().StringVar(&search, "search", "", "Text to find in service and span names")
 	cmd.Flags().StringVar(&minDuration, "min-duration", "", "Minimum trace duration (e.g. 500ms, 2s)")

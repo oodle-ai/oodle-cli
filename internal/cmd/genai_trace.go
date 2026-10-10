@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"net/url"
 	"sort"
 	"strconv"
@@ -183,8 +184,8 @@ func genaiStepTable(steps []genaiStep) []genaiStepTableRow {
 
 func newGenAITraceCmd() *cobra.Command {
 	var (
-		startStr     string
-		endStr       string
+		// parseRange is set after cmd exists, because the flags need cmd.
+		parseRange   func() (start, end int64, err error)
 		messages     bool
 		previewChars int
 		limit        int
@@ -212,13 +213,9 @@ For the raw span tree with all attributes, use 'oodle traces get'.`,
 			if limit < 1 {
 				return fmt.Errorf("--limit must be 1 or more, got %d", limit)
 			}
-			start, err := parseTimeFlag(startStr)
+			start, end, err := parseRange()
 			if err != nil {
-				return fmt.Errorf("--start: %w", err)
-			}
-			end, err := parseTimeFlag(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
+				return err
 			}
 			pad := genaiTraceWindowPad.Microseconds()
 			params := url.Values{}
@@ -233,7 +230,12 @@ For the raw span tree with all attributes, use 'oodle traces get'.`,
 			notFound := fmt.Errorf(
 				"no trace %q between %s and %s; the trace must start in the time range, so widen it (for example --start -7d) before you decide that the trace does not exist",
 				id, time.UnixMicro(start).UTC().Format(time.RFC3339), time.UnixMicro(end).UTC().Format(time.RFC3339))
-			body, err := genaiGet(cmd, "traces/traces/"+url.PathEscape(id), params, notFound)
+			body, err := apiCall{
+				method:   http.MethodGet,
+				path:     instancePath(cmd, "traces/traces/"+url.PathEscape(id)),
+				params:   params,
+				notFound: notFound,
+			}.do(cmd)
 			if err != nil {
 				return err
 			}
@@ -275,8 +277,7 @@ For the raw span tree with all attributes, use 'oodle traces get'.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "-24h", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	cmd.Flags().StringVar(&endStr, "end", "now", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	parseRange = addRangeFlags(cmd, "-24h", parseTimeFlag)
 	cmd.Flags().BoolVar(&messages, "messages", false, "Include previews of prompts, completions, tool arguments and tool results")
 	cmd.Flags().IntVar(&previewChars, "preview-chars", 1000, "Maximum characters in each preview (with --messages)")
 	cmd.Flags().IntVar(&limit, "limit", 500, "Maximum number of steps to show")

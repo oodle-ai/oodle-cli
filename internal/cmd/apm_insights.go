@@ -200,7 +200,7 @@ the usual fix, and a TraceQL filter that finds sample traces.`,
   oodle traces apm-insights --id 3f2a9c1e`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addRangeFlagsSec(cmd, apmInsightsDefaultStart)
+	parseRange := addRangeFlags(cmd, apmInsightsDefaultStart, parseTimeFlagSec)
 	cmd.Flags().StringSliceVar(&services, "service", nil, "Only show these services (comma-separated or repeated)")
 	cmd.Flags().StringSliceVar(&envs, "env", nil, "Only show these environments (comma-separated or repeated)")
 	cmd.Flags().StringVar(&pattern, "pattern", "", "Only show this pattern: "+strings.Join(apmInsightPatterns, ", "))

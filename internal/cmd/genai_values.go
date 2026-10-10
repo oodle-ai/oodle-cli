@@ -39,10 +39,10 @@ type genaiValueRow struct {
 
 func newGenAIValuesCmd() *cobra.Command {
 	var (
-		filters  genaiFilterFlags
-		startStr string
-		endStr   string
-		limit    int
+		// parseRange is set after cmd exists, because the flags need cmd.
+		parseRange func() (start, end int64, err error)
+		filters    genaiFilterFlags
+		limit      int
 	)
 	cmd := &cobra.Command{
 		Use:   "values [field...]",
@@ -72,13 +72,9 @@ read to about one day before --end; for older data, move --end back.`,
 			if limit < 1 {
 				return fmt.Errorf("--limit must be 1 or more, got %d", limit)
 			}
-			start, err := parseTimeFlag(startStr)
+			start, end, err := parseRange()
 			if err != nil {
-				return fmt.Errorf("--start: %w", err)
-			}
-			end, err := parseTimeFlag(endStr)
-			if err != nil {
-				return fmt.Errorf("--end: %w", err)
+				return err
 			}
 			matchers, err := filters.matchers()
 			if err != nil {
@@ -100,7 +96,7 @@ read to about one day before --end; for older data, move --end back.`,
 					return err
 				}
 				rows := genaiFieldRows(labels)
-				if err := genaiPrintRows(cmd, rows, []output.Column{
+				if err := output.Print(cmd.OutOrStdout(), getOutputFormat(cmd), rows, []output.Column{
 					{Header: "FIELD", Field: "Field"},
 					{Header: "KIND", Field: "Kind"},
 				}); err != nil {
@@ -138,22 +134,21 @@ read to about one day before --end; for older data, move --end back.`,
 			if !isTabular(cmd) {
 				return printShaped(cmd, byField)
 			}
-			return genaiPrintRows(cmd, rows, []output.Column{
+			return output.Print(cmd.OutOrStdout(), getOutputFormat(cmd), rows, []output.Column{
 				{Header: "FIELD", Field: "Field"},
 				{Header: "VALUE", Field: "Value"},
 			})
 		},
 	}
 	filters.addTo(cmd)
-	cmd.Flags().StringVar(&startStr, "start", "-24h", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	cmd.Flags().StringVar(&endStr, "end", "now", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	parseRange = addRangeFlags(cmd, "-24h", parseTimeFlag)
 	cmd.Flags().IntVar(&limit, "limit", 200, "Maximum number of values for each field")
 	return cmd
 }
 
 // genaiReadList reads a {"data": [...]} list from a trace label route.
 func genaiReadList(cmd *cobra.Command, route string, params url.Values) ([]string, error) {
-	body, err := genaiGet(cmd, route, params, nil)
+	body, err := instanceGet(cmd, route, params)
 	if err != nil {
 		return nil, err
 	}
@@ -185,8 +180,4 @@ func genaiFieldRows(labels []string) []genaiFieldRow {
 		rows = append(rows, genaiFieldRow{Field: f, Kind: "span attribute"})
 	}
 	return rows
-}
-
-func genaiPrintRows(cmd *cobra.Command, rows any, columns []output.Column) error {
-	return output.Print(cmd.OutOrStdout(), getOutputFormat(cmd), rows, columns)
 }

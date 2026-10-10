@@ -32,18 +32,6 @@ const (
 	traceAnomalyMinPeriod = 5 * 60
 )
 
-// traceAnomalyStep returns the query step in seconds for a range: one
-// minute, or a larger whole number of minutes so that the range has at most
-// traceAnomalyMaxPoints points.
-func traceAnomalyStep(rangeSec int64) int64 {
-	step := int64(60)
-	if rangeSec/step <= traceAnomalyMaxPoints {
-		return step
-	}
-	perPoint := (rangeSec + traceAnomalyMaxPoints - 1) / traceAnomalyMaxPoints
-	return (perPoint + 59) / 60 * 60
-}
-
 // traceAnomalyPeriod returns the default period length in seconds. It is a
 // whole number of steps, so that each period holds the same number of
 // points.
@@ -140,13 +128,6 @@ func formatBucketDuration(ns float64) string {
 		return "+Inf"
 	}
 	return time.Duration(ns).String()
-}
-
-func pct(part, total float64) float64 {
-	if total <= 0 {
-		return 0
-	}
-	return part / total * 100
 }
 
 // analyzeTraceAnomalies computes the totals and the periods. A period is
@@ -360,7 +341,7 @@ periods. -o json gives the totals, the periods and a short summary.`,
   oodle traces anomalies --service checkout --start -6h -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addTraceQLTimeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagSec)
 	cmd.Flags().StringVar(&service, "service", "", "Service name (required)")
 	cmd.Flags().StringVar(&namespace, "namespace", "", "Only read this Kubernetes namespace")
 	cmd.Flags().StringVar(&cluster, "cluster", "", "Only read this cluster")
@@ -374,7 +355,7 @@ periods. -o json gives the totals, the periods and a short summary.`,
 			return err
 		}
 		rangeSec := end - start
-		step := traceAnomalyStep(rangeSec)
+		step := stepForMaxPoints(rangeSec, traceAnomalyMaxPoints)
 		period := traceAnomalyPeriod(rangeSec, step)
 		if periodStr != "" {
 			p, err := parseTraceQLStep(periodStr)
@@ -416,7 +397,7 @@ periods. -o json gives the totals, the periods and a short summary.`,
 		}
 		result.Periods = periods
 
-		if err := printComputed(cmd, result, traceAnomalyRows(periods), traceAnomalyColumns(stats.SlowThresholdMs)); err != nil {
+		if err := printRows(cmd, result, traceAnomalyRows(periods), traceAnomalyColumns(stats.SlowThresholdMs)); err != nil {
 			return err
 		}
 		if stats.TotalSpans == 0 && len(series) == 0 {

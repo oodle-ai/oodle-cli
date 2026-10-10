@@ -246,7 +246,7 @@ short.
   oodle rum sessions --where view_url_path=/checkout --where plan=pro -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", rumDefaultLimit, "Maximum number of sessions to read")
 	f.StringVar(&sessionID, "session-id", "", "Only this session")
@@ -442,7 +442,7 @@ The session must start in the time range. Get the session start from
   oodle rum session-events 0f99e06c-93b4-41d2-88f6-2505ebea42d3 --types views --views-group-by url -o json`,
 		Args: exactArgs(1),
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", rumDefaultLimit, "Maximum number of events of each type")
 	f.StringVar(&typesStr, "types", "", "Comma-separated event types: views, errors, actions, resources, console (default: all)")
@@ -586,7 +586,7 @@ did before the error. Use -o json to get the fingerprint and the stack.
   oodle rum issues --error-type TypeError -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", rumDefaultLimit, "Maximum number of issues to read")
 	f.StringVar(&errorType, "error-type", "", "Only issues of this error type, such as TypeError")
@@ -697,7 +697,7 @@ which the server applies.
   oodle rum errors --message-contains timeout --limit 200`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", rumDefaultLimit, "Maximum number of errors to read")
 	f.StringVar(&sessionID, "session-id", "", "Only errors of this session")

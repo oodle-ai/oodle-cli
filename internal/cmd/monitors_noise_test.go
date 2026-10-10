@@ -267,3 +267,37 @@ func TestMonitorsNoiseBreakdown_MonitorFilterAndTable(t *testing.T) {
 		t.Errorf("a bad --group-by is accepted")
 	}
 }
+
+func TestNoiseStepSecRoundsPartDaysUp(t *testing.T) {
+	tests := []struct {
+		rangeSec int64
+		want     int64
+	}{
+		{3600, 15},
+		{86400, 15},
+		{47 * 3600, 30},
+		{7 * 86400, 60},
+		{7*86400 + 3600, 300},
+	}
+	for _, tt := range tests {
+		got := noiseStepSec(tt.rangeSec)
+		if got != tt.want {
+			t.Errorf("noiseStepSec(%d) = %d, want %d", tt.rangeSec, got, tt.want)
+		}
+		// A range query has a limit of 11,000 points for each series.
+		if tt.rangeSec/got > 11000 {
+			t.Errorf("noiseStepSec(%d) gives %d points", tt.rangeSec, tt.rangeSec/got)
+		}
+	}
+}
+
+func TestMonitorsNoiseYAMLUsesJSONKeys(t *testing.T) {
+	srv := newRoutedServer(t, nil, nil)
+	stdout, _, err := runCmdSplit(t, srv.URL, newMonitorsNoiseCmd(), output.FormatYAML)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(stdout, "noisy_monitors:") || !strings.Contains(stdout, "total_monitors_analyzed:") {
+		t.Errorf("YAML keys are not the JSON keys:\n%s", stdout)
+	}
+}

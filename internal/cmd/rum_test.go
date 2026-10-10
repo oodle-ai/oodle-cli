@@ -304,3 +304,18 @@ func TestShortCell(t *testing.T) {
 		t.Errorf("shortCell = %q", got)
 	}
 }
+
+func TestRUMSessionsBodyThatIsNotAList(t *testing.T) {
+	const body = `{"message":"not a list"}`
+	srv, _ := newTraceQLTestServer(t, 200, body)
+	stdout, _, err := runCmdSplit(t, srv.URL, newRUMSessionsCmd(), output.FormatJSON)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.TrimSpace(stdout) != body {
+		t.Errorf("stdout = %q, want the server body", stdout)
+	}
+	if _, _, err := runCmdSplit(t, srv.URL, newRUMErrorsCmd(), output.FormatTable); err == nil {
+		t.Errorf("table output of a body that is not a list gives no error")
+	}
+}

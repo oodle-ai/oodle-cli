@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"net/http"
 	"sort"
@@ -14,7 +12,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -83,42 +80,15 @@ func newProfilesCmd() *cobra.Command {
 }
 
 // profilesPost sends a JSON body with POST to one method of the profiles
-// query API and returns the body of a 2xx response. It uses the same
-// credentials as the other commands, and it sends the instance in a header
-// because the route has no instance in its path.
+// query API and returns the body of a 2xx response. It sends the instance
+// in a header because the route has no instance in its path.
 func profilesPost(cmd *cobra.Command, method string, payload any) ([]byte, error) {
-	c := getClient(cmd)
-	if c == nil || c.Config == nil {
-		return nil, fmt.Errorf("no API client configured")
-	}
-	data, err := json.Marshal(payload)
-	if err != nil {
-		return nil, fmt.Errorf("encoding request: %w", err)
-	}
-	u := strings.TrimRight(c.Config.APIURL, "/") + profilesQuerierPath + method
-	req, err := http.NewRequestWithContext(cmd.Context(), http.MethodPost, u, bytes.NewReader(data))
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set(profilesInstanceHeader, getInstance(cmd))
-	resp, err := c.NewAuthedHTTPClient(0).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-	if err := api.CheckResponse(resp, body); err != nil {
-		return nil, err
-	}
-	if len(bytes.TrimSpace(body)) == 0 {
-		return nil, fmt.Errorf("unexpected empty response")
-	}
-	return body, nil
+	return apiCall{
+		method:  http.MethodPost,
+		path:    profilesQuerierPath + method,
+		payload: payload,
+		header:  map[string]string{profilesInstanceHeader: getInstance(cmd)},
+	}.do(cmd)
 }
 
 // profileTypeMatchers returns the matcher list that scopes a label read to
@@ -129,18 +99,6 @@ func profileTypeMatchers(typeID string) []string {
 		return []string{}
 	}
 	return []string{`{__profile_type__="` + typeID + `"}`}
-}
-
-// printProfilesResult prints v for JSON and YAML output, or calls table for
-// the other formats. v is the condensed result, which has the same shape as
-// the result of the profiles tools of the Oodle MCP server.
-func printProfilesResult(cmd *cobra.Command, v any, table func(output.Format) error) error {
-	format := getOutputFormat(cmd)
-	switch format {
-	case output.FormatJSON, output.FormatYAML, "":
-		return output.Print(cmd.OutOrStdout(), format, v, nil)
-	}
-	return table(format)
 }
 
 // --- types ---
@@ -157,12 +115,12 @@ type profileTypeRaw struct {
 // profileType is one row of 'profiles types'. The JSON keys are the keys
 // of the MCP tool result, so scripts can use either source.
 type profileType struct {
-	ID         string `json:"id" yaml:"id"`
-	Name       string `json:"name" yaml:"name"`
-	SampleType string `json:"sample_type" yaml:"sample_type"`
-	SampleUnit string `json:"sample_unit" yaml:"sample_unit"`
-	PeriodType string `json:"period_type" yaml:"period_type"`
-	PeriodUnit string `json:"period_unit" yaml:"period_unit"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	SampleType string `json:"sample_type"`
+	SampleUnit string `json:"sample_unit"`
+	PeriodType string `json:"period_type"`
+	PeriodUnit string `json:"period_unit"`
 }
 
 var profileTypeColumns = []output.Column{
@@ -185,7 +143,7 @@ other profiles commands.`,
   oodle profiles types --start -24h -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		start, end, err := parseRange()
 		if err != nil {
@@ -205,7 +163,7 @@ other profiles commands.`,
 		for _, pt := range resp.ProfileTypes {
 			types = append(types, profileType(pt))
 		}
-		if err := printProfilesResult(cmd, types, func(format output.Format) error {
+		if err := printResult(cmd, types, func(format output.Format) error {
 			return output.Print(cmd.OutOrStdout(), format, types, profileTypeColumns)
 		}); err != nil {
 			return err
@@ -247,7 +205,7 @@ commands. Set --type to read only the labels of one profile type.`,
   oodle profiles labels --type process_cpu:cpu:nanoseconds:cpu:nanoseconds`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	cmd.Flags().StringVar(&typeID, "type", "", "Only this profile type ID (from 'oodle profiles types')")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		start, end, err := parseRange()
@@ -288,7 +246,7 @@ profiles. Set --type to read only the values of one profile type.`,
   oodle profiles label-values pod --type memory:inuse_space:bytes:space:bytes --start -6h`,
 		Args: exactArgs(1),
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	cmd.Flags().StringVar(&typeID, "type", "", "Only this profile type ID (from 'oodle profiles types')")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		start, end, err := parseRange()
@@ -322,17 +280,17 @@ profiles. Set --type to read only the values of one profile type.`,
 // --- series ---
 
 type profilePoint struct {
-	Timestamp int64   `json:"timestamp" yaml:"timestamp"`
-	Value     float64 `json:"value" yaml:"value"`
+	Timestamp int64   `json:"timestamp"`
+	Value     float64 `json:"value"`
 }
 
 // profileSeries is one series of 'profiles series'. The JSON keys are the
 // keys of the MCP tool result.
 type profileSeries struct {
-	Labels map[string]string `json:"labels" yaml:"labels"`
-	Count  int               `json:"count" yaml:"count"`
-	Sum    float64           `json:"sum" yaml:"sum"`
-	Points []profilePoint    `json:"points" yaml:"points"`
+	Labels map[string]string `json:"labels"`
+	Count  int               `json:"count"`
+	Sum    float64           `json:"sum"`
+	Points []profilePoint    `json:"points"`
 }
 
 // condenseProfileSeries turns the SelectSeries response into one entry per
@@ -403,7 +361,7 @@ When --step is not set, the step is 15s, or larger for a long range.`,
   oodle profiles series --type memory:inuse_space:bytes:space:bytes --start -24h --step 5m`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.StringVar(&typeID, "type", "", "Profile type ID (from 'oodle profiles types')")
 	f.StringVar(&query, "query", "", `Label selector, such as '{service_name="api"}'`)
@@ -441,7 +399,7 @@ When --step is not set, the step is 15s, or larger for a long range.`,
 		if err != nil {
 			return err
 		}
-		if err := printProfilesResult(cmd, series, func(format output.Format) error {
+		if err := printResult(cmd, series, func(format output.Format) error {
 			prom := make([]output.PromSeries, 0, len(series))
 			for _, s := range series {
 				values := make([]output.PromSample, 0, len(s.Points))
@@ -482,17 +440,17 @@ type flameGraph struct {
 // profileFunction is one function of 'profiles flamegraph'. The JSON keys
 // are the keys of the MCP tool result.
 type profileFunction struct {
-	Function string  `json:"function" yaml:"function"`
-	Self     int64   `json:"self" yaml:"self"`
-	SelfPct  float64 `json:"self_pct" yaml:"self_pct"`
-	Total    int64   `json:"total" yaml:"total"`
+	Function string  `json:"function"`
+	Self     int64   `json:"self"`
+	SelfPct  float64 `json:"self_pct"`
+	Total    int64   `json:"total"`
 }
 
 // flameGraphSummary is the condensed flame graph: the total value and the
 // functions with the most self value.
 type flameGraphSummary struct {
-	Total        int64             `json:"total" yaml:"total"`
-	TopFunctions []profileFunction `json:"top_functions" yaml:"top_functions"`
+	Total        int64             `json:"total"`
+	TopFunctions []profileFunction `json:"top_functions"`
 }
 
 // topProfileFunctions adds the self and total values of each function over
@@ -627,7 +585,7 @@ flame graph tree from the server as JSON (or YAML with -o yaml).`,
   oodle profiles flamegraph --type process_cpu:cpu:nanoseconds:cpu:nanoseconds --max-nodes 512 --raw`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.StringVar(&typeID, "type", "", "Profile type ID (from 'oodle profiles types')")
 	f.StringVar(&query, "query", "", `Label selector, such as '{service_name="api"}'`)
@@ -676,7 +634,7 @@ flame graph tree from the server as JSON (or YAML with -o yaml).`,
 			if _, err := printTraceQLBody(cmd, format, body); err != nil {
 				return err
 			}
-		} else if err := printProfilesResult(cmd, summary, func(format output.Format) error {
+		} else if err := printResult(cmd, summary, func(format output.Format) error {
 			unit := profileSampleUnit(typeID)
 			rows := make([]profileFunctionRow, 0, len(summary.TopFunctions))
 			for _, fn := range summary.TopFunctions {

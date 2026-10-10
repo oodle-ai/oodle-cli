@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -131,37 +129,6 @@ func newTracesTraceQLCmd() *cobra.Command {
 	return cmd
 }
 
-// addTraceQLTimeFlags adds --start and --end to cmd. The returned function
-// gives the range in whole epoch seconds, which is the unit the TraceQL API
-// reads.
-func addTraceQLTimeFlags(cmd *cobra.Command) func() (start, end int64, err error) {
-	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", defaultStartOffset,
-		"Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	cmd.Flags().StringVar(&endStr, "end", defaultEndValue,
-		"End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
-	return func() (int64, int64, error) {
-		start, err := parseTraceQLTime(startStr)
-		if err != nil {
-			return 0, 0, fmt.Errorf("--start: %w", err)
-		}
-		end, err := parseTraceQLTime(endStr)
-		if err != nil {
-			return 0, 0, fmt.Errorf("--end: %w", err)
-		}
-		if start >= end {
-			return 0, 0, fmt.Errorf("--start must be before --end")
-		}
-		return start, end, nil
-	}
-}
-
-// parseTraceQLTime parses a time flag to epoch seconds. parseTimeFlagSec
-// converts an epoch in ms, µs or ns to seconds by its magnitude.
-func parseTraceQLTime(value string) (int64, error) {
-	return parseTimeFlagSec(value)
-}
-
 // parseTraceQLStep parses a step such as 30s, 5m, 1h, 1d or a number of
 // seconds, and returns whole seconds.
 func parseTraceQLStep(value string) (int64, error) {
@@ -183,58 +150,16 @@ func parseTraceQLStep(value string) (int64, error) {
 	return secs, nil
 }
 
-// defaultTraceQLStep returns one minute, or a larger whole number of minutes
-// so that the range has at most traceQLMaxPoints points.
+// defaultTraceQLStep returns the default step of a TraceQL metrics query,
+// which gives at most traceQLMaxPoints points.
 func defaultTraceQLStep(rangeSec int64) int64 {
-	step := int64(60)
-	if rangeSec/step <= traceQLMaxPoints {
-		return step
-	}
-	perPoint := (rangeSec + traceQLMaxPoints - 1) / traceQLMaxPoints
-	return (perPoint + 59) / 60 * 60
+	return stepForMaxPoints(rangeSec, traceQLMaxPoints)
 }
 
 // traceQLGet sends a GET to a TraceQL route of the current instance and
 // returns the body of a 2xx response.
 func traceQLGet(cmd *cobra.Command, route string, params url.Values) ([]byte, error) {
 	return instanceGet(cmd, "traces/traceql/"+route, params)
-}
-
-// instanceGet sends a GET to a route under /v1/api/instance/<instance>/ and
-// returns the body of a 2xx response. Use it for routes that the generated
-// client does not have.
-func instanceGet(cmd *cobra.Command, route string, params url.Values) ([]byte, error) {
-	c := getClient(cmd)
-	if c == nil || c.Config == nil {
-		return nil, fmt.Errorf("no API client configured")
-	}
-	instance := getInstance(cmd)
-	u := strings.TrimRight(c.Config.APIURL, "/") +
-		"/v1/api/instance/" + url.PathEscape(instance) + "/" + route
-	if len(params) > 0 {
-		u += "?" + params.Encode()
-	}
-	req, err := http.NewRequestWithContext(cmd.Context(), http.MethodGet, u, nil)
-	if err != nil {
-		return nil, fmt.Errorf("building request: %w", err)
-	}
-	req.Header.Set("Accept", "application/json")
-	resp, err := c.NewAuthedHTTPClient(0).Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("API request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("reading response: %w", err)
-	}
-	if err := api.CheckResponse(resp, body); err != nil {
-		return nil, err
-	}
-	if len(body) == 0 {
-		return nil, fmt.Errorf("unexpected empty response")
-	}
-	return body, nil
 }
 
 // printRawJSON writes the response body without change. JSON output passes
@@ -342,7 +267,7 @@ func traceQLSearchRows(resp traceQLSearchResponse) []traceQLSearchRow {
 	for _, t := range resp.Traces {
 		start := t.StartTimeUnixNano
 		if ns, err := strconv.ParseInt(t.StartTimeUnixNano, 10, 64); err == nil && ns > 0 {
-			start = time.Unix(0, ns).UTC().Format("2006-01-02 15:04:05")
+			start = timeCell(time.Unix(0, ns))
 		}
 		matched := t.matchedSpans()
 		rows = append(rows, traceQLSearchRow{
@@ -374,7 +299,7 @@ which includes the matching spans and their attributes.`,
   oodle traces traceql search '{ duration > 2s }' -o json`,
 		Args: exactArgs(1),
 	}
-	parseRange := addTraceQLTimeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagSec)
 	cmd.Flags().IntVar(&limit, "limit", traceQLDefaultLimit, "Maximum number of traces to return (1 to 1000)")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		query := strings.TrimSpace(args[0])
@@ -561,7 +486,7 @@ that keeps the result at or below 300 points per series.`,
   oodle traces traceql metrics '{ resource.service.name="api" } | quantile_over_time(duration, .95)' --step 5m -o graph`,
 		Args: exactArgs(1),
 	}
-	parseRange := addTraceQLTimeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagSec)
 	cmd.Flags().StringVar(&stepStr, "step", "", "Resolution step, such as 30s, 5m or 1h (default: 1m, larger for long ranges)")
 	cmd.Flags().IntVar(&exemplars, "exemplars", 0, "Maximum number of exemplar traces to return (shown only in JSON and YAML output)")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

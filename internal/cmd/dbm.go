@@ -133,7 +133,7 @@ the average CPU use when the cloud provider sends it.`,
   oodle dbm hosts --host db-1 -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.StringVar(&dbType, "database-type", "", "Only this database type, such as postgres")
 	f.StringVar(&host, "host", "", "Only this host")
@@ -299,7 +299,7 @@ Use the SIGNATURE value with --query-signature, 'oodle dbm activity' or
   oodle dbm samples --table orders --command SELECT --sort-by duration -o json`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	f := cmd.Flags()
 	f.IntVar(&limit, "limit", dbmDefaultSamples, "Maximum number of samples (1 to 1000)")
 	f.StringVar(&sortBy, "sort-by", "", "Field to sort by, such as timestamp or duration (default: timestamp)")
@@ -484,7 +484,7 @@ and blocking_blocking.`,
   oodle dbm activity --query-signature 8d2c1f0e9a7b6c5d --start -6h`,
 		Args: cobra.NoArgs,
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	cmd.Flags().IntVar(&limit, "limit", dbmDefaultActivity, "Maximum number of recent samples (1 to 1000)")
 	cmd.Flags().StringVar(&signature, "query-signature", "", "Also show the blocking chains of this query signature")
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -609,7 +609,7 @@ response.`,
   oodle dbm explain 8d2c1f0e9a7b6c5d --start -24h -o json`,
 		Args: exactArgs(1),
 	}
-	parseRange := addMsRangeFlags(cmd)
+	parseRange := addRangeFlags(cmd, defaultStartOffset, parseTimeFlagMs)
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		signature := strings.TrimSpace(args[0])
 		if signature == "" {
