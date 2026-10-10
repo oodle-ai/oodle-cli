@@ -3,7 +3,9 @@ package cmd
 import (
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,12 +19,21 @@ func newTracesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "traces",
 		Aliases: []string{"trace"},
-		Short:   "Query traces, trace labels, and label values",
+		Short:   "Query traces with filters or TraceQL, and list trace labels",
+		Long: `Query traces, trace labels, and label values.
+
+  list, get              Find traces with simple filters, or get one by ID.
+  labels, label-values   List trace label names and their values.
+  traceql                Run TraceQL search and metrics queries.
+
+Use 'oodle traces traceql --help' for TraceQL examples, and for how to alert
+on trace data.`,
 	}
 	cmd.AddCommand(newTracesListCmd())
 	cmd.AddCommand(newTracesGetCmd())
 	cmd.AddCommand(newTracesLabelsCmd())
 	cmd.AddCommand(newTracesLabelValuesCmd())
+	cmd.AddCommand(newTracesTraceQLCmd())
 	return cmd
 }
 
@@ -41,11 +52,17 @@ func newTracesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List traces in a time range",
-		Args:  cobra.NoArgs,
+		Long: `List traces in a time range. --start and --end are required.
+
+Filter with --service, --operation, --min-duration, --max-duration, --tags
+and --search. For conditions on any span attribute, use
+'oodle traces traceql search'.`,
+		Example: `  oodle traces list --start -1h --end now --service api --limit 20
+  oodle traces list --start -30m --end now --min-duration 2s -o json`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			start, err := parseTimeFlag(startStr)
 			if err != nil {
@@ -99,13 +116,17 @@ func newTracesListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			// The response is map[string]interface{}; render as JSON/YAML for
-			// structured formats and dump key/value pairs for tabular output.
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			if err := printBodyOrTable(cmd, resp.Body, traceRows(resp.JSON200), traceColumns); err != nil {
+				return err
+			}
+			if resp.JSON200.Data == nil || len(*resp.JSON200.Data) == 0 {
+				hintNoData(cmd, "traces", time.UnixMicro(start), time.UnixMicro(end))
+			}
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	cmd.Flags().StringVar(&service, "service", "", "Filter by service name")
 	cmd.Flags().StringVar(&operation, "operation", "", "Filter by operation name")
 	cmd.Flags().StringVar(&minDuration, "min-duration", "", "Minimum trace duration (e.g. 100ms, 1s)")
@@ -124,13 +145,14 @@ func newTracesGetCmd() *cobra.Command {
 		endStr   string
 	)
 	cmd := &cobra.Command{
-		Use:   "get <trace_id>",
-		Short: "Get a trace by ID",
-		Args:  exactArgs(1),
+		Use:     "get <trace_id>",
+		Short:   "Get a trace by ID",
+		Long:    "Get a trace by ID. --start and --end are required and must include the start time of the trace.",
+		Example: `  oodle traces get 4bf92f3577b34da6a3ce929d0e0e4736 --start -1h --end now -o json`,
+		Args:    exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			start, err := parseTimeFlag(startStr)
 			if err != nil {
@@ -155,15 +177,87 @@ func newTracesGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, nil)
+			return printBodyOrTable(cmd, resp.Body, traceRows(resp.JSON200), traceColumns)
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	_ = cmd.MarkFlagRequired("start")
 	_ = cmd.MarkFlagRequired("end")
 	return cmd
 }
+
+// traceRow is one trace in the table output of traces list and get.
+type traceRow struct {
+	TraceID   string
+	Service   string
+	Operation string
+	Start     string
+	Duration  string
+	Spans     string
+}
+
+var traceColumns = []output.Column{
+	{Header: "TRACE ID", Field: "TraceID"},
+	{Header: "ROOT SERVICE", Field: "Service"},
+	{Header: "ROOT OPERATION", Field: "Operation"},
+	{Header: "START (UTC)", Field: "Start"},
+	{Header: "DURATION", Field: "Duration"},
+	{Header: "SPANS", Field: "Spans"},
+}
+
+// traceRows makes one row for each trace. The root is the earliest span
+// whose parent is not in the trace, so a trace that is cut short still
+// shows a root. Span times are epoch microseconds. The duration runs from
+// the first span start to the last span end.
+func traceRows(resp *client.TracesResponse) []traceRow {
+	traces := deref(resp.Data)
+	rows := make([]traceRow, 0, len(traces))
+	for _, t := range traces {
+		spans := deref(t.Spans)
+		row := traceRow{TraceID: t.TraceID, Spans: strconv.Itoa(len(spans))}
+		if len(spans) == 0 {
+			rows = append(rows, row)
+			continue
+		}
+		ids := make(map[string]bool, len(spans))
+		for _, s := range spans {
+			ids[s.SpanID] = true
+		}
+		var root *client.TraceSpan
+		first, last := spans[0].StartTime, spans[0].StartTime+spans[0].Duration
+		for i := range spans {
+			s := &spans[i]
+			first = min(first, s.StartTime)
+			last = max(last, s.StartTime+s.Duration)
+			if s.ParentSpanID != "" && ids[s.ParentSpanID] {
+				continue
+			}
+			if root == nil || s.StartTime < root.StartTime {
+				root = s
+			}
+		}
+		if root != nil {
+			row.Operation = root.OperationName
+			if p, ok := deref(t.Processes)[root.ProcessID]; ok {
+				row.Service = p.ServiceName
+			}
+		}
+		row.Start = time.UnixMicro(int64(first)).UTC().Format("2006-01-02 15:04:05")
+		row.Duration = (time.Duration(last-first) * time.Microsecond).String()
+		rows = append(rows, row)
+	}
+	return rows
+}
+
+// traceLabelRangeNote explains the window that the label commands read.
+// Without it, an empty or short list reads as proof that a label does not
+// exist.
+const traceLabelRangeNote = `Only spans in the time range are read. Without --start, the server reads a
+short default window (about the last hour). The server can also limit the
+range to a fixed span (such as one day) before --end; to find older labels,
+move --end back. Set --start (for example --start -24h) before you decide
+that a label or value does not exist.`
 
 func newTracesLabelsCmd() *cobra.Command {
 	var (
@@ -171,9 +265,11 @@ func newTracesLabelsCmd() *cobra.Command {
 		endStr   string
 	)
 	cmd := &cobra.Command{
-		Use:   "labels",
-		Short: "List trace label names",
-		Args:  cobra.NoArgs,
+		Use:     "labels",
+		Short:   "List trace label names",
+		Long:    "List trace label names.\n\n" + traceLabelRangeNote,
+		Example: `  oodle traces labels --start -24h`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
@@ -205,11 +301,17 @@ func newTracesLabelsCmd() *cobra.Command {
 			if resp.JSON200 == nil || resp.JSON200.Data == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return printStringSlice(cmd, format, *resp.JSON200.Data, "Label")
+			if err := printStringSlice(cmd, format, *resp.JSON200.Data, "Label"); err != nil {
+				return err
+			}
+			if len(*resp.JSON200.Data) == 0 {
+				hintTraceLabelRange(cmd, "trace labels", params.Start, params.End)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return cmd
 }
 
@@ -226,7 +328,9 @@ func newTracesLabelValuesCmd() *cobra.Command {
 Trace labels carry a scope prefix, for example resource::service.name or
 span::http.method. Run 'oodle traces labels' to list them. A plain OpenTelemetry
 name such as service.name resolves to the scoped label when exactly one
-matches. An unknown label name fails with a suggestion.`,
+matches. An unknown label name fails with a suggestion.
+
+` + traceLabelRangeNote,
 		Example: `  oodle traces label-values resource::service.name --start -1h
   oodle traces label-values service.name`,
 		Args: exactArgs(1),
@@ -297,12 +401,34 @@ matches. An unknown label name fails with a suggestion.`,
 					}
 				}
 			}
-			return printStringSlice(cmd, format, values, "Value")
+			if err := printStringSlice(cmd, format, values, "Value"); err != nil {
+				return err
+			}
+			if len(values) == 0 {
+				hintTraceLabelRange(cmd, "values for "+label, params.Start, params.End)
+			}
+			return nil
 		},
 	}
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch microseconds, 'now', or relative like -1h)")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch microseconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	return cmd
+}
+
+// hintTraceLabelRange writes the empty-result hint for the trace label
+// commands. start and end are epoch microseconds, or nil when not set.
+func hintTraceLabelRange(cmd *cobra.Command, what string, start, end *int64) {
+	if start == nil {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"No %s in the default window (about the last hour). Set --start (for example --start -24h) before you decide that the data does not exist.\n",
+			what)
+		return
+	}
+	e := time.Now()
+	if end != nil {
+		e = time.UnixMicro(*end)
+	}
+	hintNoData(cmd, what, time.UnixMicro(*start), e)
 }
 
 // traceLabelScopes are the prefixes, in lookup order, that the traces API puts
