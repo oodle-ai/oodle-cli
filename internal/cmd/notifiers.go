@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/spf13/cobra"
@@ -42,7 +43,6 @@ func newNotifiersListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListNotifiersWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -54,7 +54,7 @@ func newNotifiersListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200, notifierListColumns)
+			return printBodyOrTable(cmd, resp.Body, *resp.JSON200, notifierListColumns)
 		},
 	}
 }
@@ -67,7 +67,6 @@ func newNotifiersGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetNotifiersByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -79,10 +78,7 @@ func newNotifiersGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Notifier{*resp.JSON200}, notifierListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notifierListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Notifier{*resp.JSON200}, notifierListColumns)
 		},
 	}
 }
@@ -92,18 +88,28 @@ func newNotifiersCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a notifier from a JSON/YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a notifier from a JSON/YAML file.
+
+Set "name", "type" and the config object that matches the type:
+  0 email_config       4 webhook_config
+  1 pagerduty_config   5 googlechat_config
+  2 slack_config       6 msteamsv2_config
+  3 opsgenie_config    7 rootly_config
+
+Run 'oodle notifiers get <id> -o json' on an existing notifier for a
+template.`,
+		Example: `  oodle notifiers create -f slack.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateNotifiersJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.CreateNotifiersWithResponse(cmd.Context(), instance, body)
+			resp, err := c.Inner.CreateNotifiersWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -113,10 +119,7 @@ func newNotifiersCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Notifier{*resp.JSON200}, notifierListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notifierListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Notifier{*resp.JSON200}, notifierListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with notifier definition")
@@ -129,18 +132,22 @@ func newNotifiersUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a notifier from a JSON/YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a notifier from a JSON or YAML file.
+
+The file replaces the notifier. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle notifiers get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.UpdateNotifiersByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
 
-			resp, err := c.Inner.UpdateNotifiersByIdWithResponse(cmd.Context(), instance, args[0], body)
+			resp, err := c.Inner.UpdateNotifiersByIdWithBodyWithResponse(cmd.Context(), instance, args[0], "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -150,10 +157,7 @@ func newNotifiersUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			if format == output.FormatTable || format == output.FormatCSV {
-				return output.Print(cmd.OutOrStdout(), format, []client.Notifier{*resp.JSON200}, notifierListColumns)
-			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, notifierListColumns)
+			return printBodyOrTable(cmd, resp.Body, []client.Notifier{*resp.JSON200}, notifierListColumns)
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON/YAML file with notifier definition")

@@ -1,12 +1,13 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
-	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -44,7 +45,6 @@ func newSyntheticMonitorsListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.ListSyntheticMonitorsOpWithResponse(cmd.Context(), instance)
 			if err != nil {
@@ -56,7 +56,14 @@ func newSyntheticMonitorsListCmd() *cobra.Command {
 			if resp.JSON200 == nil || resp.JSON200.Monitors == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, *resp.JSON200.Monitors, syntheticMonitorListColumns())
+			// Print the list from the body, so JSON output has every field.
+			var envelope struct {
+				Monitors json.RawMessage `json:"monitors"`
+			}
+			if err := json.Unmarshal(resp.Body, &envelope); err != nil {
+				return fmt.Errorf("parsing response: %w", err)
+			}
+			return printBodyOrTable(cmd, envelope.Monitors, *resp.JSON200.Monitors, syntheticMonitorListColumns())
 		},
 	}
 }
@@ -69,7 +76,6 @@ func newSyntheticMonitorsGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
 			resp, err := c.Inner.GetSyntheticMonitorsByIdWithResponse(cmd.Context(), instance, args[0])
 			if err != nil {
@@ -81,7 +87,7 @@ func newSyntheticMonitorsGetCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, syntheticMonitorListColumns())
+			return printBodyOrTable(cmd, resp.Body, resp.JSON200, syntheticMonitorListColumns())
 		},
 	}
 }
@@ -91,17 +97,21 @@ func newSyntheticMonitorsCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a synthetic monitor from a JSON or YAML file",
-		Args:  cobra.NoArgs,
+		Long: `Create a synthetic monitor from a JSON or YAML file.
+
+Run 'oodle synthetic-monitors get <id> -o json' on an existing synthetic monitor for a template.`,
+		Example: `  oodle synthetic-monitors create -f check.yaml`,
+		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.CreateSyntheticMonitorsJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
-			resp, err := c.Inner.CreateSyntheticMonitorsWithResponse(cmd.Context(), instance, body)
+
+			resp, err := c.Inner.CreateSyntheticMonitorsWithBodyWithResponse(cmd.Context(), instance, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -111,7 +121,7 @@ func newSyntheticMonitorsCreateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, syntheticMonitorListColumns())
+			return printBodyOrTable(cmd, resp.Body, resp.JSON200, syntheticMonitorListColumns())
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON or YAML file with the synthetic monitor (required)")
@@ -124,17 +134,22 @@ func newSyntheticMonitorsUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "update <id>",
 		Short: "Update a synthetic monitor from a JSON or YAML file",
-		Args:  exactArgs(1),
+		Long: `Update a synthetic monitor from a JSON or YAML file.
+
+The file replaces the synthetic monitor. It is sent to the server as it is (YAML is
+converted to JSON). To change one field, run 'oodle synthetic-monitors get <id> -o json',
+edit the output, and give it here.`,
+		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 			instance := getInstance(cmd)
-			format := getOutputFormat(cmd)
 
-			var body client.UpdateSyntheticMonitorsByIdJSONRequestBody
-			if err := readInputFile(file, &body); err != nil {
+			body, err := readInputFileJSON(file)
+			if err != nil {
 				return err
 			}
-			resp, err := c.Inner.UpdateSyntheticMonitorsByIdWithResponse(cmd.Context(), instance, args[0], body)
+
+			resp, err := c.Inner.UpdateSyntheticMonitorsByIdWithBodyWithResponse(cmd.Context(), instance, args[0], "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
@@ -144,7 +159,7 @@ func newSyntheticMonitorsUpdateCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("unexpected empty response")
 			}
-			return output.Print(cmd.OutOrStdout(), format, resp.JSON200, syntheticMonitorListColumns())
+			return printBodyOrTable(cmd, resp.Body, resp.JSON200, syntheticMonitorListColumns())
 		},
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON or YAML file with the updated synthetic monitor (required)")
