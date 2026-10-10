@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -231,6 +232,12 @@ func toRFC3339(value string) (string, error) {
 		}
 		return time.Now().UTC().Add(dur).Format(time.RFC3339), nil
 	}
+	if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+		// An epoch, as the other commands take. The unit is found from
+		// the magnitude.
+		ns := epochToUnit(n, 1e9)
+		return time.Unix(0, ns).UTC().Format(time.RFC3339), nil
+	}
 	if _, err := time.Parse(time.RFC3339, v); err != nil {
 		return "", timeFlagError(value)
 	}
@@ -240,8 +247,8 @@ func toRFC3339(value string) (string, error) {
 func timeFlagError(value string) error {
 	return fmt.Errorf(
 		"invalid time %q: expected RFC3339 "+
-			"(2026-08-12T00:00:00Z), 'now', or a relative "+
-			"duration like -24h or -7d",
+			"(2026-08-12T00:00:00Z), 'now', a relative "+
+			"duration like -24h or -7d, or an epoch",
 		value,
 	)
 }

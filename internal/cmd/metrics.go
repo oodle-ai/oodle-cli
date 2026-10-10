@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -33,8 +34,8 @@ type valueEntry struct {
 // same flag wiring, so this helper keeps them in lockstep.
 func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (epoch milliseconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	return func() (int64, int64, error) {
 		if startStr == "" {
 			startStr = defaultStartOffset
@@ -61,8 +62,8 @@ func addTimeRangeFlagsMs(cmd *cobra.Command) func() (start, end int64, err error
 // uses the seconds precision required by the Prometheus query_range API.
 func addTimeRangeFlagsSeconds(cmd *cobra.Command) func() (start, end float64, err error) {
 	var startStr, endStr string
-	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultStartOffset+" if omitted")
-	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (Unix seconds, 'now', or relative like -1h). Defaults to "+defaultEndValue+" if omitted")
+	cmd.Flags().StringVar(&startStr, "start", "", "Start timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultStartOffset+" if omitted")
+	cmd.Flags().StringVar(&endStr, "end", "", "End timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	return func() (float64, float64, error) {
 		if startStr == "" {
 			startStr = defaultStartOffset
@@ -83,6 +84,15 @@ func addTimeRangeFlagsSeconds(cmd *cobra.Command) func() (start, end float64, er
 }
 
 // newMetricsCmd returns the `oodle metrics` command tree.
+// metricsDiscoveryRangeNote explains that discovery reads only the time
+// range. Without it, an empty result for a sparse metric reads as proof that
+// the metric, label or value does not exist.
+const metricsDiscoveryRangeNote = `Only series that have samples between --start and --end are read. The
+default range is the last hour. A metric, label or value with no samples in
+the range is not listed, even if it exists. Metrics from rare events, such as
+log metrics or error counters, are often sparse: widen the range (for example
+--start -7d) before you decide that something does not exist.`
+
 func newMetricsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "metrics",
@@ -101,6 +111,7 @@ func newMetricsNamesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "names",
 		Short: "List metric names",
+		Long:  "List metric names.\n\n" + metricsDiscoveryRangeNote,
 		Args:  cobra.NoArgs,
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
@@ -127,7 +138,13 @@ func newMetricsNamesCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Name")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Name"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "metric names", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }
@@ -136,6 +153,7 @@ func newMetricsLabelsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "labels <metric_name>",
 		Short: "List label names for a metric",
+		Long:  "List label names for a metric.\n\n" + metricsDiscoveryRangeNote,
 		Args:  exactArgs(1),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
@@ -162,7 +180,13 @@ func newMetricsLabelsCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Label")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Label"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "labels for this metric", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }
@@ -171,6 +195,7 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "label-values <metric_name> <label_name>",
 		Short: "List values for a label of a metric",
+		Long:  "List values for a label of a metric.\n\n" + metricsDiscoveryRangeNote,
 		Args:  exactArgs(2),
 	}
 	parseTimeRange := addTimeRangeFlagsMs(cmd)
@@ -197,7 +222,13 @@ func newMetricsLabelValuesCmd() *cobra.Command {
 		if resp.JSON200 == nil {
 			return fmt.Errorf("unexpected empty response")
 		}
-		return printStringSlice(cmd, format, *resp.JSON200, "Value")
+		if err := printStringSlice(cmd, format, *resp.JSON200, "Value"); err != nil {
+			return err
+		}
+		if len(*resp.JSON200) == 0 {
+			hintNoData(cmd, "values for this label", time.UnixMilli(start), time.UnixMilli(end))
+		}
+		return nil
 	}
 	return cmd
 }
