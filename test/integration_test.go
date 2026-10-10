@@ -322,6 +322,65 @@ func TestLogsIndexPatterns(t *testing.T) {
 	}
 }
 
+// logIndexWithField returns the title of a log index pattern that has
+// field, or skips the test. The tests read real data, so they need an index
+// that the instance has.
+func logIndexWithField(t *testing.T, field string) string {
+	t.Helper()
+	stdout, stderr, code := runOodle(t, "logs", "index-patterns", "--output", "json")
+	if code != 0 {
+		t.Fatalf("index-patterns: exit %d\nstderr: %s", code, stderr)
+	}
+	var patterns []struct {
+		Title  string `json:"title"`
+		Fields []struct {
+			Name string `json:"name"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &patterns); err != nil {
+		t.Fatalf("parsing index-patterns output: %v", err)
+	}
+	for _, p := range patterns {
+		for _, f := range p.Fields {
+			if f.Name == field {
+				return p.Title
+			}
+		}
+	}
+	t.Skip("no log index pattern has field " + field)
+	return ""
+}
+
+func TestLogsFieldValues(t *testing.T) {
+	index := logIndexWithField(t, "container_name")
+	stdout, stderr, code := runOodle(t, "logs", "field-values", "container_name",
+		"--index", index, "--size", "3", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	var rows []struct {
+		Value string `json:"value"`
+		Count int64  `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("parsing output: %v\n%s", err, stdout)
+	}
+	if len(rows) > 3 {
+		t.Errorf("got %d rows, want at most 3", len(rows))
+	}
+}
+
+func TestLogsAggregateHistogramCountBy(t *testing.T) {
+	index := logIndexWithField(t, "container_name")
+	stdout, stderr, code := runOodle(t, "logs", "aggregate", "--index", index,
+		"--histogram", "10m", "--count-by", "container_name", "--size", "2",
+		"--start", "-30m", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
 func TestNotFoundError(t *testing.T) {
 	stdout, stderr, code := runOodle(t,
 		"monitors", "get",
