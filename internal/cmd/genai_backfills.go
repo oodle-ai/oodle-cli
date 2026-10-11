@@ -189,7 +189,7 @@ with one or more evaluators.
     --evaluator-id <evaluator-id> --start -7d --sample-rate 0.1
 
 --start and --end take a relative time (-7d, -12h), "now" or
-epoch microseconds. --end is "now" when you do not set it. The
+an epoch (s, ms, µs or ns). --end is "now" when you do not set it. The
 window cannot end in the future and is at most 90 days.
 
 --sample-rate reads that fraction of the spans (default 1, all
@@ -287,7 +287,7 @@ The run is queued and returns at once. Follow it with
 	f.StringVarP(&file, "file", "f", "", "JSON or YAML file with the request")
 	f.StringVar(&name, "name", "", "Name of the run")
 	f.StringSliceVar(&evaluatorIDs, "evaluator-id", nil, "Evaluator to run (repeatable)")
-	f.StringVar(&startStr, "start", "", "Start of the window (e.g. -7d, epoch microseconds)")
+	f.StringVar(&startStr, "start", "", "Start of the window (e.g. -7d, RFC3339, or epoch s/ms/µs/ns)")
 	f.StringVar(&endStr, "end", "", "End of the window (default now)")
 	f.Float64Var(&sampleRate, "sample-rate", 1, "Fraction of the spans to read, above 0 and at most 1")
 	f.DurationVar(&bucket, "bucket", time.Hour, "How often the run reports progress, at least 1h")

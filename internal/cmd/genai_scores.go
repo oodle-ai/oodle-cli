@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -102,15 +103,26 @@ func newGenAIScoresListCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return errEmptyResponse
 			}
-			return printGenAI(
-				cmd, deref(resp.JSON200.Data), scoreColumns,
-			)
+			data := deref(resp.JSON200.Data)
+			if err := printGenAI(cmd, data, scoreColumns); err != nil {
+				return err
+			}
+			if len(data) == 0 && pageNum == nil {
+				if startAt == "" {
+					fmt.Fprintln(cmd.ErrOrStderr(),
+						"No scores in the default window (the last 15 minutes). "+
+							"Set --start (for example --start -7d) before you decide that nothing was scored.")
+				} else if t, err := time.Parse(time.RFC3339, startAt); err == nil {
+					hintNoData(cmd, "scores", t, time.Now())
+				}
+			}
+			return nil
 		},
 	}
 	page.addTo(cmd)
 	cmd.Flags().StringVar(
 		&start, "start", "",
-		"Lower bound on score time: RFC3339, 'now', or a "+
+		"Lower bound on score time: RFC3339, 'now', an epoch, or a "+
 			"relative duration like -24h (default: 15m ago)",
 	)
 	cmd.Flags().StringVar(

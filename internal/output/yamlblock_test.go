@@ -22,6 +22,7 @@ func TestMarshalYAMLRoundTrips(t *testing.T) {
 		"x = 1 \n\n\n",                // more than one final newline
 		"x = 1 \ny = 2",               // no final newline
 		"\nx = 1 \n",                  // a leading empty line
+		"\nabsent(up == 1)\n",         // a leading line break, no trailing space
 		"a \n\n  b \n",                // an empty line, then indented text
 		"  indented first line \n",    // must stay quoted
 		"   \nx = 1 \n",               // a line of spaces first: quoted

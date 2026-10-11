@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -67,6 +68,41 @@ func readAndPrintQueryResponse(cmd *cobra.Command, format output.Format, httpRes
 	return printQueryResponse(cmd, format, httpResp, body)
 }
 
+// readAndPrintWithEmptyHint is readAndPrintQueryResponse, and then calls
+// onEmpty when the request worked and isEmpty reports that the body holds no
+// results.
+func readAndPrintWithEmptyHint(cmd *cobra.Command, format output.Format, httpResp *http.Response, isEmpty func([]byte) bool, onEmpty func()) error {
+	defer httpResp.Body.Close()
+	body, err := io.ReadAll(httpResp.Body)
+	if err != nil {
+		return fmt.Errorf("reading response: %w", err)
+	}
+	if err := printQueryResponse(cmd, format, httpResp, body); err != nil {
+		return err
+	}
+	if isEmpty(body) {
+		onEmpty()
+	}
+	return nil
+}
+
+// isEmptyPromResult reports whether a Prometheus query response is a
+// success with an empty vector or matrix.
+func isEmptyPromResult(body []byte) bool {
+	var resp struct {
+		Status string `json:"status"`
+		Data   struct {
+			ResultType string            `json:"resultType"`
+			Result     []json.RawMessage `json:"result"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &resp) != nil || resp.Status != "success" {
+		return false
+	}
+	t := resp.Data.ResultType
+	return (t == "vector" || t == "matrix") && len(resp.Data.Result) == 0
+}
+
 // newMetricsQueryCmd returns the `oodle metrics query` subcommand for
 // evaluating a PromQL expression at a single point in time.
 func newMetricsQueryCmd() *cobra.Command {
@@ -104,11 +140,15 @@ func newMetricsQueryCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
-			return readAndPrintQueryResponse(cmd, format, httpResp)
+			return readAndPrintWithEmptyHint(cmd, format, httpResp, isEmptyPromResult, func() {
+				fmt.Fprintln(cmd.ErrOrStderr(), "No series. An instant query reads only the last 5 minutes before --time. "+
+					"For sparse metrics, use 'oodle metrics query-range --start -7d', or a range function such as "+
+					"max_over_time(<query>[7d]).")
+			})
 		},
 	}
 	cmd.Flags().StringVar(&query, "query", "", "PromQL expression (e.g. sum(up))")
-	cmd.Flags().StringVar(&timeStr, "time", "", "Evaluation timestamp (Unix seconds, 'now', or relative like -1h)")
+	cmd.Flags().StringVar(&timeStr, "time", "", "Evaluation timestamp (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns)")
 	_ = cmd.MarkFlagRequired("query")
 	return cmd
 }
@@ -158,7 +198,9 @@ func newMetricsQueryRangeCmd() *cobra.Command {
 		if err != nil {
 			return fmt.Errorf("API request failed: %w", err)
 		}
-		return readAndPrintQueryResponse(cmd, format, httpResp)
+		return readAndPrintWithEmptyHint(cmd, format, httpResp, isEmptyPromResult, func() {
+			hintNoData(cmd, "series", time.Unix(0, int64(start*1e9)), time.Unix(0, int64(end*1e9)))
+		})
 	}
 	cmd.Flags().StringVar(&query, "query", "", "PromQL expression (e.g. sum(up))")
 	cmd.Flags().BoolVar(&partialResponse, "partial-response", false, "Return partial data if some stores are unavailable")
