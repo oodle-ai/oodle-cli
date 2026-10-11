@@ -44,6 +44,8 @@ func newMonitorsCmd() *cobra.Command {
 	cmd.AddCommand(newMonitorsDeleteCmd())
 	cmd.AddCommand(newMonitorsStateCmd())
 	cmd.AddCommand(newMonitorsTriggersCmd())
+	cmd.AddCommand(newMonitorsNoiseCmd())
+	cmd.AddCommand(newMonitorsNoiseBreakdownCmd())
 
 	cmd.AddCommand(newMonitorsTemplateFilesCmd())
 

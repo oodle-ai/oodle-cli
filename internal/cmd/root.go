@@ -33,6 +33,7 @@ var commandsSkippingConfig = map[string]bool{
 	"completion": true,
 	"skills":     true,
 	"mcp":        true,
+	"docs":       true,
 }
 
 // NewRootCmd builds the root cobra command tree.
@@ -99,14 +100,19 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	root.AddCommand(newDropRulesCmd())
 	root.AddCommand(newMetricsCmd())
 	root.AddCommand(newTracesCmd())
+	root.AddCommand(newAnomaliesCmd())
 	root.AddCommand(newGenAICmd())
 	root.AddCommand(newApiKeysCmd())
 	root.AddCommand(newUsersCmd())
 	root.AddCommand(newLogsCmd())
+	root.AddCommand(newRUMCmd())
+	root.AddCommand(newDBMCmd())
+	root.AddCommand(newProfilesCmd())
 	root.AddCommand(newIntegrationsCmd())
 	root.AddCommand(newGrafanaCmd())
 	root.AddCommand(newSkillsCmd())
 	root.AddCommand(newMcpCmd())
+	root.AddCommand(newDocsCmd())
 
 	return root
 }

@@ -16,15 +16,23 @@ import (
 )
 
 // newGenAICmd returns the `oodle genai` command tree: the
-// evaluation and prompt-management side of Agent Observability.
-// Reading GenAI telemetry stays under `oodle traces` and
+// evaluation and prompt-management side of Agent Observability,
+// and reads of GenAI traces. GenAI metrics stay under
 // `oodle metrics`.
 func newGenAICmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "genai",
 		Aliases: []string{"llmops", "ai"},
-		Short:   "Manage GenAI prompts, datasets, evaluators, and experiments",
-		Long: `Manage the evaluation side of Oodle Agent Observability.
+		Short:   "Read GenAI traces; manage prompts, datasets, evaluators, and experiments",
+		Long: `Read LLM and agent traces, and manage the evaluation side of Oodle
+Agent Observability.
+
+  traces       search LLM and agent traces, sessions and users
+  trace        one trace as a list of agent, model and tool steps
+  values       the fields and values to filter GenAI traces by
+  agent-graph  agents, tools and model calls, and the calls between them
+  recommendations
+               findings about the quality, cost and speed of your agents
 
   prompts      versioned prompts, resolved by label
   datasets     evaluation datasets and their items
@@ -48,6 +56,11 @@ A first run, end to end:
     --prompt-name my-prompt --connection-id <id> --model gpt-4o`,
 	}
 
+	cmd.AddCommand(newGenAITracesCmd())
+	cmd.AddCommand(newGenAITraceCmd())
+	cmd.AddCommand(newGenAIValuesCmd())
+	cmd.AddCommand(newGenAIAgentGraphCmd())
+	cmd.AddCommand(newGenAIRecommendationsCmd())
 	cmd.AddCommand(newGenAIPromptsCmd())
 	cmd.AddCommand(newGenAIDatasetsCmd())
 	cmd.AddCommand(newGenAITemplatesCmd())

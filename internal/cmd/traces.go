@@ -25,6 +25,8 @@ func newTracesCmd() *cobra.Command {
   list, get              Find traces with simple filters, or get one by ID.
   labels, label-values   List trace label names and their values.
   traceql                Run TraceQL search and metrics queries.
+  anomalies              Find periods with high error rates or slow spans.
+  apm-insights           List N+1 queries and sequential calls.
 
 Use 'oodle traces traceql --help' for TraceQL examples, and for how to alert
 on trace data.`,
@@ -34,6 +36,8 @@ on trace data.`,
 	cmd.AddCommand(newTracesLabelsCmd())
 	cmd.AddCommand(newTracesLabelValuesCmd())
 	cmd.AddCommand(newTracesTraceQLCmd())
+	cmd.AddCommand(newTracesAnomaliesCmd())
+	cmd.AddCommand(newTracesAPMInsightsCmd())
 	return cmd
 }
 
@@ -243,7 +247,7 @@ func traceRows(resp *client.TracesResponse) []traceRow {
 				row.Service = p.ServiceName
 			}
 		}
-		row.Start = time.UnixMicro(int64(first)).UTC().Format("2006-01-02 15:04:05")
+		row.Start = timeCell(time.UnixMicro(int64(first)))
 		row.Duration = (time.Duration(last-first) * time.Microsecond).String()
 		rows = append(rows, row)
 	}

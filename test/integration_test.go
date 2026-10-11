@@ -322,6 +322,65 @@ func TestLogsIndexPatterns(t *testing.T) {
 	}
 }
 
+// logIndexWithField returns the title of a log index pattern that has
+// field, or skips the test. The tests read real data, so they need an index
+// that the instance has.
+func logIndexWithField(t *testing.T, field string) string {
+	t.Helper()
+	stdout, stderr, code := runOodle(t, "logs", "index-patterns", "--output", "json")
+	if code != 0 {
+		t.Fatalf("index-patterns: exit %d\nstderr: %s", code, stderr)
+	}
+	var patterns []struct {
+		Title  string `json:"title"`
+		Fields []struct {
+			Name string `json:"name"`
+		} `json:"fields"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &patterns); err != nil {
+		t.Fatalf("parsing index-patterns output: %v", err)
+	}
+	for _, p := range patterns {
+		for _, f := range p.Fields {
+			if f.Name == field {
+				return p.Title
+			}
+		}
+	}
+	t.Skip("no log index pattern has field " + field)
+	return ""
+}
+
+func TestLogsFieldValues(t *testing.T) {
+	index := logIndexWithField(t, "container_name")
+	stdout, stderr, code := runOodle(t, "logs", "field-values", "container_name",
+		"--index", index, "--size", "3", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	var rows []struct {
+		Value string `json:"value"`
+		Count int64  `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(stdout), &rows); err != nil {
+		t.Fatalf("parsing output: %v\n%s", err, stdout)
+	}
+	if len(rows) > 3 {
+		t.Errorf("got %d rows, want at most 3", len(rows))
+	}
+}
+
+func TestLogsAggregateHistogramCountBy(t *testing.T) {
+	index := logIndexWithField(t, "container_name")
+	stdout, stderr, code := runOodle(t, "logs", "aggregate", "--index", index,
+		"--histogram", "10m", "--count-by", "container_name", "--size", "2",
+		"--start", "-30m", "--output", "json")
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d\nstderr: %s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+}
+
 func TestNotFoundError(t *testing.T) {
 	stdout, stderr, code := runOodle(t,
 		"monitors", "get",
@@ -389,4 +448,72 @@ func TestMetricsLabelValues_NoFlags(t *testing.T) {
 		t.Fatalf("expected exit 0 with no --start/--end flags, got %d\nstderr: %s", code, stderr)
 	}
 	assertValidJSON(t, stdout)
+}
+
+// The analysis commands are reads. Each must give JSON even when the
+// instance has no matching data.
+
+func TestAnomaliesList(t *testing.T) {
+	listJSONTest(t, "anomalies", "list")
+}
+
+func TestMonitorsNoise(t *testing.T) {
+	listJSONTest(t, "monitors", "noise", "--start", "-1d")
+}
+
+func TestMonitorsNoiseBreakdown(t *testing.T) {
+	listJSONTest(t, "monitors", "noise-breakdown", "--group-by", "namespace", "--start", "-1d")
+}
+
+func TestTracesAnomalies(t *testing.T) {
+	listJSONTest(t, "traces", "anomalies", "--service", "api", "--start", "-1h")
+}
+
+func TestTracesAPMInsights(t *testing.T) {
+	listJSONTest(t, "traces", "apm-insights")
+}
+
+// profilesTypes runs 'profiles types' and returns the type IDs. It skips the
+// test when the server does not serve the profiles route (404), because the
+// route is not on all deployments yet.
+func profilesTypes(t *testing.T) []string {
+	t.Helper()
+	stdout, stderr, code := runOodle(t, "profiles", "types", "--output", "json")
+	if code != 0 {
+		if strings.Contains(stderr, "404") || strings.Contains(stderr, "Not Found") {
+			t.Skip("the server does not serve the profiles route")
+		}
+		t.Fatalf("profiles types failed: code=%d stderr=%s", code, stderr)
+	}
+	assertValidJSON(t, stdout)
+	var types []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(stdout)), &types); err != nil {
+		t.Fatalf("profiles types JSON does not parse: %v", err)
+	}
+	ids := make([]string, 0, len(types))
+	for _, pt := range types {
+		ids = append(ids, pt.ID)
+	}
+	return ids
+}
+
+func TestProfilesTypes(t *testing.T) {
+	profilesTypes(t)
+}
+
+func TestProfilesLabels(t *testing.T) {
+	profilesTypes(t)
+	listJSONTest(t, "profiles", "labels")
+	listJSONTest(t, "profiles", "label-values", "service_name")
+}
+
+func TestProfilesSeriesAndFlamegraph(t *testing.T) {
+	ids := profilesTypes(t)
+	if len(ids) == 0 {
+		t.Skip("no profile types in this environment")
+	}
+	listJSONTest(t, "profiles", "series", "--type", ids[0], "--group-by", "service_name")
+	listJSONTest(t, "profiles", "flamegraph", "--type", ids[0], "--top", "5")
 }

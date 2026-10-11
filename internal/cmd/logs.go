@@ -25,6 +25,8 @@ func newLogsCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newLogsQueryCmd())
 	cmd.AddCommand(newLogsIndexPatternsCmd())
+	cmd.AddCommand(newLogsFieldValuesCmd())
+	cmd.AddCommand(newLogsAggregateCmd())
 	return cmd
 }
 

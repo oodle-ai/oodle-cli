@@ -48,9 +48,9 @@ func TestNewLogsCmd_Structure(t *testing.T) {
 	// Verify expected subcommands are registered.
 	subs := map[string]bool{}
 	for _, c := range cmd.Commands() {
-		subs[c.Use] = true
+		subs[c.Name()] = true
 	}
-	for _, want := range []string{"query", "index-patterns"} {
+	for _, want := range []string{"query", "index-patterns", "field-values", "aggregate"} {
 		if !subs[want] {
 			t.Errorf("missing subcommand %q; have %v", want, subs)
 		}
