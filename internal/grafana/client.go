@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/oodle-ai/oodle-cli/internal/useragent"
 )
 
 // Client is a Grafana API client
@@ -30,12 +31,14 @@ func NewClient(baseURL, token string) *Client {
 func createHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
+		// This transport is not the default one, so it does not get the
+		// User-Agent that Execute sets on the default transport.
+		Transport: useragent.Transport(&http.Transport{
 			TLSClientConfig: &tls.Config{
 				InsecureSkipVerify: true,
 			},
 			IdleConnTimeout: 90 * time.Second,
-		},
+		}),
 	}
 }
 
