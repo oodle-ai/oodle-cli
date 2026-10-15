@@ -1127,6 +1127,28 @@ Azure Monitor, ...) are recreated in Oodle with their original IDs so your
 dashboards keep working; configure their credentials from the Oodle UI after
 migration. Prometheus panels are repointed at Oodle's built-in data source.
 
+### New Relic Export — `oodle newrelic`
+
+Export every New Relic dashboard and alert (policies and NRQL conditions)
+visible to a user key into local JSON files, plus a `.tar.gz` of them. No Oodle
+credentials are needed. The key and URL are validated first; on failure the
+command explains which key to create.
+
+```sh
+oodle newrelic export --newrelic-api-key NRAK-XXXX
+# EU accounts
+oodle newrelic export --newrelic-api-key NRAK-XXXX --url https://api.eu.newrelic.com/graphql
+```
+
+Output layout: `dashboards/<guid>.json`, `alerts/<account>/policies/<id>.json`,
+`alerts/<account>/conditions/<id>.json`.
+
+| Flag                 | Description                                                  |
+|----------------------|--------------------------------------------------------------|
+| `--newrelic-api-key` | New Relic user key, `NRAK-...` (or `NEW_RELIC_API_KEY`)      |
+| `--url`              | NerdGraph URL (default `https://api.newrelic.com/graphql`)   |
+| `--out-dir`          | Output directory (default `newrelic-export-<timestamp>`)     |
+
 ### Other commands
 
 | Command       | Description                                    |
