@@ -490,7 +490,7 @@ oodle traces traceql metrics \
 
 # p95 span duration, as a chart
 oodle traces traceql metrics \
-  '{ resource.service.name="api" } | quantile_over_time(duration, .95)' -o graph
+  '{ resource.service.name="api" } | quantile_over_time(duration, 0.95)' -o graph
 
 # Attribute names and values to build a query
 oodle traces traceql tags --scope span
