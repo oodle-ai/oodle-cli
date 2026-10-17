@@ -89,7 +89,7 @@ Examples:
 
   # p95 span duration
   oodle traces traceql metrics \
-    '{ resource.service.name="api" } | quantile_over_time(duration, .95)'
+    '{ resource.service.name="api" } | quantile_over_time(duration, 0.95)'
 
 Supported metrics functions:
   rate(), count_over_time(), avg_over_time(field), min_over_time(field),
@@ -552,7 +552,7 @@ When --step is not set, the step is 1m, or a larger whole number of minutes
 that keeps the result at or below 300 points per series.`,
 		Example: `  oodle traces traceql metrics '{ resource.service.name="api" && status=error } | rate() by (span.http.route)'
   oodle traces traceql metrics '{ name=~"execute_tool.*" && duration > 10s } | count_over_time() by (span.gen_ai.tool.name)' --start -24h
-  oodle traces traceql metrics '{ resource.service.name="api" } | quantile_over_time(duration, .95)' --step 5m -o graph`,
+  oodle traces traceql metrics '{ resource.service.name="api" } | quantile_over_time(duration, 0.95)' --step 5m -o graph`,
 		Args: exactArgs(1),
 	}
 	parseRange := addTraceQLTimeFlags(cmd)
