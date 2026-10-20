@@ -29,9 +29,10 @@ func newNewRelicExportCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
 		Short: "Export all New Relic dashboards and alerts to a directory and .tar.gz",
-		Long: `Export every dashboard and alert (policies and NRQL conditions) visible to a
-New Relic user key, as JSON files in a local directory, then compress that
-directory into a .tar.gz next to it.
+		Long: `Export every dashboard and alert visible to a New Relic user key, as JSON
+files in a local directory, then compress that directory into a .tar.gz next
+to it. Alerts cover policies and NRQL, APM/browser/mobile, external service,
+synthetics, synthetics multi-location and infrastructure conditions.
 
 The key is read from --newrelic-api-key or NEW_RELIC_API_KEY. No Oodle
 credentials are needed.`,
@@ -81,10 +82,17 @@ credentials are needed.`,
 			fmt.Fprintf(out, "\nExport report:\n")
 			fmt.Fprintf(out, "  Dashboards exported:       %d\n", r.Dashboards)
 			fmt.Fprintf(out, "  Alert policies exported:   %d\n", r.Policies)
-			fmt.Fprintf(out, "  Alert conditions exported: %d (NRQL)\n", r.Conditions)
+			total := 0
+			for _, n := range r.Conditions {
+				total += n
+			}
+			fmt.Fprintf(out, "  Alert conditions exported: %d\n", total)
+			for _, k := range newrelic.ConditionKinds {
+				fmt.Fprintf(out, "    %-27s %d\n", k.Label+":", r.Conditions[k.Dir])
+			}
 			fmt.Fprintf(out, "  Accounts scanned:          %d\n", r.Accounts)
-			if len(r.AccountErrs) > 0 {
-				fmt.Fprintf(out, "  Accounts with alert errors: %d\n    %s\n", len(r.AccountErrs), strings.Join(r.AccountErrs, "\n    "))
+			if len(r.Warnings) > 0 {
+				fmt.Fprintf(out, "  Warnings: %d\n    %s\n", len(r.Warnings), strings.Join(r.Warnings, "\n    "))
 			}
 			fmt.Fprintf(out, "  Directory: %s\n  Archive:   %s\n", outDir, tarPath)
 			return nil

@@ -35,11 +35,14 @@ To create one:
 
 Docs: https://docs.newrelic.com/docs/apis/intro-apis/new-relic-api-keys/#user-key`
 
-// Client is a minimal NerdGraph client.
+// Client talks to NerdGraph plus the REST v2 and Infrastructure APIs, which
+// hold the alert condition types NerdGraph does not expose.
 type Client struct {
-	URL    string
-	APIKey string
-	HTTP   *http.Client
+	URL      string // NerdGraph
+	RESTURL  string // e.g. https://api.newrelic.com/v2
+	InfraURL string // e.g. https://infra-api.newrelic.com/v2
+	APIKey   string
+	HTTP     *http.Client
 }
 
 func NewClient(rawURL, apiKey string) (*Client, error) {
@@ -50,7 +53,13 @@ func NewClient(rawURL, apiKey string) (*Client, error) {
 	if strings.TrimSpace(apiKey) == "" {
 		return nil, fmt.Errorf("New Relic API key is empty")
 	}
-	return &Client{URL: rawURL, APIKey: apiKey, HTTP: &http.Client{Timeout: 60 * time.Second}}, nil
+	return &Client{
+		URL:      rawURL,
+		RESTURL:  u.Scheme + "://" + u.Host + "/v2",
+		InfraURL: u.Scheme + "://infra-" + u.Host + "/v2",
+		APIKey:   apiKey,
+		HTTP:     &http.Client{Timeout: 60 * time.Second},
+	}, nil
 }
 
 // query runs a GraphQL query and decodes its "data" into out.
@@ -120,16 +129,16 @@ func (c *Client) Validate(ctx context.Context) (string, error) {
 
 // Report counts what was written.
 type Report struct {
-	Dashboards  int
-	Policies    int
-	Conditions  int
-	Accounts    int
-	AccountErrs []string
+	Dashboards int
+	Policies   int
+	Conditions map[string]int // keyed by ConditionKinds Dir
+	Accounts   int
+	Warnings   []string
 }
 
 // Export writes dashboards and alerts as JSON files under dir.
 func (c *Client) Export(ctx context.Context, dir string, log io.Writer) (*Report, error) {
-	r := &Report{}
+	r := &Report{Conditions: map[string]int{}}
 	if err := c.exportDashboards(ctx, filepath.Join(dir, "dashboards"), r, log); err != nil {
 		return nil, fmt.Errorf("exporting dashboards: %w", err)
 	}
@@ -162,9 +171,6 @@ const dashboardFetchQuery = `query($guids: [EntityGuid]!) { actor { entities(gui
 } } } }`
 
 func (c *Client) exportDashboards(ctx context.Context, dir string, r *Report, log io.Writer) error {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
 	var guids []string
 	var cursor any
 	for {
@@ -245,6 +251,25 @@ const conditionsQuery = `query($id: Int!, $cursor: String) { actor { account(id:
   }
 } } } } }`
 
+// ConditionKinds lists every condition type exported, in report order; Dir is
+// its folder under alerts/<account>/.
+var ConditionKinds = []struct{ Dir, Label string }{
+	{"nrql_conditions", "NRQL"},
+	{"apm_conditions", "APM, browser and mobile"},
+	{"external_service_conditions", "External service"},
+	{"synthetics_conditions", "Synthetics"},
+	{"location_failure_conditions", "Synthetics multi-location"},
+	{"infra_conditions", "Infrastructure"},
+}
+
+// restKinds are the per-policy REST v2 condition endpoints; NerdGraph does not expose these types.
+var restKinds = []struct{ dir, path, key string }{
+	{"apm_conditions", "alerts_conditions.json?policy_id=%s", "conditions"},
+	{"external_service_conditions", "alerts_external_service_conditions.json?policy_id=%s", "external_service_conditions"},
+	{"synthetics_conditions", "alerts_synthetics_conditions.json?policy_id=%s", "synthetics_conditions"},
+	{"location_failure_conditions", "alerts_location_failure_conditions/policies/%s.json?policy_id=%s", "location_failure_conditions"},
+}
+
 func (c *Client) exportAlerts(ctx context.Context, dir string, r *Report, log io.Writer) error {
 	var d struct {
 		Actor struct {
@@ -260,32 +285,52 @@ func (c *Client) exportAlerts(ctx context.Context, dir string, r *Report, log io
 	r.Accounts = len(d.Actor.Accounts)
 	for _, a := range d.Actor.Accounts {
 		acctDir := filepath.Join(dir, fmt.Sprint(a.ID))
-		p, err := c.exportAlertKind(ctx, policiesQuery, "policiesSearch", "policies", a.ID, filepath.Join(acctDir, "policies"))
-		r.Policies += p
-		if err == nil {
-			var n int
-			n, err = c.exportAlertKind(ctx, conditionsQuery, "nrqlConditionsSearch", "nrqlConditions", a.ID, filepath.Join(acctDir, "conditions"))
-			r.Conditions += n
-		}
-		if err != nil {
-			// Keys often lack alert access on some accounts; keep exporting the rest.
-			msg := fmt.Sprintf("account %d (%s): %v", a.ID, a.Name, err)
-			r.AccountErrs = append(r.AccountErrs, msg)
-			_ = os.RemoveAll(acctDir)
+		// Keys often lack alert access on some accounts; warn and keep exporting the rest.
+		warn := func(what string, err error) {
+			msg := fmt.Sprintf("account %d (%s) %s: %v", a.ID, a.Name, what, err)
+			r.Warnings = append(r.Warnings, msg)
 			fmt.Fprintf(log, "  warning: %s\n", msg)
+		}
+
+		policyIDs, err := c.exportGraphQLList(ctx, policiesQuery, "policiesSearch", "policies", a.ID, filepath.Join(acctDir, "policies"))
+		r.Policies += len(policyIDs)
+		if err != nil {
+			warn("policies", err)
 			continue
 		}
-		fmt.Fprintf(log, "  alerts: account %d (%s) done\n", a.ID, a.Name)
+		ids, err := c.exportGraphQLList(ctx, conditionsQuery, "nrqlConditionsSearch", "nrqlConditions", a.ID, filepath.Join(acctDir, "nrql_conditions"))
+		r.Conditions["nrql_conditions"] += len(ids)
+		if err != nil {
+			warn("NRQL conditions", err)
+		}
+
+		for _, k := range restKinds {
+			for _, p := range policyIDs {
+				n, err := c.exportREST(ctx, c.RESTURL+"/"+strings.ReplaceAll(k.path, "%s", p), k.key, filepath.Join(acctDir, k.dir))
+				r.Conditions[k.dir] += n
+				if err != nil {
+					warn(k.dir, err)
+					break
+				}
+			}
+		}
+		for _, p := range policyIDs {
+			n, err := c.exportInfra(ctx, p, filepath.Join(acctDir, "infra_conditions"))
+			r.Conditions["infra_conditions"] += n
+			if err != nil {
+				warn("infra_conditions", err)
+				break
+			}
+		}
+		fmt.Fprintf(log, "  alerts: account %d (%s): %d policies\n", a.ID, a.Name, len(policyIDs))
 	}
 	return nil
 }
 
-// exportAlertKind pages through account.alerts.<search>.<list>, writing each item as <id>.json.
-func (c *Client) exportAlertKind(ctx context.Context, q, search, list string, accountID int, dir string) (int, error) {
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return 0, err
-	}
-	count := 0
+// exportGraphQLList pages through account.alerts.<search>.<list>, writing each
+// item as <id>.json, and returns the IDs written.
+func (c *Client) exportGraphQLList(ctx context.Context, q, search, list string, accountID int, dir string) ([]string, error) {
+	var ids []string
 	var cursor any
 	for {
 		var d struct {
@@ -296,39 +341,129 @@ func (c *Client) exportAlertKind(ctx context.Context, q, search, list string, ac
 			} `json:"actor"`
 		}
 		if err := c.query(ctx, q, map[string]any{"id": accountID, "cursor": cursor}, &d); err != nil {
-			return count, err
+			return ids, err
 		}
 		page := d.Actor.Account.Alerts[search]
-		var items []json.RawMessage
-		if err := json.Unmarshal(page[list], &items); err != nil && page[list] != nil {
-			return count, err
-		}
-		for _, it := range items {
-			var id struct {
-				ID string `json:"id"`
-			}
-			if json.Unmarshal(it, &id) != nil || id.ID == "" {
-				continue
-			}
-			if err := writeJSON(filepath.Join(dir, id.ID+".json"), it); err != nil {
-				return count, err
-			}
-			count++
+		written, err := writeItems(dir, page[list])
+		ids = append(ids, written...)
+		if err != nil {
+			return ids, err
 		}
 		var next *string
 		_ = json.Unmarshal(page["nextCursor"], &next)
 		if next == nil || *next == "" {
-			return count, nil
+			return ids, nil
 		}
 		cursor = *next
 	}
 }
 
+// exportREST pages a REST v2 list endpoint (?page=N, Link rel="next").
+func (c *Client) exportREST(ctx context.Context, endpoint, key, dir string) (int, error) {
+	n := 0
+	for page := 1; ; page++ {
+		body, hdr, err := c.get(ctx, fmt.Sprintf("%s&page=%d", endpoint, page))
+		if err != nil {
+			return n, err
+		}
+		var env map[string]json.RawMessage
+		if err := json.Unmarshal(body, &env); err != nil {
+			return n, fmt.Errorf("decoding %s: %w", key, err)
+		}
+		written, err := writeItems(dir, env[key])
+		n += len(written)
+		if err != nil || len(written) == 0 || !strings.Contains(hdr.Get("Link"), `rel="next"`) {
+			return n, err
+		}
+	}
+}
+
+// exportInfra pages the Infrastructure alerts API (offset/limit with meta.total).
+func (c *Client) exportInfra(ctx context.Context, policyID, dir string) (int, error) {
+	n := 0
+	for offset := 0; ; {
+		body, _, err := c.get(ctx, fmt.Sprintf("%s/alerts/conditions?policy_id=%s&offset=%d&limit=50", c.InfraURL, policyID, offset))
+		if err != nil {
+			return n, err
+		}
+		var env struct {
+			Data json.RawMessage `json:"data"`
+			Meta struct {
+				Total int `json:"total"`
+			} `json:"meta"`
+		}
+		if err := json.Unmarshal(body, &env); err != nil {
+			return n, fmt.Errorf("decoding infra conditions: %w", err)
+		}
+		written, err := writeItems(dir, env.Data)
+		n += len(written)
+		offset += len(written)
+		if err != nil || len(written) == 0 || offset >= env.Meta.Total {
+			return n, err
+		}
+	}
+}
+
+func (c *Client) get(ctx context.Context, u string) ([]byte, http.Header, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return nil, nil, err
+	}
+	req.Header.Set("Api-Key", c.APIKey)
+	resp, err := c.HTTP.Do(req)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, nil, err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return nil, nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, truncate(body))
+	}
+	return body, resp.Header, nil
+}
+
+// writeItems writes each element of a JSON array as dir/<id>.json and returns the IDs.
+func writeItems(dir string, list json.RawMessage) ([]string, error) {
+	if len(list) == 0 || string(list) == "null" {
+		return nil, nil
+	}
+	var items []json.RawMessage
+	if err := json.Unmarshal(list, &items); err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, it := range items {
+		var v struct {
+			ID json.RawMessage `json:"id"`
+		}
+		// IDs are strings in NerdGraph and numbers in the REST APIs.
+		id := ""
+		if json.Unmarshal(it, &v) == nil {
+			id = strings.Trim(string(v.ID), `"`)
+		}
+		if id == "" || id == "null" {
+			continue
+		}
+		if err := writeJSON(filepath.Join(dir, id+".json"), it); err != nil {
+			return ids, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, nil
+}
+
+// writeJSON creates the parent directory on demand so empty kinds leave no folder.
 func writeJSON(path string, raw json.RawMessage) error {
 	var buf bytes.Buffer
 	if err := json.Indent(&buf, raw, "", "  "); err != nil {
 		return err
 	}
 	buf.WriteByte('\n')
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
 	return os.WriteFile(path, buf.Bytes(), 0o644)
 }

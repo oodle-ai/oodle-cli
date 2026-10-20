@@ -1129,8 +1129,10 @@ migration. Prometheus panels are repointed at Oodle's built-in data source.
 
 ### New Relic Export — `oodle newrelic`
 
-Export every New Relic dashboard and alert (policies and NRQL conditions)
-visible to a user key into local JSON files, plus a `.tar.gz` of them. No Oodle
+Export every New Relic dashboard and alert visible to a user key into local
+JSON files, plus a `.tar.gz` of them. Alerts cover policies and NRQL,
+APM/browser/mobile, external service, synthetics, synthetics multi-location
+and infrastructure conditions. No Oodle
 credentials are needed. The key and URL are validated first; on failure the
 command explains which key to create.
 
@@ -1140,8 +1142,10 @@ oodle newrelic export --newrelic-api-key NRAK-XXXX
 oodle newrelic export --newrelic-api-key NRAK-XXXX --url https://api.eu.newrelic.com/graphql
 ```
 
-Output layout: `dashboards/<guid>.json`, `alerts/<account>/policies/<id>.json`,
-`alerts/<account>/conditions/<id>.json`.
+Output layout: `dashboards/<guid>.json`, `alerts/<account>/policies/<id>.json`
+and `alerts/<account>/<kind>/<id>.json`, where `<kind>` is one of
+`nrql_conditions`, `apm_conditions`, `external_service_conditions`,
+`synthetics_conditions`, `location_failure_conditions` or `infra_conditions`.
 
 | Flag                 | Description                                                  |
 |----------------------|--------------------------------------------------------------|
