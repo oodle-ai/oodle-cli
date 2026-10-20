@@ -105,6 +105,7 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 	root.AddCommand(newLogsCmd())
 	root.AddCommand(newIntegrationsCmd())
 	root.AddCommand(newGrafanaCmd())
+	root.AddCommand(newNewRelicCmd())
 	root.AddCommand(newSkillsCmd())
 	root.AddCommand(newMcpCmd())
 
