@@ -271,6 +271,7 @@ func (c *Client) exportAlerts(ctx context.Context, dir string, r *Report, log io
 			// Keys often lack alert access on some accounts; keep exporting the rest.
 			msg := fmt.Sprintf("account %d (%s): %v", a.ID, a.Name, err)
 			r.AccountErrs = append(r.AccountErrs, msg)
+			_ = os.RemoveAll(acctDir)
 			fmt.Fprintf(log, "  warning: %s\n", msg)
 			continue
 		}

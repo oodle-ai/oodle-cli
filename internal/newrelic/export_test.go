@@ -83,4 +83,7 @@ func TestExport(t *testing.T) {
 			t.Errorf("missing %s", p)
 		}
 	}
+	if _, err := os.Stat(filepath.Join(dir, "alerts/2")); !os.IsNotExist(err) {
+		t.Error("failed account should leave no directory")
+	}
 }
