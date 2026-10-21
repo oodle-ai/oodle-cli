@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/config"
 	"github.com/oodle-ai/oodle-cli/internal/output"
+	"github.com/oodle-ai/oodle-cli/internal/useragent"
 )
 
 // Persistent flag values; populated by cobra during parsing.
@@ -151,6 +153,12 @@ func forceFlag(cmd *cobra.Command) bool {
 
 // Execute is the package entry point invoked by main.
 func Execute() {
+	// Every HTTP client in the CLI uses the default transport, or wraps
+	// it. Setting the User-Agent here covers a client added later too,
+	// which a header set at each call site would miss.
+	useragent.SetVersion(version)
+	http.DefaultTransport = useragent.Transport(http.DefaultTransport)
+
 	root := NewRootCmd()
 	if err := root.Execute(); err != nil {
 		msg := strings.TrimPrefix(err.Error(), "Error: ")

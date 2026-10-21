@@ -20,6 +20,7 @@ import (
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/config"
+	"github.com/oodle-ai/oodle-cli/internal/useragent"
 )
 
 type agentKind int
@@ -291,7 +292,19 @@ func verifyMcpSetup(ctx context.Context, cfg *config.Config, deployment, toolset
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	reqBody := []byte(`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-03-26","capabilities":{},"clientInfo":{"name":"oodle-cli","version":"1.0.0"}}}`)
+	reqBody, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0",
+		"id":      1,
+		"method":  "initialize",
+		"params": map[string]any{
+			"protocolVersion": "2025-03-26",
+			"capabilities":    map[string]any{},
+			"clientInfo":      map[string]any{"name": "oodle-cli", "version": version},
+		},
+	})
+	if err != nil {
+		return err
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpointURL, bytes.NewReader(reqBody))
 	if err != nil {
 		return err
@@ -411,6 +424,10 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 
 	var wg sync.WaitGroup
 
+	// Names the agent behind this proxy on every request. Without it the
+	// server sees only the proxy and cannot tell which agent sent a call.
+	userAgent := useragent.ForMCPClient("", "")
+
 	for scanner.Scan() {
 		line := scanner.Bytes()
 		if len(bytes.TrimSpace(line)) == 0 {
@@ -421,8 +438,15 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 		lineCopy := make([]byte, len(line))
 		copy(lineCopy, line)
 
+		// Read the agent name here, not in the goroutine. The agent waits
+		// for the initialize response before it sends another request, so
+		// every later request gets the new value.
+		if name, version, ok := initializeClientInfo(lineCopy); ok {
+			userAgent = useragent.ForMCPClient(name, version)
+		}
+
 		wg.Add(1)
-		go func(line []byte) {
+		go func(line []byte, userAgent string) {
 			defer wg.Done()
 
 			// Extract JSON-RPC id for error responses.
@@ -443,6 +467,7 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 			}
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json, text/event-stream")
+			req.Header.Set("User-Agent", userAgent)
 			sessionMu.Lock()
 			if sessionID != "" {
 				req.Header.Set("Mcp-Session-Id", sessionID)
@@ -508,7 +533,7 @@ func runMcpProxyLoop(ctx context.Context, in io.Reader, out io.Writer, errOut io
 				}
 				outMu.Unlock()
 			}
-		}(lineCopy)
+		}(lineCopy, userAgent)
 	}
 
 	wg.Wait()
@@ -546,6 +571,24 @@ func relaySSE(body io.ReadCloser, out io.Writer) error {
 		_, _ = fmt.Fprintln(out, dataBuf.String())
 	}
 	return scanner.Err()
+}
+
+// initializeClientInfo returns the clientInfo of an MCP initialize request.
+// ok is false for any other message.
+func initializeClientInfo(line []byte) (name, version string, ok bool) {
+	var msg struct {
+		Method string `json:"method"`
+		Params struct {
+			ClientInfo struct {
+				Name    string `json:"name"`
+				Version string `json:"version"`
+			} `json:"clientInfo"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(line, &msg) != nil || msg.Method != "initialize" {
+		return "", "", false
+	}
+	return msg.Params.ClientInfo.Name, msg.Params.ClientInfo.Version, true
 }
 
 func writeJSONRPCError(out io.Writer, id interface{}, code int, message string) {
