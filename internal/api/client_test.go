@@ -558,3 +558,85 @@ func TestNoContentWithJSONContentType(t *testing.T) {
 		t.Errorf("status = %d", resp.StatusCode())
 	}
 }
+
+// newRefreshFailureServer returns a server whose token endpoint always rejects
+// the refresh and that records whether an authenticated API request arrives.
+func newRefreshFailureServer(t *testing.T) (srv *httptest.Server, apiRequestSeen *atomic.Bool, seenAPIKey *atomic.Value, seenAuth *atomic.Value) {
+	t.Helper()
+	requestSeen := &atomic.Bool{}
+	apiKey := &atomic.Value{}
+	auth := &atomic.Value{}
+	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/oauth/token" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+			return
+		}
+		requestSeen.Store(true)
+		apiKey.Store(r.Header.Get("X-API-Key"))
+		auth.Store(r.Header.Get("Authorization"))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`[]`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, requestSeen, apiKey, auth
+}
+
+// TestAuthEditorSurfacesRefreshError covers an OAuth-only user (no API key
+// configured) whose stored access token is expired and whose refresh fails.
+// The editor must return the refresh error instead of silently sending an
+// empty X-API-Key header and letting the server answer 401.
+func TestAuthEditorSurfacesRefreshError(t *testing.T) {
+	srv, requestSeen, seenAPIKey, _ := newRefreshFailureServer(t)
+
+	cfg := &config.Config{
+		OAuthAccessToken:  "expired-access",
+		OAuthRefreshToken: "revoked-refresh",
+		OAuthTokenExpiry:  time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339),
+		OAuthClientID:     "client-id",
+		Instance:          "demo",
+		APIURL:            srv.URL,
+		OAuthAuthServer:   srv.URL,
+	}
+
+	c, err := NewClient(cfg, 0)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	if _, err := c.Inner.ListApiKeysWithResponse(context.Background(), "demo"); err == nil {
+		t.Fatal("expected the refresh error to surface, got nil")
+	}
+	if requestSeen.Load() {
+		t.Fatalf("an API request was sent with X-API-Key %q after the refresh failed", seenAPIKey.Load())
+	}
+}
+
+// TestAuthEditorDoesNotSendAPIKeyOnRefreshError covers a user who configured
+// both an API key and OAuth credentials. OAuth is the configured method, so a
+// refresh failure must surface rather than silently downgrading to the API key.
+func TestAuthEditorDoesNotSendAPIKeyOnRefreshError(t *testing.T) {
+	srv, requestSeen, seenAPIKey, _ := newRefreshFailureServer(t)
+
+	cfg := &config.Config{
+		APIKey:            "configured-api-key",
+		OAuthAccessToken:  "expired-access",
+		OAuthRefreshToken: "revoked-refresh",
+		OAuthTokenExpiry:  time.Now().Add(-1 * time.Hour).UTC().Format(time.RFC3339),
+		OAuthClientID:     "client-id",
+		Instance:          "demo",
+		APIURL:            srv.URL,
+		OAuthAuthServer:   srv.URL,
+	}
+
+	c, err := NewClient(cfg, 0)
+	if err != nil {
+		t.Fatalf("NewClient: %v", err)
+	}
+	if _, err := c.Inner.ListApiKeysWithResponse(context.Background(), "demo"); err == nil {
+		t.Fatal("expected the refresh error to surface, got nil")
+	}
+	if requestSeen.Load() {
+		t.Fatalf("an API request was sent with X-API-Key %q after the refresh failed", seenAPIKey.Load())
+	}
+}
