@@ -56,9 +56,15 @@ func runConfigure(cmd *cobra.Command, flags *rootFlags) error {
 		apiURL:   apiURL != "",
 	}
 
-	// Check for existing config to use as a fallback. These only seed the
-	// prompt defaults – they do not count as supplied.
-	if existing, err := loadExistingConfig(); err == nil && existing != nil {
+	// Read any existing config. It seeds the prompt defaults and preserves the
+	// fields that 'configure' does not manage (OAuth credentials and the
+	// deployment slug), so re-configuring the API key does not log the user out
+	// or drop their deployment. These defaults do not count as supplied.
+	existing, err := loadExistingConfig()
+	if err != nil {
+		existing = nil
+	}
+	if existing != nil {
 		if apiKey == "" {
 			apiKey = existing.APIKey
 		}
@@ -94,7 +100,15 @@ func runConfigure(cmd *cobra.Command, flags *rootFlags) error {
 		apiURL = config.DefaultAPIURL
 	}
 
-	cfg := &config.Config{APIKey: apiKey, Instance: instance, APIURL: apiURL}
+	// Start from the existing config so the fields configure does not manage
+	// survive, then apply the resolved values.
+	cfg := &config.Config{}
+	if existing != nil {
+		*cfg = *existing
+	}
+	cfg.APIKey = apiKey
+	cfg.Instance = instance
+	cfg.APIURL = apiURL
 	if err := cfg.Save(); err != nil {
 		return err
 	}
