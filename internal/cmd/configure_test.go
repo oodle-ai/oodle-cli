@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/oodle-ai/oodle-cli/internal/config"
 )
 
@@ -104,5 +106,64 @@ func TestRunConfigure_FlagsOnlyWritesConfig(t *testing.T) {
 		if !strings.Contains(saved, want) {
 			t.Errorf("saved config missing %q; got: %s", want, saved)
 		}
+	}
+}
+
+// TestRunConfigure_PreservesOAuthAndDeployment checks that re-configuring the
+// API key does not drop stored OAuth credentials or the deployment slug. A user
+// who ran 'oodle auth login' and then runs the documented
+// 'oodle configure --instance <> --api-key <>' must stay logged in.
+func TestRunConfigure_PreservesOAuthAndDeployment(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	for _, name := range []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_DEPLOYMENT", "OODLE_API_URL"} {
+		t.Setenv(name, "")
+	}
+
+	seed := config.Config{
+		APIKey:            "old-key",
+		OAuthAccessToken:  "access-token",
+		OAuthRefreshToken: "refresh-token",
+		OAuthTokenExpiry:  "2030-01-02T03:04:05Z",
+		OAuthClientID:     "client-id",
+		OAuthAuthServer:   "https://auth.example.test",
+		Deployment:        "us1",
+		Instance:          "old-instance",
+		APIURL:            "https://old.example.test",
+	}
+	if err := seed.Save(); err != nil {
+		t.Fatalf("seeding config: %v", err)
+	}
+
+	root := NewRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetIn(strings.NewReader(""))
+	root.SetArgs([]string{"configure", "--api-key", "new-key", "--instance", "new-instance",
+		"--api-url", "http://127.0.0.1:1", "--retries", "0"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("configure: %v", err)
+	}
+
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("reading saved config: %v", err)
+	}
+	var got config.Config
+	if err := yaml.Unmarshal(data, &got); err != nil {
+		t.Fatalf("parsing saved config: %v", err)
+	}
+
+	if got.APIKey != "new-key" || got.Instance != "new-instance" || got.APIURL != "http://127.0.0.1:1" {
+		t.Errorf("configure did not apply supplied values: %+v", got)
+	}
+	if got.OAuthAccessToken != "access-token" || got.OAuthRefreshToken != "refresh-token" ||
+		got.OAuthTokenExpiry != "2030-01-02T03:04:05Z" || got.OAuthClientID != "client-id" ||
+		got.OAuthAuthServer != "https://auth.example.test" {
+		t.Errorf("configure dropped OAuth credentials: %+v", got)
+	}
+	if got.Deployment != "us1" {
+		t.Errorf("deployment = %q, want us1", got.Deployment)
 	}
 }
