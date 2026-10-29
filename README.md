@@ -1120,6 +1120,7 @@ oodle grafana migrate --grafana-url ... --grafana-token ... --skip-import
 | `--grafana-token` | Grafana service account token (required)                       |
 | `--include-tags`  | Only migrate dashboards with these tags; empty migrates all    |
 | `--overwrite`     | Overwrite existing dashboards and data sources (default `true`)|
+| `--insecure-skip-tls-verify` | Skip TLS certificate verification when connecting to Grafana (use only for a self-signed certificate) |
 | `--skip-import`   | Export and upload only; review and import from the Oodle UI    |
 
 Non-Prometheus data sources (CloudWatch, Cloud Monitoring, Athena, BigQuery,
