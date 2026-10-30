@@ -27,6 +27,7 @@ type agentKind int
 const (
 	agentKindClaudeCode agentKind = iota
 	agentKindCodex
+	agentKindCursor
 )
 
 func newMcpCmd() *cobra.Command {
@@ -56,6 +57,7 @@ func newMcpSetupCmd() *cobra.Command {
 	var deployment string
 	var name string
 	var toolsets string
+	var scope string
 
 	cmd := &cobra.Command{
 		Use:   "setup <agent>",
@@ -63,28 +65,63 @@ func newMcpSetupCmd() *cobra.Command {
 		Long: `Patches the agent's configuration file to register an Oodle MCP server
 that runs as a local stdio proxy (oodle mcp serve).
 
-Supported agents: codex, claude-code
+Supported agents: codex, claude-code, cursor
+
+For Claude Code, --scope picks the file: "user" (the default, every project),
+"local" (this project, only for you) or "project" (.mcp.json in this project,
+shared through git). Cursor gets an OAuth entry in ~/.cursor/mcp.json; the
+other entries of that file are kept.
 
 Examples:
   oodle mcp setup codex --deployment ap1
   oodle mcp setup claude-code -d us1 --name my-oodle
+  oodle mcp setup claude-code -d us1 --scope project
+  oodle mcp setup cursor -d eu1
   oodle mcp setup codex -d ap1 --toolsets metrics,logs`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMcpSetup(cmd, args[0], deployment, name, toolsets)
+			return runMcpSetup(cmd, args[0], deployment, name, toolsets, scope)
 		},
 	}
 	cmd.Flags().StringVarP(&deployment, "deployment", "d", "", "Deployment (us1, ap1, eu1, or full URL)")
 	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name in agent config")
 	cmd.Flags().StringVar(&toolsets, "toolsets", "", "Comma-separated list of toolsets to expose (e.g. metrics,logs)")
+	cmd.Flags().StringVar(&scope, "scope", "user", "Claude Code config scope: user, local or project")
 	_ = cmd.MarkFlagRequired("deployment")
 	return cmd
 }
 
-func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) error {
+// loadMcpSetupConfig reads the saved login, then applies --instance and
+// OODLE_INSTANCE, so that a user with logins for several instances can
+// choose one, as every other command allows.
+func loadMcpSetupConfig(cmd *cobra.Command) (*config.Config, error) {
+	cfg, err := loadExistingConfig()
+	if err != nil || cfg == nil {
+		return cfg, err
+	}
+	if v, _ := cmd.Flags().GetString("instance"); v != "" {
+		cfg.Instance = v
+	} else if v := os.Getenv("OODLE_INSTANCE"); v != "" {
+		cfg.Instance = v
+	}
+	return cfg, nil
+}
+
+func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets, scope string) error {
 	out := cmd.OutOrStdout()
 
-	cfg, err := loadExistingConfig()
+	switch scope {
+	case "user", "local", "project":
+	default:
+		return fmt.Errorf("unsupported scope %q; supported: user, local, project", scope)
+	}
+	if _, kind, err := mcpAgentConfigPath(agent, scope); err != nil {
+		return err
+	} else if kind != agentKindClaudeCode && scope != "user" {
+		return fmt.Errorf("--scope applies only to claude-code")
+	}
+
+	cfg, err := loadMcpSetupConfig(cmd)
 	if err != nil {
 		return fmt.Errorf("loading config: %w", err)
 	}
@@ -94,7 +131,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) e
 			return fmt.Errorf("login failed: %w", err)
 		}
 		// Reload config after successful login.
-		cfg, err = loadExistingConfig()
+		cfg, err = loadMcpSetupConfig(cmd)
 		if err != nil {
 			return fmt.Errorf("loading config after login: %w", err)
 		}
@@ -103,12 +140,12 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) e
 		}
 	}
 
-	path, kind, err := mcpAgentConfigPath(agent)
+	path, kind, err := mcpAgentConfigPath(agent, scope)
 	if err != nil {
 		return err
 	}
 
-	if err := patchAgentConfig(kind, name, deployment, cfg.Instance, toolsets); err != nil {
+	if err := patchAgentConfig(kind, name, deployment, cfg.Instance, toolsets, scope); err != nil {
 		return fmt.Errorf("patching %s config: %w", agent, err)
 	}
 
@@ -133,6 +170,7 @@ func runMcpSetup(cmd *cobra.Command, agent, deployment, name, toolsets string) e
 
 func newMcpRemoveCmd() *cobra.Command {
 	var name string
+	var scope string
 
 	cmd := &cobra.Command{
 		Use:   "remove <agent>",
@@ -140,29 +178,40 @@ func newMcpRemoveCmd() *cobra.Command {
 		Long: `Removes a previously registered Oodle MCP server from the agent's
 configuration file.
 
-Supported agents: codex, claude-code
+Supported agents: codex, claude-code, cursor
 
 Examples:
   oodle mcp remove codex
-  oodle mcp remove claude-code --name my-oodle`,
+  oodle mcp remove claude-code --name my-oodle
+  oodle mcp remove claude-code --scope project`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runMcpRemove(cmd, args[0], name)
+			return runMcpRemove(cmd, args[0], name, scope)
 		},
 	}
 	cmd.Flags().StringVar(&name, "name", "oodle-ai", "MCP server name to remove")
+	cmd.Flags().StringVar(&scope, "scope", "", "Claude Code config scope: user, local or project (default: whichever has the server)")
 	return cmd
 }
 
-func runMcpRemove(cmd *cobra.Command, agent, name string) error {
+func runMcpRemove(cmd *cobra.Command, agent, name, scope string) error {
 	out := cmd.OutOrStdout()
 
-	_, kind, err := mcpAgentConfigPath(agent)
+	switch scope {
+	case "", "user", "local", "project":
+	default:
+		return fmt.Errorf("unsupported scope %q; supported: user, local, project", scope)
+	}
+
+	_, kind, err := mcpAgentConfigPath(agent, scope)
 	if err != nil {
 		return err
 	}
+	if kind != agentKindClaudeCode && scope != "" {
+		return fmt.Errorf("--scope applies only to claude-code")
+	}
 
-	if err := removeAgentMcp(kind, name); err != nil {
+	if err := removeAgentMcp(kind, name, scope); err != nil {
 		return fmt.Errorf("removing MCP server from %s config: %w", agent, err)
 	}
 
@@ -171,12 +220,22 @@ func runMcpRemove(cmd *cobra.Command, agent, name string) error {
 	return nil
 }
 
-func removeAgentMcp(kind agentKind, name string) error {
+func removeAgentMcp(kind agentKind, name, scope string) error {
 	switch kind {
 	case agentKindClaudeCode:
-		return runAgentCLI(findClaudeBinary(), "mcp", "remove", name)
+		args := []string{"mcp", "remove"}
+		if scope != "" {
+			args = append(args, "--scope", scope)
+		}
+		return runAgentCLI(findClaudeBinary(), append(args, name)...)
 	case agentKindCodex:
 		return runAgentCLI(findCodexBinary(), "mcp", "remove", name)
+	case agentKindCursor:
+		path, _, err := mcpAgentConfigPath("cursor", scope)
+		if err != nil {
+			return err
+		}
+		return editCursorMcpConfig(path, name, nil)
 	default:
 		return fmt.Errorf("unknown agent kind %d", kind)
 	}
@@ -188,38 +247,51 @@ func agentDisplayName(agent string) string {
 		return "Claude Code"
 	case "codex":
 		return "Codex"
+	case "cursor":
+		return "Cursor"
 	default:
 		return agent
 	}
 }
 
-func mcpAgentConfigPath(agent string) (string, agentKind, error) {
+// mcpAgentConfigPath returns the file that the agent's MCP server entry
+// goes into. For Claude Code the scope decides it: `claude mcp add` writes
+// user and local servers to ~/.claude.json, and project servers to
+// .mcp.json in the current directory.
+func mcpAgentConfigPath(agent, scope string) (string, agentKind, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", 0, fmt.Errorf("determining home directory: %w", err)
 	}
 	switch strings.ToLower(strings.TrimSpace(agent)) {
 	case "claude-code", "claude":
-		return filepath.Join(home, ".claude", "settings.json"), agentKindClaudeCode, nil
+		if scope == "project" {
+			return ".mcp.json", agentKindClaudeCode, nil
+		}
+		return filepath.Join(home, ".claude.json"), agentKindClaudeCode, nil
 	case "codex":
 		return filepath.Join(home, ".codex", "config.toml"), agentKindCodex, nil
+	case "cursor":
+		return filepath.Join(home, ".cursor", "mcp.json"), agentKindCursor, nil
 	default:
-		return "", 0, fmt.Errorf("unsupported agent %q; supported: codex, claude-code", agent)
+		return "", 0, fmt.Errorf("unsupported agent %q; supported: codex, claude-code, cursor", agent)
 	}
 }
 
-func patchAgentConfig(kind agentKind, name, deployment, instance, toolsets string) error {
+func patchAgentConfig(kind agentKind, name, deployment, instance, toolsets, scope string) error {
 	switch kind {
 	case agentKindClaudeCode:
-		return patchClaudeCodeConfig(name, deployment, instance, toolsets)
+		return patchClaudeCodeConfig(name, deployment, instance, toolsets, scope)
 	case agentKindCodex:
 		return patchCodexConfig(name, deployment, toolsets)
+	case agentKindCursor:
+		return patchCursorConfig(name, deployment, toolsets)
 	default:
 		return fmt.Errorf("unknown agent kind %d", kind)
 	}
 }
 
-func patchClaudeCodeConfig(name, deployment, instance, toolsets string) error {
+func patchClaudeCodeConfig(name, deployment, instance, toolsets, scope string) error {
 	domain, err := normalizeDomain(deployment)
 	if err != nil {
 		return err
@@ -243,9 +315,10 @@ func patchClaudeCodeConfig(name, deployment, instance, toolsets string) error {
 	// Use `claude mcp add` so Claude Code's own CLI manages the config file.
 	// Remove first to make the operation idempotent.
 	claudeBin := findClaudeBinary()
-	_ = runAgentCLI(claudeBin, "mcp", "remove", name)
+	_ = runAgentCLI(claudeBin, "mcp", "remove", "--scope", scope, name)
 
 	return runAgentCLI(claudeBin, "mcp", "add",
+		"--scope", scope,
 		name, endpointURL,
 		"--transport", "http",
 		"--client-id", clientID,

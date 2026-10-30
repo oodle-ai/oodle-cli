@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -86,17 +87,20 @@ func TestFindCodexBinary(t *testing.T) {
 func TestMcpAgentConfigPath(t *testing.T) {
 	tests := []struct {
 		agent   string
+		scope   string
 		wantDir string
 		kind    agentKind
 		wantErr bool
 	}{
-		{"codex", ".codex", agentKindCodex, false},
-		{"claude-code", ".claude", agentKindClaudeCode, false},
-		{"claude", ".claude", agentKindClaudeCode, false},
-		{"unknown", "", 0, true},
+		{"codex", "user", ".codex", agentKindCodex, false},
+		{"claude-code", "user", ".claude.json", agentKindClaudeCode, false},
+		{"claude", "local", ".claude.json", agentKindClaudeCode, false},
+		{"claude-code", "project", ".mcp.json", agentKindClaudeCode, false},
+		{"cursor", "user", filepath.Join(".cursor", "mcp.json"), agentKindCursor, false},
+		{"unknown", "user", "", 0, true},
 	}
 	for _, tt := range tests {
-		path, kind, err := mcpAgentConfigPath(tt.agent)
+		path, kind, err := mcpAgentConfigPath(tt.agent, tt.scope)
 		if tt.wantErr {
 			if err == nil {
 				t.Errorf("mcpAgentConfigPath(%q) expected error", tt.agent)

@@ -14708,8 +14708,8 @@ type TestNotifierResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON422      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
-	JSON502      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
 
@@ -23974,19 +23974,19 @@ func ParseTestNotifierResponse(rsp *http.Response) (*TestNotifierResponse, error
 		}
 		response.JSON404 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 422:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON422 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
 		response.JSON500 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
-		var dest OodleUtilHttputilsModelsErrors
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON502 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest OodleUtilHttputilsModelsErrors

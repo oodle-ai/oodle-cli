@@ -32,7 +32,7 @@ func TestNewIntegrationsCmd_Structure(t *testing.T) {
 		t.Errorf("Aliases = %v, want %v", cmd.Aliases, wantAliases)
 	}
 
-	wantSubs := []string{"aws", "azure", "get-setup-spec", "list", "list-setup-specs"}
+	wantSubs := []string{"aws", "azure", "get-setup-spec", "import-assets", "list", "list-setup-specs", "remove-assets", "s3-logs"}
 	got := subcommandNames(cmd)
 	if strings.Join(got, ",") != strings.Join(wantSubs, ",") {
 		t.Errorf("subcommands = %v, want %v", got, wantSubs)
@@ -297,6 +297,12 @@ func TestIntegrationsGetSetupSpec_NotFound(t *testing.T) {
 // without any authentication configured — it builds a minimal client from the
 // --api-url flag.
 func TestIntegrationsGetSetupSpec_NoAuth(t *testing.T) {
+	// The command fills in instance values when a login is found, so
+	// hide any login of the user who runs the tests.
+	t.Setenv("OODLE_CONFIG", filepath.Join(t.TempDir(), "config.yaml"))
+	for _, name := range []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_OAUTH_ACCESS_TOKEN", "OODLE_OAUTH_REFRESH_TOKEN"} {
+		t.Setenv(name, "")
+	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Verify no auth header is sent.
 		if auth := r.Header.Get("Authorization"); auth != "" {
@@ -404,10 +410,10 @@ func TestIntegrationsGetSetupSpec_UsesConfigFileAPIURL(t *testing.T) {
 // TestSetupSpecColumns verifies the column definitions for list-setup-specs.
 func TestSetupSpecColumns(t *testing.T) {
 	cols := setupSpecColumns()
-	if len(cols) != 2 {
-		t.Fatalf("expected 2 columns, got %d", len(cols))
+	if len(cols) != 3 {
+		t.Fatalf("expected 3 columns, got %d", len(cols))
 	}
-	wantHeaders := []string{"TYPE", "DESCRIPTION"}
+	wantHeaders := []string{"TYPE", "SIGNALS", "DESCRIPTION"}
 	for i, col := range cols {
 		if col.Header != wantHeaders[i] {
 			t.Errorf("column %d: Header = %q, want %q", i, col.Header, wantHeaders[i])

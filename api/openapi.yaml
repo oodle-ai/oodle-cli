@@ -13022,7 +13022,7 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-        "502":
+        "422":
           description: ""
           content:
             application/json:
