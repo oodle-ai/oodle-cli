@@ -72,6 +72,21 @@ oodle monitors list
 oodle monitors list -o json
 ```
 
+### Set up a coding agent for Oodle onboarding
+
+`oodle setup` installs the Oodle agent skills at user level for each coding
+agent on the machine, logs the CLI in, and offers to start `/oodle-onboarding`
+in Claude Code or Codex. It needs Node.js 22.20 or later and git.
+
+```bash
+oodle setup
+oodle setup --deployment eu1 --integration otel
+oodle setup --agent claude-code --agent cursor   # only these agents
+```
+
+`curl -fsSL https://www.oodle.ai/skills.sh | bash` installs the CLI and then
+runs `oodle setup` with the same flags.
+
 ---
 
 ## Authentication
