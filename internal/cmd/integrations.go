@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -73,7 +74,11 @@ func integrationColumns() []output.Column {
 }
 
 func newIntegrationsGetSetupSpecCmd() *cobra.Command {
-	return &cobra.Command{
+	var (
+		method  string
+		summary bool
+	)
+	cmd := &cobra.Command{
 		Use:   "get-setup-spec <integration-type>",
 		Short: "Get the setup specification for an integration type",
 		Long: `Returns the structured setup specification for the given integration type.
@@ -81,24 +86,28 @@ func newIntegrationsGetSetupSpecCmd() *cobra.Command {
 Contains requirements, parameters, setup methods with step-by-step instructions,
 config templates, and validation hints.
 
-This endpoint does not require authentication.`,
+This endpoint does not require authentication. When you are logged in, the
+command fills in the values of your instance: {{instanceId}}, {{apiUrl}},
+{{collectorDomain}}, {{logsCollectorDomain}}, {{otlpCollectorDomain}} and
+{{apiDomain}}. The API key is a secret, so {{apiKey}} stays as it is. The
+"filledValues" field names the values that were filled.
+
+Use --summary to see only the setup methods (label, recommended, whenToUse),
+then --method to get the steps of the method you use.`,
+		Example: `  oodle integrations get-setup-spec ecs --summary
+  oodle integrations get-setup-spec ecs --method firelens_oodle_config -o json`,
 		Args: exactArgs(1),
 		Annotations: map[string]string{
 			skipConfigAnnotation: "true",
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := getClient(cmd)
+			if method != "" && summary {
+				return fmt.Errorf("use --method or --summary, not both")
+			}
 			format := getOutputFormat(cmd)
-
-			// When running without auth/config (the normal case for this
-			// unauthenticated endpoint), build a minimal client from
-			// --api-url / env / default URL.
-			if c == nil {
-				var err error
-				c, err = newUnauthenticatedClient(cmd)
-				if err != nil {
-					return err
-				}
+			c, cfg, err := loadSetupSpecClient(cmd)
+			if err != nil {
+				return err
 			}
 
 			resp, err := c.Inner.GetIntegrationSetupSpec(cmd.Context(), args[0])
@@ -120,9 +129,41 @@ This endpoint does not require authentication.`,
 			if err := json.Unmarshal(body, &spec); err != nil {
 				return fmt.Errorf("parsing response: %w", err)
 			}
+
+			switch {
+			case summary:
+				summarizeSetupSpec(spec)
+			case method != "":
+				if err := selectSetupMethod(spec, method); err != nil {
+					return err
+				}
+			}
+
+			// Without a login the spec keeps its placeholders, which is
+			// still correct: each one names the source of its value.
+			// A failure to get them is not a reason to withhold the spec.
+			if cfg != nil {
+				values, err := instanceSetupValues(cmd, c, cfg)
+				if err != nil {
+					fmt.Fprintf(cmd.ErrOrStderr(),
+						"Note: the values of instance %s are not filled in: %v\n",
+						cfg.Instance, err)
+				} else {
+					spec["filledValues"] = fillSetupSpec(spec, values)
+					if missing := missingDomainValues(values); len(missing) > 0 {
+						fmt.Fprintf(cmd.ErrOrStderr(),
+							"Note: instance %s has no integration record, so %s stay as placeholders. "+
+								"Copy them from any integration card in the Oodle UI.\n",
+							cfg.Instance, strings.Join(missing, ", "))
+					}
+				}
+			}
 			return output.Print(cmd.OutOrStdout(), format, spec, nil)
 		},
 	}
+	cmd.Flags().StringVar(&method, "method", "", "Show only this setup method")
+	cmd.Flags().BoolVar(&summary, "summary", false, "Show the setup methods without their steps")
+	return cmd
 }
 
 func newIntegrationsListSetupSpecsCmd() *cobra.Command {
@@ -130,7 +171,10 @@ func newIntegrationsListSetupSpecsCmd() *cobra.Command {
 		Use:   "list-setup-specs",
 		Short: "List all available integration setup specs",
 		Long: `Returns a list of all available integration types that have a setup spec.
-Each entry contains the type slug and description. Includes aliases.
+Each entry contains the type slug, the description, and the discovery fields:
+signals (the data the integration gives), detect (what in a repo or an
+environment shows that it applies) and related (other specs to read instead,
+or as well). Includes aliases.
 
 This endpoint does not require authentication.`,
 		Args: cobra.NoArgs,
@@ -174,6 +218,7 @@ This endpoint does not require authentication.`,
 func setupSpecColumns() []output.Column {
 	return []output.Column{
 		{Header: "TYPE", Field: "type"},
+		{Header: "SIGNALS", Field: "signals"},
 		{Header: "DESCRIPTION", Field: "description"},
 	}
 }
