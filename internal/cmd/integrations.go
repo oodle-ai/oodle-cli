@@ -95,8 +95,9 @@ command fills in the values of your instance: {{instanceId}}, {{apiUrl}},
 {{apiDomain}}. The API key is a secret, so {{apiKey}} stays as it is. The
 "filledValues" field names the values that were filled.
 
-Use --summary to see only the setup methods (label, recommended, whenToUse),
-then --method to get the steps of the method you use.`,
+Use --summary to see only the setup methods (label, recommended, whenToUse)
+and the decisionTree that picks one, then --method to get the steps of the
+method you use.`,
 		Example: `  oodle integrations get-setup-spec ecs --summary
   oodle integrations get-setup-spec ecs --method firelens_oodle_config -o json`,
 		Args: exactArgs(1),

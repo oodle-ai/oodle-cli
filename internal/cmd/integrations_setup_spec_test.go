@@ -14,6 +14,10 @@ import (
 func testSetupSpec() map[string]interface{} {
 	return map[string]interface{}{
 		"type": "ecs",
+		"decisionTree": []interface{}{
+			map[string]interface{}{"if": "A Datadog Agent runs", "use": "datadog"},
+			map[string]interface{}{"use": "firelens"},
+		},
 		"setupMethods": map[string]interface{}{
 			"firelens": map[string]interface{}{
 				"label":       "FireLens",
@@ -79,6 +83,10 @@ func TestSummarizeSetupSpec(t *testing.T) {
 	}
 	if firelens["recommended"] != true || firelens["whenToUse"] != "ECS tasks" {
 		t.Errorf("summary lost the choice fields: %v", firelens)
+	}
+	// The agent picks the method from the tree, so the summary keeps it.
+	if tree, _ := spec["decisionTree"].([]interface{}); len(tree) != 2 {
+		t.Errorf("summary lost the decision tree: %v", spec["decisionTree"])
 	}
 }
 
