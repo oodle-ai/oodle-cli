@@ -1,7 +1,16 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
+	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/client"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync/atomic"
 	"testing"
 )
 
@@ -378,5 +387,69 @@ func TestQueryContainsTimestampRange_SkipsInjection(t *testing.T) {
 	}
 	if lte, _ := ts["lte"].(float64); int64(lte) != 1700003600000 {
 		t.Errorf("lte = %v, want 1700003600000", ts["lte"])
+	}
+}
+
+func TestLogsQueryRejectsLongRangeBeforeHTTP(t *testing.T) {
+	for _, flags := range [][]string{
+		{},
+		{"--start", "2024-01-01T00:00:00Z", "--end", "2024-01-11T00:00:00Z"},
+	} {
+		t.Run(strings.Join(flags, " "), func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "query.ndjson")
+			body := `{"index":"logs"}
+{"query":{"range":{"timestamp":{"gte":1704067200000,"lte":1704931200000,"format":"epoch_millis"}}},"size":100}
+`
+			if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cmd := newLogsQueryCmd()
+			cmd.SetArgs(append([]string{"-f", path}, flags...))
+			// No HTTP client is configured: an admitted request would panic.
+			err := cmd.Execute()
+			want := "Log query time range exceeds the maximum allowed duration of 7 days. Narrow the time range to 7 days or less."
+			if err == nil || err.Error() != want {
+				t.Fatalf("got %v, want %s", err, want)
+			}
+		})
+	}
+}
+
+func TestLogsQueryAdmittedRequests(t *testing.T) {
+	for _, tt := range []struct {
+		name, query string
+		flags       []string
+	}{
+		{"default hour", `{"match_all":{}}`, nil},
+		{"exact seven day flags", `{"match_all":{}}`, []string{"--start", "-7d", "--end", "now"}},
+		{"historical body", `{"range":{"timestamp":{"gte":1704067200000,"lte":1704672000000}}}`, nil},
+		{"relative body", `{"range":{"timestamp":{"gte":"now-7d","lte":"now"}}}`, nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var calls atomic.Int32
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"responses":[{"hits":{"hits":[{"_id":"1"}]}}]}`))
+			}))
+			defer srv.Close()
+			inner, err := client.NewClientWithResponses(srv.URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			path := filepath.Join(t.TempDir(), "query.ndjson")
+			if err := os.WriteFile(path, []byte("{\"index\":\"logs\"}\n{\"query\":"+tt.query+"}\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			cmd := newLogsQueryCmd()
+			cmd.SetContext(withClient(context.Background(), &api.Client{Inner: inner}))
+			cmd.SetArgs(append([]string{"-f", path}, tt.flags...))
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if calls.Load() != 1 {
+				t.Fatalf("got %d requests", calls.Load())
+			}
+		})
 	}
 }
