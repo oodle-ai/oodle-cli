@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+
+	"github.com/spf13/cobra"
 )
 
 func TestAgentPrompt(t *testing.T) {
@@ -95,5 +97,114 @@ func TestChooseAgent(t *testing.T) {
 	got, ok := chooseAgent(bufio.NewReader(strings.NewReader("\n")), &bytes.Buffer{}, agents[:1], "app")
 	if !ok || got.name != "claude-code" {
 		t.Errorf("one agent: got %q %v", got.name, ok)
+	}
+}
+
+func TestSameDeployment(t *testing.T) {
+	for _, tc := range []struct {
+		a, b string
+		want bool
+	}{
+		{"us1", "https://us1.oodle.ai", true},
+		{"us1.oodle.ai", "https://us1.oodle.ai/", true},
+		{"https://prod-02-us-west-2.api.oodle.ai", "us1", true},
+		{"https://us1.oodle.ai", "app-dev.oodle.ai", false},
+		{"us1", "ap1", false},
+		{"", "us1", false},
+		{"", "", false},
+	} {
+		if got := sameDeployment(tc.a, tc.b); got != tc.want {
+			t.Errorf("sameDeployment(%q, %q) = %v, want %v", tc.a, tc.b, got, tc.want)
+		}
+	}
+}
+
+func TestHasBrowserLogin(t *testing.T) {
+	for _, tc := range []struct {
+		deployment string
+		want       bool
+	}{
+		{"us1", true},
+		{"https://eu1.oodle.ai", true},
+		{"app-dev.oodle.ai", false},
+		{"https://oodle.example.com", false},
+	} {
+		if got := hasBrowserLogin(tc.deployment); got != tc.want {
+			t.Errorf("hasBrowserLogin(%q) = %v, want %v", tc.deployment, got, tc.want)
+		}
+	}
+}
+
+// runSetupLogin runs setupLogin with a saved config and no terminal, and
+// returns the step that it gives and what it printed.
+func runSetupLogin(t *testing.T, config []string, deployment string) (string, string) {
+	t.Helper()
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte(strings.Join(config, "\n")+"\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	for _, v := range []string{"OODLE_API_KEY", "OODLE_INSTANCE", "OODLE_DEPLOYMENT",
+		"OODLE_API_URL", "OODLE_URL", "OODLE_OAUTH_ACCESS_TOKEN", "OODLE_OAUTH_REFRESH_TOKEN"} {
+		t.Setenv(v, "")
+	}
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	step := setupLogin(cmd, &rootFlags{}, deployment)
+	return step, out.String()
+}
+
+func TestSetupLoginKeepsLoginForSameDeployment(t *testing.T) {
+	step, out := runSetupLogin(t, []string{
+		"api_key: k", "instance: inst-a", "api_url: https://us1.oodle.ai",
+	}, "us1")
+	if step != "" {
+		t.Errorf("step = %q, want none", step)
+	}
+	if !strings.Contains(out, "logged in to us1.oodle.ai (instance inst-a)") {
+		t.Errorf("output does not name the deployment and instance: %q", out)
+	}
+}
+
+func TestSetupLoginRejectsLoginForOtherDeployment(t *testing.T) {
+	step, out := runSetupLogin(t, []string{
+		"api_key: k", "instance: inst-a", "api_url: https://us1.oodle.ai",
+	}, "eu1")
+	if !strings.Contains(out, "logged in to us1.oodle.ai, not to eu1.oodle.ai") {
+		t.Errorf("output does not name both deployments: %q", out)
+	}
+	if strings.Contains(out, "✓") {
+		t.Errorf("output reports a login: %q", out)
+	}
+	if step != "Log in to Oodle: oodle auth login --deployment eu1" {
+		t.Errorf("step = %q", step)
+	}
+}
+
+func TestSetupLoginGivesAPIKeyStepWithoutBrowserLogin(t *testing.T) {
+	step, out := runSetupLogin(t, []string{
+		"api_key: k", "instance: inst-a", "api_url: https://us1.oodle.ai",
+	}, "app-dev.oodle.ai")
+	if !strings.Contains(out, "app-dev.oodle.ai has no browser login") {
+		t.Errorf("output does not say that there is no browser login: %q", out)
+	}
+	if strings.Contains(step, "oodle auth login") || !strings.Contains(step, "oodle configure --api-url app-dev.oodle.ai") {
+		t.Errorf("step = %q, want the API key step", step)
+	}
+}
+
+func TestSetupLoginAcceptsAPIKeyFromEnvironment(t *testing.T) {
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	t.Setenv("OODLE_API_KEY", "k")
+	t.Setenv("OODLE_INSTANCE", "inst-dev")
+	t.Setenv("OODLE_DEPLOYMENT", "https://app-dev.oodle.ai")
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	if step := setupLogin(cmd, &rootFlags{}, "app-dev.oodle.ai"); step != "" {
+		t.Errorf("step = %q, want none; output %q", step, out.String())
 	}
 }
