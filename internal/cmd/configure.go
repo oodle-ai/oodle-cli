@@ -90,6 +90,7 @@ func runConfigure(cmd *cobra.Command, flags *rootFlags) error {
 	if instance == "" {
 		return fmt.Errorf("instance is required (use --instance or set OODLE_INSTANCE)")
 	}
+	apiURL = config.NormalizeAPIURL(apiURL)
 	if apiURL == "" {
 		apiURL = config.DefaultAPIURL
 	}

@@ -232,7 +232,7 @@ func authLoginStep(deployment string) string {
 }
 
 func apiKeyStep(deployment string) string {
-	return "Log in with an API key: oodle configure --api-url " + deployment +
+	return "Log in with an API key: oodle configure --api-url https://" + deploymentHost(deployment) +
 		" --api-key <key> --instance <instance-id>"
 }
 

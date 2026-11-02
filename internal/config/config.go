@@ -91,6 +91,7 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 	}
 
 	// Defaults.
+	cfg.APIURL = NormalizeAPIURL(cfg.APIURL)
 	if cfg.APIURL == "" {
 		cfg.APIURL = DefaultAPIURL
 	}
@@ -111,12 +112,29 @@ func LoadConfig(flagAPIKey, flagInstance, flagAPIURL string) (*Config, error) {
 // config resolution (e.g. unauthenticated endpoints).
 func ResolveAPIURL() string {
 	if url := resolveAPIURLEnv(); url != "" {
-		return url
+		return NormalizeAPIURL(url)
 	}
 	if fileCfg, err := loadConfigFile(); err == nil && fileCfg != nil && fileCfg.APIURL != "" {
-		return strings.TrimRight(fileCfg.APIURL, "/")
+		return NormalizeAPIURL(fileCfg.APIURL)
 	}
 	return DefaultAPIURL
+}
+
+// NormalizeAPIURL makes a full API URL from a deployment name, host or URL.
+// The help names "us1" and plain hosts as deployments, but the HTTP client
+// fails on a URL without a scheme. An empty value stays empty.
+func NormalizeAPIURL(s string) string {
+	s = strings.TrimRight(strings.TrimSpace(s), "/")
+	switch strings.ToLower(s) {
+	case "":
+		return ""
+	case "us1", "ap1", "eu1":
+		return "https://" + strings.ToLower(s) + ".oodle.ai"
+	}
+	if !strings.Contains(s, "://") {
+		return "https://" + s
+	}
+	return s
 }
 
 func resolveAPIURLEnv() string {

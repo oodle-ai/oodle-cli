@@ -190,7 +190,7 @@ func TestSetupLoginGivesAPIKeyStepWithoutBrowserLogin(t *testing.T) {
 	if !strings.Contains(out, "app-dev.oodle.ai has no browser login") {
 		t.Errorf("output does not say that there is no browser login: %q", out)
 	}
-	if strings.Contains(step, "oodle auth login") || !strings.Contains(step, "oodle configure --api-url app-dev.oodle.ai") {
+	if strings.Contains(step, "oodle auth login") || !strings.Contains(step, "oodle configure --api-url https://app-dev.oodle.ai ") {
 		t.Errorf("step = %q, want the API key step", step)
 	}
 }
