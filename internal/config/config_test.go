@@ -359,3 +359,39 @@ func TestOAuthExpiryTime(t *testing.T) {
 		t.Fatal("OAuthExpiryTime should return ok=false for invalid value")
 	}
 }
+
+func TestNormalizeAPIURL(t *testing.T) {
+	for in, want := range map[string]string{
+		"":                        "",
+		"us1":                     "https://us1.oodle.ai",
+		"EU1":                     "https://eu1.oodle.ai",
+		"app-dev.oodle.ai":        "https://app-dev.oodle.ai",
+		"oodle.example.com/":      "https://oodle.example.com",
+		"https://us1.oodle.ai/":   "https://us1.oodle.ai",
+		"http://localhost:8080":   "http://localhost:8080",
+		"  https://ap1.oodle.ai ": "https://ap1.oodle.ai",
+	} {
+		if got := NormalizeAPIURL(in); got != want {
+			t.Errorf("NormalizeAPIURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+// A config that `oodle configure --api-url <host>` saved before the fix has
+// a host without a scheme. Requests must still work with it.
+func TestLoadConfig_HostWithoutScheme(t *testing.T) {
+	withCleanEnv(t)
+	path := writeConfigFile(t, "api_key: k\ninstance: i\napi_url: oodle.example.com\n")
+	os.Setenv("OODLE_CONFIG", path)
+	cfg, err := LoadConfig("", "", "")
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if cfg.APIURL != "https://oodle.example.com" {
+		t.Errorf("APIURL = %q", cfg.APIURL)
+	}
+	os.Setenv("OODLE_DEPLOYMENT", "us1")
+	if got := ResolveAPIURL(); got != "https://us1.oodle.ai" {
+		t.Errorf("ResolveAPIURL with OODLE_DEPLOYMENT=us1 = %q", got)
+	}
+}

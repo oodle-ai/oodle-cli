@@ -103,15 +103,14 @@ func runSetup(cmd *cobra.Command, flags *rootFlags, opts *setupOptions) error {
 	fmt.Fprintln(out, "✓ Oodle skills installed")
 
 	loginStep := ""
-	if !opts.noLogin && !setupLogin(cmd, flags, opts.deployment) {
-		loginStep = "Log in to Oodle: oodle auth login"
-		if opts.deployment != "" {
-			loginStep += " --deployment " + opts.deployment
-		}
+	if !opts.noLogin {
+		loginStep = setupLogin(cmd, flags, opts.deployment)
 	}
 
 	startable := startableAgents(agents)
-	if !opts.noOnboarding && project != "" && len(startable) > 0 && hasTerminal() {
+	// Without a login for the deployment, the agent works in another
+	// deployment or not at all. Show the login step first instead.
+	if !opts.noOnboarding && loginStep == "" && project != "" && len(startable) > 0 && hasTerminal() {
 		if agent, ok := chooseAgent(in, out, startable, filepath.Base(project)); ok {
 			return startAgent(agent, project, opts.integration)
 		}
@@ -137,32 +136,104 @@ func runSetup(cmd *cobra.Command, flags *rootFlags, opts *setupOptions) error {
 	return nil
 }
 
-// setupLogin logs the CLI in when it has no credentials that it can use, and
-// reports whether the CLI is logged in after this step.
-func setupLogin(cmd *cobra.Command, flags *rootFlags, deployment string) bool {
+// setupLogin logs the CLI in when it has no credentials that it can use for
+// the deployment. It returns the step that the user must still do, or "" when
+// the CLI is logged in after this step.
+func setupLogin(cmd *cobra.Command, flags *rootFlags, deployment string) string {
 	out := cmd.OutOrStdout()
 	existing, _ := loadExistingConfig()
-	if loggedIn(computeAuthStatus(existing, flags)) {
-		fmt.Fprintln(out, "✓ Oodle CLI logged in")
-		return true
+	status := computeAuthStatus(existing, flags)
+	if loggedIn(status) {
+		// A login for another deployment does not count. Onboarding would
+		// then set up the integration in the wrong deployment.
+		if deployment == "" || sameDeployment(status.APIURL, deployment) {
+			fmt.Fprintf(out, "✓ Oodle CLI logged in to %s\n", loginTarget(status))
+			return ""
+		}
+		fmt.Fprintf(out, "- The Oodle CLI is logged in to %s, not to %s\n",
+			deploymentHost(status.APIURL), deploymentHost(deployment))
+	}
+	// The browser login works only for the deployments that have an OAuth
+	// client. For another one it fails, so do not start it or tell the user
+	// to run it.
+	if deployment != "" && !hasBrowserLogin(deployment) {
+		fmt.Fprintf(out, "- %s has no browser login. Use an API key.\n", deploymentHost(deployment))
+		return apiKeyStep(deployment)
 	}
 	if !hasTerminal() {
 		fmt.Fprintln(out, "- Oodle CLI login skipped, because there is no terminal")
-		return false
+		return authLoginStep(deployment)
 	}
 	fmt.Fprintf(out, "\nLog in to Oodle. Your browser opens for the login.\n")
 	if err := runAuthLogin(cmd, flags, deployment); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "✕ The Oodle login did not complete: %v\n", err)
-		return false
+		return authLoginStep(deployment)
 	}
 	// The login saves the instance, unless it could not read the instances.
 	// Commands need it, so try once more.
 	existing, _ = loadExistingConfig()
 	if existing == nil || existing.Instance == "" {
 		_ = runAuthGetInstance(cmd, flags, deployment)
+		existing, _ = loadExistingConfig()
 	}
-	fmt.Fprintln(out, "✓ Oodle CLI logged in")
-	return true
+	status = computeAuthStatus(existing, flags)
+	// The environment comes before the saved login, so a variable for
+	// another deployment still wins after the login.
+	if deployment != "" && !sameDeployment(status.APIURL, deployment) {
+		fmt.Fprintf(out, "- OODLE_DEPLOYMENT or OODLE_API_URL in the environment selects %s\n",
+			deploymentHost(status.APIURL))
+		return "Unset OODLE_DEPLOYMENT and OODLE_API_URL, or set them to " + deployment
+	}
+	fmt.Fprintf(out, "✓ Oodle CLI logged in to %s\n", loginTarget(status))
+	return ""
+}
+
+// sameDeployment reports whether two deployment names, hosts or URLs are for
+// the same deployment. "us1", "us1.oodle.ai" and "https://us1.oodle.ai/" are.
+func sameDeployment(a, b string) bool {
+	ha, hb := deploymentHost(a), deploymentHost(b)
+	return ha != "" && ha == hb
+}
+
+// deploymentHost returns the host of a deployment name, host or URL, or ""
+// when it is not one.
+func deploymentHost(deployment string) string {
+	d, err := normalizeDomain(deployment)
+	if err != nil {
+		return ""
+	}
+	return deploymentDomainForDomain(d)
+}
+
+func hasBrowserLogin(deployment string) bool {
+	_, err := oauthClientIDForDomain(deploymentHost(deployment))
+	return err == nil
+}
+
+// loginTarget names the deployment and the instance of a login, so that the
+// user sees a wrong one at once.
+func loginTarget(s authStatusRow) string {
+	target := deploymentHost(s.APIURL)
+	if target == "" {
+		target = "Oodle"
+	}
+	if s.Instance != "" {
+		target += " (instance " + s.Instance + ")"
+	}
+	return target
+}
+
+func authLoginStep(deployment string) string {
+	step := "Log in to Oodle: oodle auth login"
+	if deployment != "" {
+		step += " --deployment " + deployment
+	}
+	return step
+}
+
+func apiKeyStep(deployment string) string {
+	return "Log in with an API key: oodle configure --api-url https://" + deploymentHost(deployment) +
+		" --api-key <key> --instance <instance-id>"
 }
 
 // loggedIn reports whether the CLI has credentials that it can use without a
