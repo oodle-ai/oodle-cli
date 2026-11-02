@@ -108,7 +108,9 @@ func runSetup(cmd *cobra.Command, flags *rootFlags, opts *setupOptions) error {
 	}
 
 	startable := startableAgents(agents)
-	if !opts.noOnboarding && project != "" && len(startable) > 0 && hasTerminal() {
+	// Without a login for the deployment, the agent works in another
+	// deployment or not at all. Show the login step first instead.
+	if !opts.noOnboarding && loginStep == "" && project != "" && len(startable) > 0 && hasTerminal() {
 		if agent, ok := chooseAgent(in, out, startable, filepath.Base(project)); ok {
 			return startAgent(agent, project, opts.integration)
 		}
