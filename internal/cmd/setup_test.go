@@ -3,6 +3,10 @@ package cmd
 import (
 	"bufio"
 	"bytes"
+	"context"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -152,7 +156,7 @@ func runSetupLogin(t *testing.T, config []string, deployment string) (string, st
 	cmd := &cobra.Command{}
 	cmd.SetOut(out)
 	cmd.SetErr(out)
-	step := setupLogin(cmd, &rootFlags{}, deployment)
+	step := setupLogin(cmd, &rootFlags{}, bufio.NewReader(strings.NewReader("")), deployment)
 	return step, out.String()
 }
 
@@ -204,7 +208,92 @@ func TestSetupLoginAcceptsAPIKeyFromEnvironment(t *testing.T) {
 	out := &bytes.Buffer{}
 	cmd := &cobra.Command{}
 	cmd.SetOut(out)
-	if step := setupLogin(cmd, &rootFlags{}, "app-dev.oodle.ai"); step != "" {
+	if step := setupLogin(cmd, &rootFlags{}, bufio.NewReader(strings.NewReader("")), "app-dev.oodle.ai"); step != "" {
 		t.Errorf("step = %q, want none; output %q", step, out.String())
+	}
+}
+
+// apiKeyServer accepts only the API key "good-key" for instance inst-dev.
+func apiKeyServer(t *testing.T) string {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-API-Key") != "good-key" || !strings.Contains(r.URL.Path, "inst-dev") {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte("[]"))
+	}))
+	t.Cleanup(srv.Close)
+	return srv.URL
+}
+
+// keys returns a reader that gives the keys in order, as a person types them.
+func keys(k ...string) func(io.Writer) (string, error) {
+	return func(io.Writer) (string, error) {
+		if len(k) == 0 {
+			return "", nil
+		}
+		next := k[0]
+		k = k[1:]
+		return next, nil
+	}
+}
+
+func runAPIKeyLogin(t *testing.T, flags *rootFlags, input, deployment string, readKey func(io.Writer) (string, error)) (string, error) {
+	t.Helper()
+	cfgPath := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(cfgPath, []byte("oauth_access_token: other\napi_url: https://us1.oodle.ai\ninstance: inst-a\n"), 0o600); err != nil {
+		t.Fatalf("write config: %v", err)
+	}
+	t.Setenv("OODLE_CONFIG", cfgPath)
+	t.Setenv("OODLE_INSTANCE", "")
+	out := &bytes.Buffer{}
+	cmd := &cobra.Command{}
+	cmd.SetOut(out)
+	cmd.SetErr(out)
+	cmd.SetContext(context.Background())
+	err := apiKeyLogin(cmd, flags, bufio.NewReader(strings.NewReader(input)), deployment, readKey)
+	data, _ := os.ReadFile(cfgPath)
+	return string(data), err
+}
+
+func TestAPIKeyLoginSavesKeyForDeployment(t *testing.T) {
+	url := apiKeyServer(t)
+	saved, err := runAPIKeyLogin(t, &rootFlags{instance: "inst-dev"}, "", url, keys("bad-key", "good-key"))
+	if err != nil {
+		t.Fatalf("apiKeyLogin: %v", err)
+	}
+	for _, want := range []string{"api_key: good-key", "instance: inst-dev", "api_url: " + url} {
+		if !strings.Contains(saved, want) {
+			t.Errorf("saved config has no %q: %q", want, saved)
+		}
+	}
+	// An OAuth token comes before the API key, so a token for another
+	// deployment must not stay.
+	if strings.Contains(saved, "oauth_access_token") {
+		t.Errorf("saved config keeps the OAuth token: %q", saved)
+	}
+}
+
+func TestAPIKeyLoginAsksForInstance(t *testing.T) {
+	url := apiKeyServer(t)
+	saved, err := runAPIKeyLogin(t, &rootFlags{}, "inst-dev\n", url, keys("good-key"))
+	if err != nil {
+		t.Fatalf("apiKeyLogin: %v", err)
+	}
+	if !strings.Contains(saved, "instance: inst-dev") {
+		t.Errorf("saved config has no instance: %q", saved)
+	}
+}
+
+func TestAPIKeyLoginKeepsConfigAfterBadKeys(t *testing.T) {
+	url := apiKeyServer(t)
+	saved, err := runAPIKeyLogin(t, &rootFlags{instance: "inst-dev"}, "", url, keys("a", "b", "c", "good-key"))
+	if err == nil {
+		t.Fatal("apiKeyLogin accepted the setup after three bad keys")
+	}
+	if !strings.Contains(saved, "oauth_access_token: other") {
+		t.Errorf("a failed login changed the config: %q", saved)
 	}
 }

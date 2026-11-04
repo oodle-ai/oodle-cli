@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
+	"github.com/oodle-ai/oodle-cli/internal/config"
 	"github.com/oodle-ai/oodle-cli/internal/skills"
 )
 
@@ -39,13 +40,15 @@ func newSetupCmd(flags *rootFlags) *cobra.Command {
 
   1. Install the Oodle agent skills at user level for the coding agents on
      this machine, so that the skills work in every project.
-  2. Log the Oodle CLI in to Oodle.
+  2. Log the Oodle CLI in to Oodle. A deployment that has no browser login
+     asks for an API key. Give the instance with --instance.
   3. Offer to start /oodle-onboarding in Claude Code or Codex.
 
 It requires Node.js ` + skills.MinNodeVersion + ` or later and git.`,
 		Example: `  oodle setup
   oodle setup --deployment eu1 --integration otel
-  oodle setup --agent claude-code --agent cursor`,
+  oodle setup --agent claude-code --agent cursor
+  oodle setup --deployment <host> --instance <instance-id>`,
 		Args:        cobra.NoArgs,
 		Annotations: map[string]string{skipConfigAnnotation: "true"},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -104,7 +107,7 @@ func runSetup(cmd *cobra.Command, flags *rootFlags, opts *setupOptions) error {
 
 	loginStep := ""
 	if !opts.noLogin {
-		loginStep = setupLogin(cmd, flags, opts.deployment)
+		loginStep = setupLogin(cmd, flags, in, opts.deployment)
 	}
 
 	startable := startableAgents(agents)
@@ -139,7 +142,7 @@ func runSetup(cmd *cobra.Command, flags *rootFlags, opts *setupOptions) error {
 // setupLogin logs the CLI in when it has no credentials that it can use for
 // the deployment. It returns the step that the user must still do, or "" when
 // the CLI is logged in after this step.
-func setupLogin(cmd *cobra.Command, flags *rootFlags, deployment string) string {
+func setupLogin(cmd *cobra.Command, flags *rootFlags, in *bufio.Reader, deployment string) string {
 	out := cmd.OutOrStdout()
 	existing, _ := loadExistingConfig()
 	status := computeAuthStatus(existing, flags)
@@ -157,25 +160,35 @@ func setupLogin(cmd *cobra.Command, flags *rootFlags, deployment string) string 
 	// client. For another one it fails, so do not start it or tell the user
 	// to run it.
 	if deployment != "" && !hasBrowserLogin(deployment) {
-		fmt.Fprintf(out, "- %s has no browser login. Use an API key.\n", deploymentHost(deployment))
-		return apiKeyStep(deployment)
-	}
-	if !hasTerminal() {
-		fmt.Fprintln(out, "- Oodle CLI login skipped, because there is no terminal")
-		return authLoginStep(deployment)
-	}
-	fmt.Fprintf(out, "\nLog in to Oodle. Your browser opens for the login.\n")
-	if err := runAuthLogin(cmd, flags, deployment); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "✕ The Oodle login did not complete: %v\n", err)
-		return authLoginStep(deployment)
-	}
-	// The login saves the instance, unless it could not read the instances.
-	// Commands need it, so try once more.
-	existing, _ = loadExistingConfig()
-	if existing == nil || existing.Instance == "" {
-		_ = runAuthGetInstance(cmd, flags, deployment)
+		// The script that installs the CLI runs this command first, so the
+		// login with an API key must happen here. A step that names `oodle
+		// configure` before the script fails where the CLI is not installed.
+		fmt.Fprintf(out, "- %s has no browser login. Log in with an API key.\n", deploymentHost(deployment))
+		if !hasTerminal() {
+			return apiKeyStep(deployment)
+		}
+		if err := apiKeyLogin(cmd, flags, in, deployment, readSecret); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "✕ The Oodle login did not complete: %v\n", err)
+			return apiKeyStep(deployment)
+		}
+	} else {
+		if !hasTerminal() {
+			fmt.Fprintln(out, "- Oodle CLI login skipped, because there is no terminal")
+			return authLoginStep(deployment)
+		}
+		fmt.Fprintf(out, "\nLog in to Oodle. Your browser opens for the login.\n")
+		if err := runAuthLogin(cmd, flags, deployment); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "✕ The Oodle login did not complete: %v\n", err)
+			return authLoginStep(deployment)
+		}
+		// The login saves the instance, unless it could not read the
+		// instances. Commands need it, so try once more.
 		existing, _ = loadExistingConfig()
+		if existing == nil || existing.Instance == "" {
+			_ = runAuthGetInstance(cmd, flags, deployment)
+		}
 	}
+	existing, _ = loadExistingConfig()
 	status = computeAuthStatus(existing, flags)
 	// The environment comes before the saved login, so a variable for
 	// another deployment still wins after the login.
@@ -229,6 +242,56 @@ func authLoginStep(deployment string) string {
 		step += " --deployment " + deployment
 	}
 	return step
+}
+
+// apiKeyAttempts is how many times setup asks for the API key. A key that
+// is pasted incorrectly must not end the setup at once.
+const apiKeyAttempts = 3
+
+// apiKeyLogin asks for an API key for a deployment that has no browser
+// login, checks it against the deployment, and saves it. The instance comes
+// from --instance or OODLE_INSTANCE, so that the user types only the key.
+// The saved configuration has no OAuth tokens: the CLI uses OAuth tokens
+// before an API key, so tokens for another deployment would win.
+func apiKeyLogin(cmd *cobra.Command, flags *rootFlags, in *bufio.Reader, deployment string, readKey func(io.Writer) (string, error)) error {
+	out := cmd.OutOrStdout()
+	instance := firstNonEmpty(flags.instance, os.Getenv("OODLE_INSTANCE"))
+	if instance == "" {
+		fmt.Fprint(out, "Instance ID: ")
+		instance = readAnswer(in)
+		if instance == "" {
+			return fmt.Errorf("no instance ID")
+		}
+	}
+	fmt.Fprintf(out, "Create an API key in Oodle at Settings, API keys.\n")
+	for i := 0; i < apiKeyAttempts; i++ {
+		key, err := readKey(out)
+		if err != nil {
+			return err
+		}
+		if key == "" {
+			return fmt.Errorf("no API key")
+		}
+		cfg := &config.Config{APIKey: key, Instance: instance, APIURL: config.NormalizeAPIURL(deployment)}
+		if err := validateConfig(cmd.Context(), cfg, flags.retries); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "✕ The API key did not work for instance %s: %v\n", instance, err)
+			continue
+		}
+		return cfg.Save()
+	}
+	return fmt.Errorf("no API key worked in %d tries", apiKeyAttempts)
+}
+
+// readSecret reads the API key from the terminal without showing it, so that
+// the key stays out of the shell history and the screen.
+func readSecret(out io.Writer) (string, error) {
+	fmt.Fprint(out, "API key: ")
+	secret, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(out)
+	if err != nil {
+		return "", fmt.Errorf("reading API key: %w", err)
+	}
+	return strings.TrimSpace(string(secret)), nil
 }
 
 func apiKeyStep(deployment string) string {

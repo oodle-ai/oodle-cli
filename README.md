@@ -84,7 +84,14 @@ oodle setup --deployment eu1 --integration otel
 oodle setup --agent claude-code --agent cursor   # only these agents
 ```
 
-`curl -fsSL https://www.oodle.ai/skills.sh | bash` installs the CLI and then
+A deployment that has no browser login asks for an API key instead. Give the
+instance with `--instance`, so that setup asks only for the key:
+
+```bash
+oodle setup --deployment <host> --instance <instance-id>
+```
+
+`curl -fsSL https://www.oodle.ai/install.sh | bash` installs the CLI and then
 runs `oodle setup` with the same flags.
 
 ---
