@@ -5,6 +5,10 @@ type ExportConfig struct {
 	GrafanaURL   string
 	GrafanaToken string
 	IncludeTags  []string
+	// InsecureSkipVerify disables TLS certificate verification for the Grafana
+	// API. It defaults to false; set it only for a Grafana instance whose
+	// certificate the CLI cannot verify.
+	InsecureSkipVerify bool
 	// Selected UIDs for selective migration
 	// For CLI: if empty, exports all items
 	// For wizard: frontend should ensure at least one item is selected
