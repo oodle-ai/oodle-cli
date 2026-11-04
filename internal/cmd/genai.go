@@ -49,6 +49,7 @@ A first run, end to end:
 	}
 
 	cmd.AddCommand(newGenAIPromptsCmd())
+	cmd.AddCommand(newGenAIProjectsCmd())
 	cmd.AddCommand(newGenAIDatasetsCmd())
 	cmd.AddCommand(newGenAITemplatesCmd())
 	cmd.AddCommand(newGenAIEvaluatorsCmd())

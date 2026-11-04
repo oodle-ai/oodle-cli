@@ -41,6 +41,10 @@ A dataset can also carry one schedule, which runs its experiment
 without anyone starting it. See ` + "`datasets schedule`" + `.`,
 	}
 
+	// Every dataset command reads --project: datasets are kept per
+	// project, and a name is unique only within one.
+	addProjectFlag(cmd)
+
 	cmd.AddCommand(newGenAIDatasetsListCmd())
 	cmd.AddCommand(newGenAIDatasetsGetCmd())
 	cmd.AddCommand(newGenAIDatasetsCreateCmd())
@@ -61,11 +65,16 @@ func newGenAIDatasetsListCmd() *cobra.Command {
 			c := getClient(cmd)
 			limit, pageNum := page.values()
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.ListGenaiDatasetsWithResponse(
 				cmd.Context(), getInstance(cmd),
 				&client.ListGenaiDatasetsParams{
-					Limit: limit,
-					Page:  pageNum,
+					Limit:     limit,
+					Page:      pageNum,
+					ProjectId: projectID,
 				},
 			)
 			if err != nil {
@@ -96,8 +105,12 @@ func newGenAIDatasetsGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.GetGenaiDatasetWithResponse(
-				cmd.Context(), getInstance(cmd), args[0],
+				cmd.Context(), getInstance(cmd), args[0], &client.GetGenaiDatasetParams{ProjectId: projectID},
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -149,8 +162,12 @@ func newGenAIDatasetsCreateCmd() *cobra.Command {
 				body.Description = optStr(description)
 			}
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.CreateGenaiDatasetWithResponse(
-				cmd.Context(), getInstance(cmd), body,
+				cmd.Context(), getInstance(cmd), &client.CreateGenaiDatasetParams{ProjectId: projectID}, body,
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -192,8 +209,12 @@ func newGenAIDatasetsDeleteCmd() *cobra.Command {
 			), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
 			}
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.DeleteGenaiDatasetWithResponse(
-				cmd.Context(), getInstance(cmd), args[0],
+				cmd.Context(), getInstance(cmd), args[0], &client.DeleteGenaiDatasetParams{ProjectId: projectID},
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -245,12 +266,17 @@ func newGenAIDatasetItemsListCmd() *cobra.Command {
 				return fmt.Errorf("--at: %w", err)
 			}
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.ListGenaiDatasetItemsWithResponse(
 				cmd.Context(), getInstance(cmd), args[0],
 				&client.ListGenaiDatasetItemsParams{
-					Limit:   limit,
-					Page:    pageNum,
-					Version: optStr(atTime),
+					Limit:     limit,
+					Page:      pageNum,
+					Version:   optStr(atTime),
+					ProjectId: projectID,
 				},
 			)
 			if err != nil {
@@ -332,8 +358,12 @@ request that produced it.`,
 			if err := readInputFile(file, &body); err != nil {
 				return err
 			}
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.CreateGenaiDatasetItemWithResponse(
-				cmd.Context(), getInstance(cmd), body,
+				cmd.Context(), getInstance(cmd), &client.CreateGenaiDatasetItemParams{ProjectId: projectID}, body,
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)

@@ -598,11 +598,35 @@ oodle genai prompts get support-reply
 oodle genai prompts label support-reply --version 4 --labels production
 ```
 
+#### Projects — `oodle genai projects`
+
+Alias: `project`. A project keeps datasets and experiments apart,
+for example one per application or test setup. The `default`
+project holds everything that names no project. Prompts,
+evaluators, LLM connections and webhooks are shared by all
+projects. Traces join a project by name (the `oodle.project`
+resource attribute or the `X-Oodle-Project` OTLP header), so a
+project name cannot change.
+
+| Subcommand              | Description                                    |
+|-------------------------|------------------------------------------------|
+| `list`                  | List projects                                  |
+| `create <name>`         | Create a project                               |
+| `update <name>`         | Change a project's description                 |
+| `delete <name>`         | Delete a project, its datasets and experiments |
+
+```bash
+oodle genai projects create checkout-evals --description "release gates"
+oodle genai datasets create --name golden --project checkout-evals
+```
+
 #### Datasets — `oodle genai datasets`
 
 Aliases: `dataset`, `ds`. Datasets are versioned by time:
 `items --at <RFC3339>` recovers exactly the inputs a past
-experiment ran against.
+experiment ran against. Every dataset command takes
+`--project <name>`; without it, it works in the `default`
+project.
 
 | Subcommand              | Description                        |
 |-------------------------|------------------------------------|

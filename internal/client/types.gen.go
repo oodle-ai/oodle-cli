@@ -18,22 +18,46 @@ const (
 
 // Defines values for LogFilterMatchOperator.
 const (
-	Contains     LogFilterMatchOperator = "contains"
-	Exists       LogFilterMatchOperator = "exists"
-	Is           LogFilterMatchOperator = "is"
-	MatchesRegex LogFilterMatchOperator = "matches regex"
+	LogFilterMatchOperatorContains     LogFilterMatchOperator = "contains"
+	LogFilterMatchOperatorExists       LogFilterMatchOperator = "exists"
+	LogFilterMatchOperatorIs           LogFilterMatchOperator = "is"
+	LogFilterMatchOperatorMatchesRegex LogFilterMatchOperator = "matches regex"
 )
 
 // Valid indicates whether the value is a known member of the LogFilterMatchOperator enum.
 func (e LogFilterMatchOperator) Valid() bool {
 	switch e {
-	case Contains:
+	case LogFilterMatchOperatorContains:
 		return true
-	case Exists:
+	case LogFilterMatchOperatorExists:
 		return true
-	case Is:
+	case LogFilterMatchOperatorIs:
 		return true
-	case MatchesRegex:
+	case LogFilterMatchOperatorMatchesRegex:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LogFilterOperator.
+const (
+	LogFilterOperatorContains     LogFilterOperator = "contains"
+	LogFilterOperatorExists       LogFilterOperator = "exists"
+	LogFilterOperatorIs           LogFilterOperator = "is"
+	LogFilterOperatorMatchesRegex LogFilterOperator = "matches regex"
+)
+
+// Valid indicates whether the value is a known member of the LogFilterOperator enum.
+func (e LogFilterOperator) Valid() bool {
+	switch e {
+	case LogFilterOperatorContains:
+		return true
+	case LogFilterOperatorExists:
+		return true
+	case LogFilterOperatorIs:
+		return true
+	case LogFilterOperatorMatchesRegex:
 		return true
 	default:
 		return false
@@ -133,6 +157,12 @@ func (e PrometheusQueryResponseStatus) Valid() bool {
 // AnonymousType1 defines model for AnonymousType1.
 type AnonymousType1 = map[string]interface{}
 
+// AnonymousType2 defines model for AnonymousType2.
+type AnonymousType2 = map[string]interface{}
+
+// AnonymousType3 defines model for AnonymousType3.
+type AnonymousType3 = map[string]interface{}
+
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
 	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
@@ -198,8 +228,7 @@ type AzureServiceFilter struct {
 }
 
 // BackfillAlsoRun AlsoRun is an evaluator a backfill runs because a chosen one
-// reads its scores. The run adds it the same way, so the
-// caller sees here what the run will write.
+// reads its scores.
 type BackfillAlsoRun struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
@@ -240,7 +269,7 @@ type BackfillRequest struct {
 type BackfillRun struct {
 	// AlsoRuns AlsoRuns are the evaluators the run adds because a chosen
 	// one reads their scores. Only the create answer carries
-	// them; the run works out the same set again.
+	// them.
 	AlsoRuns *[]BackfillAlsoRun `json:"alsoRuns,omitempty"`
 
 	// Config Request is what the caller asks for.
@@ -308,6 +337,51 @@ type BulkSendInvitationResultItem struct {
 
 	// Invitation UserInvitation is the API representation of an invitation.
 	Invitation *UserInvitation `json:"invitation,omitempty"`
+}
+
+// CloudWatchDatasource CloudWatchDatasource is a Grafana CloudWatch datasource that queries one AWS
+// account through an IAM role in that account.
+type CloudWatchDatasource struct {
+	// AccountId AccountID is the AWS account ID. When RoleSource is AWS_INTEGRATION, it
+	// comes from the AWS integration account and the request value is ignored.
+	AccountId *string `json:"accountId,omitempty"`
+
+	// AwsIntegrationId AWSIntegrationID is the ID of the AWS integration account whose role the
+	// datasource uses. It is required when RoleSource is AWS_INTEGRATION.
+	AwsIntegrationId *string `json:"awsIntegrationId,omitempty"`
+
+	// CrossAccountObservability CrossAccountObservability records whether the new role was created with
+	// the permissions that list the source accounts linked to a CloudWatch
+	// cross-account observability monitoring account.
+	CrossAccountObservability *bool `json:"crossAccountObservability,omitempty"`
+
+	// CustomMetricsNamespaces CustomMetricsNamespaces are the custom CloudWatch namespaces that you can
+	// query in addition to the AWS namespaces.
+	CustomMetricsNamespaces *[]string `json:"customMetricsNamespaces,omitempty"`
+
+	// DefaultRegion DefaultRegion is the AWS region that queries use when they do not set one.
+	DefaultRegion string `json:"defaultRegion"`
+
+	// ExternalId ExternalID is the external ID in the trust policy of the role. When
+	// RoleSource is AWS_INTEGRATION, it comes from the AWS integration account.
+	ExternalId *string `json:"externalId,omitempty"`
+
+	// LaunchCFStackRegion LaunchCFStackRegion is the AWS region where the CloudFormation stack of a
+	// new role was created.
+	LaunchCFStackRegion *string `json:"launchCFStackRegion,omitempty"`
+
+	// LogsAccess LogsAccess records whether the new role was created with CloudWatch Logs
+	// read access.
+	LogsAccess *bool `json:"logsAccess,omitempty"`
+
+	// RoleArn RoleArn is the IAM role that Grafana assumes. When RoleSource is
+	// AWS_INTEGRATION, it comes from the AWS integration account.
+	RoleArn *string `json:"roleArn,omitempty"`
+
+	// RoleSource RoleSource is AWS_INTEGRATION to use the IAM role of an AWS account that
+	// the AWS integration connects, or NEW_ROLE to use a role created for this
+	// datasource.
+	RoleSource string `json:"roleSource"`
 }
 
 // CloudWatchMetricPullIntegration defines model for CloudWatchMetricPullIntegration.
@@ -532,6 +606,11 @@ type CodeEvalTestRunRequest struct {
 	// will actually run on.
 	Prompt *string `json:"prompt,omitempty"`
 
+	// RequestTemplate RequestTemplate is a webhook evaluator draft's request
+	// body. Omitted, the stored template's applies, then the
+	// default.
+	RequestTemplate *string `json:"requestTemplate,omitempty"`
+
 	// Scores Scores are the scores of other evaluators, by evaluator
 	// name, that the code reads through `ctx.scores`. A test
 	// run has no other evaluators running, so the caller
@@ -562,31 +641,52 @@ type CodeEvalTestRunRequest struct {
 	// VariableMapping VariableMapping maps each prompt variable to where its
 	// value is read from, as an evaluation rule's does.
 	VariableMapping interface{} `json:"variableMapping,omitempty"`
+
+	// WebhookId WebhookID runs a webhook evaluator draft: the span is
+	// posted to that webhook and the reply read as a score.
+	// Omitted, a stored webhook template uses its own.
+	WebhookId *string `json:"webhookId,omitempty"`
 }
 
-// CodeEvalTestRunResponse CodeEvalTestRunResponse is what a test run returns. The
-// fields present depend on what ran:
+// CodeEvalTestRunResponse CodeEvalTestRunResponse is what a test run returns. The fields
+// present depend on what ran:
 //
 //   - code: `scores`, `logs` and `duration_ms`, or `error`
 //     as `{code, message}` (for example BLOCKED_IMPORT,
 //     INVALID_PARAMS, LIBRARY_NOT_FOUND, TIMEOUT).
 //   - a judge: `score`, `reasoning`, `raw_output` and the token
 //     counts, or `error` as a string naming the provider failure.
+//   - a webhook evaluator: `score`, `data_type`, `label`,
+//     `reasoning` (the reply's `reason`), `metadata` and
+//     `webhook` (the exchange), or `error` as a string with
+//     `webhook` still set.
 //
 // A failed run is a 200 with `error` set: the person drafting the
 // code can act on it.
 type CodeEvalTestRunResponse struct {
+	// DataType DataType is NUMERIC or BOOLEAN for a webhook evaluator.
+	DataType   *string  `json:"data_type,omitempty"`
 	DurationMs *float32 `json:"duration_ms,omitempty"`
 
 	// Error Error is `{code, message}` for code, a string for a judge.
-	Error        *CodeEvalTestRunResponse_Error `json:"error,omitempty"`
-	InputTokens  *int                           `json:"input_tokens,omitempty"`
-	Logs         *string                        `json:"logs,omitempty"`
-	OutputTokens *int                           `json:"output_tokens,omitempty"`
-	RawOutput    *string                        `json:"raw_output,omitempty"`
-	Reasoning    *string                        `json:"reasoning,omitempty"`
-	Score        *float32                       `json:"score,omitempty"`
-	Scores       *[]InputScore                  `json:"scores,omitempty"`
+	Error       *CodeEvalTestRunResponse_Error `json:"error,omitempty"`
+	InputTokens *int                           `json:"input_tokens,omitempty"`
+
+	// Label Label is the webhook reply's `label`.
+	Label *string `json:"label,omitempty"`
+	Logs  *string `json:"logs,omitempty"`
+
+	// Metadata Metadata is the webhook reply's `metadata` object.
+	Metadata     interface{}   `json:"metadata,omitempty"`
+	OutputTokens *int          `json:"output_tokens,omitempty"`
+	RawOutput    *string       `json:"raw_output,omitempty"`
+	Reasoning    *string       `json:"reasoning,omitempty"`
+	Score        *float32      `json:"score,omitempty"`
+	Scores       *[]InputScore `json:"scores,omitempty"`
+
+	// Webhook WebhookCall is one request to a webhook and what came back,
+	// as the test endpoint reports it.
+	Webhook *WebhookCall `json:"webhook,omitempty"`
 }
 
 // CodeEvalTestRunResponseError0 A judge run's failure, such as a provider error.
@@ -603,8 +703,8 @@ type CodeEvalTestRunResponse_Error struct {
 	union json.RawMessage
 }
 
-// CodeLibrary CodeLibrary is one Python module the customer writes once and
-// imports from many code evaluators as `shared.<name>`.
+// CodeLibrary CodeLibrary is one Python module written once and imported
+// from many code evaluators as `shared.<name>`.
 type CodeLibrary struct {
 	CreatedAt   string  `json:"createdAt"`
 	CreatedBy   *string `json:"createdBy,omitempty"`
@@ -651,6 +751,21 @@ type CodeLibraryVersion struct {
 	CreatedBy  *string `json:"createdBy,omitempty"`
 	SourceCode *string `json:"sourceCode,omitempty"`
 	Version    int     `json:"version"`
+}
+
+// ComparedRow ComparedRow is one row key with the row of each compared
+// experiment that has it.
+type ComparedRow struct {
+	Key  string            `json:"key"`
+	Rows *[]ComparedRowRef `json:"rows"`
+}
+
+// ComparedRowRef ComparedRowRef is the row of one experiment, with its scores.
+// Row is absent when the experiment has no row for the key.
+type ComparedRowRef struct {
+	ExperimentId string              `json:"experimentId"`
+	Row          *DatasetRunItem     `json:"row,omitempty"`
+	Scores       *map[string]float32 `json:"scores,omitempty"`
 }
 
 // Condition Condition is a model for a condition to be evaluated in monitors.
@@ -762,7 +877,11 @@ type CreateDatasetRunItemRequest struct {
 
 // CreateDropRuleRequest CreateDropRuleRequest is the request body for creating a drop rule.
 type CreateDropRuleRequest struct {
-	Filters *[]MetricLabelMatcher `json:"filters"`
+	// Enabled Enabled defaults to true on create and to the current state on
+	// update, so a client that does not know the field changes nothing.
+	Enabled          *bool                 `json:"enabled,omitempty"`
+	ExpiresAtEpochMs *int                  `json:"expires_at_epoch_ms,omitempty"`
+	Filters          *[]MetricLabelMatcher `json:"filters"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
 	MetricName MetricLabelMatcher `json:"metric_name"`
@@ -796,13 +915,28 @@ type CreateEvalTemplateRequest struct {
 	// from an omitted field.)
 	HigherIsBetter *bool `json:"higherIsBetter,omitempty"`
 
+	// Id ID is optional. Send it to keep the id of a template
+	// that is kept in a file, as git sync does, so that the
+	// same file always maps to the same template. It must
+	// be a UUID that no template uses. Omit it and the
+	// server makes one.
+	Id *string `json:"id,omitempty"`
+
 	// LibraryPins LibraryPins maps a shared library name to the version
 	// the code runs. A library the code imports with no pin
 	// runs at its latest version. Only code templates may pin.
-	LibraryPins  *map[string]int `json:"libraryPins,omitempty"`
-	ModelParams  interface{}     `json:"modelParams,omitempty"`
-	Name         string          `json:"name"`
-	OutputSchema interface{}     `json:"outputSchema,omitempty"`
+	LibraryPins *map[string]int `json:"libraryPins,omitempty"`
+
+	// ModelParams ModelParams holds the judge settings. For a webhook
+	// evaluator it is `{"webhookId": "...", "requestTemplate":
+	// "..."}`: the webhook to call and, optionally, the request
+	// body with `{{input}}`, `{{output}}`, `{{expected_output}}`,
+	// `{{metadata}}`, `{{trace_id}}`, `{{span_id}}`,
+	// `{{span_name}}` and `{{tool.name}}` / `{{tool.arguments}}` /
+	// `{{tool.result}}` placeholders.
+	ModelParams  interface{} `json:"modelParams,omitempty"`
+	Name         string      `json:"name"`
+	OutputSchema interface{} `json:"outputSchema,omitempty"`
 
 	// Params Params declares the settings of a code evaluator. Each
 	// evaluator made from the template sets its own values,
@@ -824,13 +958,17 @@ type CreateEvalTemplateRequest struct {
 	SourceCode         *string `json:"sourceCode,omitempty"`
 	SourceCodeLanguage *string `json:"sourceCodeLanguage,omitempty"`
 
-	// Type Type is "llm", "code" or "output_comparer".
+	// Type Type is "llm", "code", "output_comparer" or "webhook".
 	//
 	// An output comparer is an LLM judge with ground truth: its
 	// prompt may use {{expected_output}} and {{output}}, and it
 	// only runs inside an experiment, where the dataset item
 	// supplies the expected output. It is skipped on live
 	// traffic, which has none.
+	//
+	// A webhook evaluator posts each span or experiment item to
+	// a stored webhook and stores the score in the reply. It
+	// needs no LLM connection.
 	Type string    `json:"type"`
 	Vars *[]string `json:"vars,omitempty"`
 }
@@ -843,16 +981,33 @@ type CreateEvaluationRuleRequest struct {
 
 	// DependsOnRuleIds DependsOnRuleIDs gates this rule on other rules' scores.
 	// Cycles and self-references are rejected.
-	DependsOnRuleIds *[]string   `json:"dependsOnRuleIds,omitempty"`
-	Enabled          *bool       `json:"enabled,omitempty"`
-	EvaluatorId      string      `json:"evaluatorId"`
-	Filters          interface{} `json:"filters,omitempty"`
+	DependsOnRuleIds *[]string `json:"dependsOnRuleIds,omitempty"`
+	Enabled          *bool     `json:"enabled,omitempty"`
+	EvaluatorId      string    `json:"evaluatorId"`
+
+	// Filters Filters pick the spans the evaluator scores: a list of
+	// {"name", "type", "value"}. An attribute is named with its
+	// kind, "span::gen_ai.operation.name" or
+	// "resource::service.name"; a dotted name without it is
+	// refused. "type" is 0 (equals), 1 (not equals), 2 (regex),
+	// 3 (not regex), 4 (one of) or 5 (not one of), the last two
+	// with a "multi_value" list, or "GT"/"GTE"/"LT"/"LTE". The
+	// words eq, neq, re, nre, oneof, not_oneof, gt, gte, lt and
+	// lte are accepted and stored as those.
+	Filters interface{} `json:"filters,omitempty"`
 
 	// GenerationSpansOnly GenerationSpansOnly limits the rule to leaf model
 	// calls. Absent means true, which is what every rule did
 	// before the field existed.
-	GenerationSpansOnly *bool   `json:"generationSpansOnly,omitempty"`
-	LlmConnectionId     *string `json:"llmConnectionId,omitempty"`
+	GenerationSpansOnly *bool `json:"generationSpansOnly,omitempty"`
+
+	// Id ID is optional. Send it to keep the id of an
+	// evaluator that is kept in a file, as git sync does,
+	// so that the same file always maps to the same
+	// evaluator. It must be a UUID that no evaluator uses.
+	// Omit it and the server makes one.
+	Id              *string `json:"id,omitempty"`
+	LlmConnectionId *string `json:"llmConnectionId,omitempty"`
 
 	// MaxInvocationsPerHour MaxInvocationsPerHr caps spend; 0 means unlimited.
 	MaxInvocationsPerHour *int        `json:"maxInvocationsPerHour,omitempty"`
@@ -870,6 +1025,43 @@ type CreateEvaluationRuleRequest struct {
 	VariableMapping interface{} `json:"variableMapping,omitempty"`
 }
 
+// CreateExperimentRequest CreateExperimentRequest creates an experiment: a set of rows
+// that the customer's own code ran and scored, or that Oodle
+// ran. Create is idempotent by project and name unless
+// `ensureNew` is true, in which case a name in use gets a
+// number added.
+type CreateExperimentRequest struct {
+	// BaseExperimentId BaseExperimentID is the experiment that comparisons use.
+	// When absent, the newest earlier experiment of the project
+	// on the same git branch, else the newest earlier one.
+	BaseExperimentId *string `json:"baseExperimentId,omitempty"`
+
+	// DatasetId DatasetID links the experiment to a dataset. Optional.
+	DatasetId *string `json:"datasetId,omitempty"`
+
+	// DatasetVersion DatasetVersion is the RFC3339 time of the dataset version
+	// the experiment read. Defaults to the latest version.
+	DatasetVersion *string     `json:"datasetVersion,omitempty"`
+	Description    *string     `json:"description,omitempty"`
+	EnsureNew      *bool       `json:"ensureNew,omitempty"`
+	Metadata       interface{} `json:"metadata,omitempty"`
+
+	// Name Name defaults to "experiment" with ensureNew set.
+	Name *string `json:"name,omitempty"`
+
+	// Parameters Parameters are the settings of the run, for example the
+	// model and the prompt version.
+	Parameters interface{} `json:"parameters,omitempty"`
+
+	// ProjectId ProjectID is "" or absent for the default project.
+	ProjectId *string `json:"projectId,omitempty"`
+
+	// RepoInfo RepoInfo is the git state of the run: commit, branch,
+	// tag, dirty, author_name, commit_message, commit_time.
+	RepoInfo interface{} `json:"repoInfo,omitempty"`
+	Tags     *[]string   `json:"tags,omitempty"`
+}
+
 // CreateFolderRequest CreateFolderRequest represents a request to create a folder
 type CreateFolderRequest struct {
 	ParentUid *string `json:"parentUid,omitempty"`
@@ -885,8 +1077,8 @@ type CreateIntegrationRequest struct {
 	TypeSpecificData *CreateIntegrationRequest_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// CreateIntegrationRequestTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type CreateIntegrationRequestTypeSpecificData4 map[string]interface{}
+// CreateIntegrationRequestTypeSpecificData5 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type CreateIntegrationRequestTypeSpecificData5 map[string]interface{}
 
 // CreateIntegrationRequest_TypeSpecificData defines model for CreateIntegrationRequest.TypeSpecificData.
 type CreateIntegrationRequest_TypeSpecificData struct {
@@ -967,6 +1159,17 @@ type CreateLLMConnectionRequest struct {
 	Provider            string `json:"provider"`
 }
 
+// CreateProjectRequest CreateProjectRequest creates a project. A project keeps
+// datasets, experiments, evaluators, prompts and traces apart
+// from those of other projects. Create is idempotent by name:
+// posting a name in use returns that project. The name
+// "default" is the built-in default project and cannot be
+// created.
+type CreateProjectRequest struct {
+	Description *string `json:"description,omitempty"`
+	Name        string  `json:"name"`
+}
+
 // CreatePromptRequest CreatePromptRequest creates a new prompt version. Versions
 // are assigned automatically; posting an existing name adds a
 // version rather than replacing one.
@@ -1039,6 +1242,13 @@ type CreateWebhookRequest struct {
 	// `output`, `result.answer` or `choices[0].message.content`.
 	// Empty stores the whole body.
 	OutputPath *string `json:"outputPath,omitempty"`
+
+	// OutputRegex OutputRegex is applied to the output that OutputPath
+	// picked. The output becomes the first capture group, or
+	// the whole match when the regex has no group. `.` matches a
+	// newline. A reply that does not match fails the item.
+	// Empty keeps the output whole.
+	OutputRegex *string `json:"outputRegex,omitempty"`
 
 	// RequestTemplate RequestTemplate is the JSON body sent per item, with
 	// {{path}} placeholders read from the item (input,
@@ -1116,18 +1326,59 @@ type DatasetItem struct {
 	Version             int         `json:"version"`
 }
 
+// DatasetRun defines model for DatasetRun.
+type DatasetRun struct {
+	// BaseExperimentId BaseExperimentID names the run that comparisons use when
+	// the caller names none.
+	BaseExperimentId *string     `json:"baseExperimentId,omitempty"`
+	CreatedAt        string      `json:"createdAt"`
+	CreatedBy        *string     `json:"createdBy,omitempty"`
+	DatasetId        string      `json:"datasetId"`
+	DatasetVersion   *time.Time  `json:"datasetVersion,omitempty"`
+	Description      string      `json:"description"`
+	Id               string      `json:"id"`
+	Metadata         interface{} `json:"metadata"`
+	Name             string      `json:"name"`
+	Parameters       interface{} `json:"parameters,omitempty"`
+
+	// ProjectId ProjectID is "" for the default project.
+	ProjectId string      `json:"projectId"`
+	RepoInfo  interface{} `json:"repoInfo,omitempty"`
+
+	// Source Source says who made the run: "oodle" for a run that
+	// Oodle executed, "api" or "braintrust" for a run whose rows
+	// the customer's own code uploaded.
+	Source    string    `json:"source"`
+	Tags      *[]string `json:"tags,omitempty"`
+	UpdatedAt string    `json:"updatedAt"`
+}
+
 // DatasetRunItem defines model for DatasetRunItem.
 type DatasetRunItem struct {
-	CreatedAt     string  `json:"createdAt"`
-	DatasetItemId string  `json:"datasetItemId"`
-	DatasetRunId  string  `json:"datasetRunId"`
-	ErrorMessage  *string `json:"errorMessage,omitempty"`
-	Id            string  `json:"id"`
-	ObservationId *string `json:"observationId,omitempty"`
-	Output        *string `json:"output,omitempty"`
-	Status        *string `json:"status,omitempty"`
-	TraceId       string  `json:"traceId"`
-	UpdatedAt     string  `json:"updatedAt"`
+	CreatedAt     string      `json:"createdAt"`
+	DatasetItemId string      `json:"datasetItemId"`
+	DatasetRunId  string      `json:"datasetRunId"`
+	ErrorMessage  *string     `json:"errorMessage,omitempty"`
+	Expected      interface{} `json:"expected,omitempty"`
+
+	// ExternalId ExternalID is the caller's id for the row. A write that
+	// repeats it updates the row instead of adding a second one.
+	ExternalId *string `json:"externalId,omitempty"`
+	Id         string  `json:"id"`
+
+	// Input The fields below are set on rows that the customer's code
+	// uploaded. A row that Oodle executed reads its input and
+	// expected output from the dataset item instead.
+	Input         interface{} `json:"input,omitempty"`
+	Metadata      interface{} `json:"metadata,omitempty"`
+	Metrics       interface{} `json:"metrics,omitempty"`
+	ObservationId *string     `json:"observationId,omitempty"`
+	Output        *string     `json:"output,omitempty"`
+	SpanId        *string     `json:"spanId,omitempty"`
+	Status        *string     `json:"status,omitempty"`
+	Tags          *[]string   `json:"tags,omitempty"`
+	TraceId       string      `json:"traceId"`
+	UpdatedAt     string      `json:"updatedAt"`
 }
 
 // DatasetRunItemResponse DatasetRunItemResponse is one dataset row's result inside a
@@ -1138,33 +1389,56 @@ type DatasetRunItemResponse struct {
 	DatasetItemId  string      `json:"datasetItemId"`
 	DatasetRunId   string      `json:"datasetRunId"`
 	ErrorMessage   *string     `json:"errorMessage,omitempty"`
+	Expected       interface{} `json:"expected,omitempty"`
 	ExpectedOutput interface{} `json:"expectedOutput,omitempty"`
-	Id             string      `json:"id"`
-	Input          interface{} `json:"input,omitempty"`
-	Metadata       interface{} `json:"metadata,omitempty"`
-	ObservationId  *string     `json:"observationId,omitempty"`
-	Output         *string     `json:"output,omitempty"`
-	Scores         *[]Score    `json:"scores"`
-	Status         *string     `json:"status,omitempty"`
-	TraceId        string      `json:"traceId"`
-	UpdatedAt      string      `json:"updatedAt"`
+
+	// ExternalId ExternalID is the caller's id for the row. A write that
+	// repeats it updates the row instead of adding a second one.
+	ExternalId    *string     `json:"externalId,omitempty"`
+	Id            string      `json:"id"`
+	Input         interface{} `json:"input,omitempty"`
+	Metadata      interface{} `json:"metadata,omitempty"`
+	Metrics       interface{} `json:"metrics,omitempty"`
+	ObservationId *string     `json:"observationId,omitempty"`
+	Output        *string     `json:"output,omitempty"`
+	Scores        *[]Score    `json:"scores"`
+	SpanId        *string     `json:"spanId,omitempty"`
+	Status        *string     `json:"status,omitempty"`
+	Tags          *[]string   `json:"tags,omitempty"`
+	TraceId       string      `json:"traceId"`
+	UpdatedAt     string      `json:"updatedAt"`
 }
 
 // DatasetRunResponse DatasetRunResponse is one experiment run over a dataset,
 // enriched with the status of the job that produced it and
 // the scores its items were given, one entry per score name.
 type DatasetRunResponse struct {
-	CreatedAt       string               `json:"createdAt"`
-	DatasetId       string               `json:"datasetId"`
-	DatasetVersion  *time.Time           `json:"datasetVersion,omitempty"`
-	Description     string               `json:"description"`
-	Id              string               `json:"id"`
-	LatestJobConfig interface{}          `json:"latestJobConfig,omitempty"`
-	LatestJobStatus *string              `json:"latestJobStatus,omitempty"`
-	Metadata        interface{}          `json:"metadata"`
-	Name            string               `json:"name"`
-	Scores          *[]RunScoreAggregate `json:"scores"`
-	UpdatedAt       string               `json:"updatedAt"`
+	// BaseExperimentId BaseExperimentID names the run that comparisons use when
+	// the caller names none.
+	BaseExperimentId *string     `json:"baseExperimentId,omitempty"`
+	CreatedAt        string      `json:"createdAt"`
+	CreatedBy        *string     `json:"createdBy,omitempty"`
+	DatasetId        string      `json:"datasetId"`
+	DatasetVersion   *time.Time  `json:"datasetVersion,omitempty"`
+	Description      string      `json:"description"`
+	Id               string      `json:"id"`
+	LatestJobConfig  interface{} `json:"latestJobConfig,omitempty"`
+	LatestJobStatus  *string     `json:"latestJobStatus,omitempty"`
+	Metadata         interface{} `json:"metadata"`
+	Name             string      `json:"name"`
+	Parameters       interface{} `json:"parameters,omitempty"`
+
+	// ProjectId ProjectID is "" for the default project.
+	ProjectId string               `json:"projectId"`
+	RepoInfo  interface{}          `json:"repoInfo,omitempty"`
+	Scores    *[]RunScoreAggregate `json:"scores"`
+
+	// Source Source says who made the run: "oodle" for a run that
+	// Oodle executed, "api" or "braintrust" for a run whose rows
+	// the customer's own code uploaded.
+	Source    string    `json:"source"`
+	Tags      *[]string `json:"tags,omitempty"`
+	UpdatedAt string    `json:"updatedAt"`
 }
 
 // DatasetScheduleResponse DatasetScheduleResponse is one dataset's schedule.
@@ -1181,8 +1455,8 @@ type DatasetScheduleResponse struct {
 	Enabled     bool      `json:"enabled"`
 
 	// ExperimentConfig ExperimentConfig is the `llm-experiment` job config this
-	// schedule launches, minus `runName` (assigned per run).
-	// The keys are the ones `experiment_runner.py` reads.
+	// schedule launches, minus `runName` (assigned per run): the
+	// same keys an experiment run takes.
 	ExperimentConfig interface{} `json:"experimentConfig,omitempty"`
 	Id               string      `json:"id"`
 	IntervalUnit     *string     `json:"intervalUnit,omitempty"`
@@ -1239,8 +1513,12 @@ type DeleteUserRequest struct {
 
 // DropRule DropRule is the API model for a metric drop rule.
 type DropRule struct {
-	Filters *[]MetricLabelMatcher `json:"filters"`
-	Id      string                `json:"id"`
+	Enabled bool `json:"enabled"`
+
+	// ExpiresAtEpochMs ExpiresAtEpochMs is when the rule stops dropping, or 0 for never.
+	ExpiresAtEpochMs *int                  `json:"expires_at_epoch_ms,omitempty"`
+	Filters          *[]MetricLabelMatcher `json:"filters"`
+	Id               string                `json:"id"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
 	MetricName MetricLabelMatcher `json:"metric_name"`
@@ -1410,7 +1688,8 @@ type EvaluationRuleResponse struct {
 	Enabled          bool      `json:"enabled"`
 	EvaluatorId      string    `json:"evaluatorId"`
 
-	// EvaluatorType EvaluatorType is "llm", "code" or "output_comparer", and
+	// EvaluatorType EvaluatorType is "llm", "code", "output_comparer" or
+	// "webhook", and
 	// is empty when the referenced template no longer exists.
 	EvaluatorType *string     `json:"evaluatorType,omitempty"`
 	Filters       interface{} `json:"filters"`
@@ -1451,6 +1730,130 @@ type EvaluationRuleResponse struct {
 	TargetType      string      `json:"targetType"`
 	UpdatedAt       string      `json:"updatedAt"`
 	VariableMapping interface{} `json:"variableMapping"`
+}
+
+// ExperimentComparisonResponse ExperimentComparisonResponse is one page of rows matched
+// across experiments by input.
+type ExperimentComparisonResponse struct {
+	Data        *[]ComparedRow `json:"data"`
+	Experiments *[]DatasetRun  `json:"experiments"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta      ListMeta             `json:"meta"`
+	Summaries *[]ExperimentSummary `json:"summaries"`
+}
+
+// ExperimentFeedback ExperimentFeedback adds scores, an expected value, tags or a
+// comment to a row after it was written.
+type ExperimentFeedback struct {
+	Comment  *string     `json:"comment,omitempty"`
+	Expected interface{} `json:"expected,omitempty"`
+
+	// Id ID is the row id that the insert returned, or the
+	// caller's id for the row.
+	Id       string               `json:"id"`
+	Metadata interface{}          `json:"metadata,omitempty"`
+	Scores   *map[string]*float32 `json:"scores,omitempty"`
+
+	// Source Source is "API" (default), "ANNOTATION" or "EXTERNAL".
+	Source *string   `json:"source,omitempty"`
+	Tags   *[]string `json:"tags,omitempty"`
+}
+
+// ExperimentFeedbackRequest ExperimentFeedbackRequest adds feedback to rows.
+type ExperimentFeedbackRequest struct {
+	Feedback *[]ExperimentFeedback `json:"feedback"`
+}
+
+// ExperimentFeedbackResponse ExperimentFeedbackResponse gives the row id of each feedback
+// entry in the order of the request. An entry whose row was not
+// found has an empty id, and its id is also in `missing`.
+type ExperimentFeedbackResponse struct {
+	Missing *[]string `json:"missing,omitempty"`
+	RowIds  *[]string `json:"rowIds"`
+}
+
+// ExperimentRow ExperimentRow is one row of an experiment: one input that
+// the code under test ran, what it returned, and how it scored.
+type ExperimentRow struct {
+	// DatasetItemId DatasetItemID links the row to a dataset item. Optional.
+	DatasetItemId *string `json:"datasetItemId,omitempty"`
+
+	// Error Error marks the row as failed. A string or any JSON.
+	Error    interface{} `json:"error,omitempty"`
+	Expected interface{} `json:"expected,omitempty"`
+
+	// Id ID is the caller's id for the row. A write that repeats it
+	// updates the row, so a retried upload adds no duplicate.
+	// Oodle makes one when it is absent.
+	Id       *string     `json:"id,omitempty"`
+	Input    interface{} `json:"input,omitempty"`
+	Metadata interface{} `json:"metadata,omitempty"`
+
+	// Metrics Metrics holds numbers such as start, end (Unix seconds),
+	// prompt_tokens, completion_tokens, tokens and
+	// estimated_cost.
+	Metrics interface{} `json:"metrics,omitempty"`
+	Output  interface{} `json:"output,omitempty"`
+
+	// Scores Scores are numbers from 0 to 1 by name. A null score is
+	// ignored.
+	Scores *map[string]*float32 `json:"scores,omitempty"`
+	SpanId *string              `json:"spanId,omitempty"`
+	Tags   *[]string            `json:"tags,omitempty"`
+
+	// TraceId TraceID links the row to its GenAI trace (32 hex). When
+	// absent, the row gets a trace id of its own.
+	TraceId *string `json:"traceId,omitempty"`
+}
+
+// ExperimentRowView ExperimentRowView is a stored row with its scores.
+type ExperimentRowView struct {
+	CreatedAt     string      `json:"createdAt"`
+	DatasetItemId string      `json:"datasetItemId"`
+	DatasetRunId  string      `json:"datasetRunId"`
+	ErrorMessage  *string     `json:"errorMessage,omitempty"`
+	Expected      interface{} `json:"expected,omitempty"`
+
+	// ExternalId ExternalID is the caller's id for the row. A write that
+	// repeats it updates the row instead of adding a second one.
+	ExternalId *string `json:"externalId,omitempty"`
+	Id         string  `json:"id"`
+
+	// Input The fields below are set on rows that the customer's code
+	// uploaded. A row that Oodle executed reads its input and
+	// expected output from the dataset item instead.
+	Input         interface{} `json:"input,omitempty"`
+	Metadata      interface{} `json:"metadata,omitempty"`
+	Metrics       interface{} `json:"metrics,omitempty"`
+	ObservationId *string     `json:"observationId,omitempty"`
+	Output        *string     `json:"output,omitempty"`
+	Scores        *[]Score    `json:"scores"`
+	SpanId        *string     `json:"spanId,omitempty"`
+	Status        *string     `json:"status,omitempty"`
+	Tags          *[]string   `json:"tags,omitempty"`
+	TraceId       string      `json:"traceId"`
+	UpdatedAt     string      `json:"updatedAt"`
+}
+
+// ExperimentRowsResponse ExperimentRowsResponse is one page of experiment rows with
+// their scores. Pass `cursor` back to read the next page.
+type ExperimentRowsResponse struct {
+	Cursor *string              `json:"cursor,omitempty"`
+	Data   *[]ExperimentRowView `json:"data"`
+}
+
+// ExperimentSummary ExperimentSummary is the summary of one experiment, compared
+// with a base experiment when one is given.
+type ExperimentSummary struct {
+	Comparison         *DatasetRun      `json:"comparison,omitempty"`
+	ComparisonRowCount *int             `json:"comparisonRowCount,omitempty"`
+	Experiment         DatasetRun       `json:"experiment"`
+	MatchedRows        *int             `json:"matchedRows,omitempty"`
+	Metrics            *[]MetricSummary `json:"metrics"`
+	RowCount           int              `json:"rowCount"`
+	Scores             *[]ScoreSummary  `json:"scores"`
 }
 
 // Folder Folder represents a Grafana folder
@@ -1496,6 +1899,32 @@ type GoogleChatConfig struct {
 	SendResolved bool              `json:"send_resolved"`
 	Threading    *bool             `json:"threading,omitempty"`
 	Url          *string           `json:"url,omitempty"`
+}
+
+// GrafanaDatasourceIntegration GrafanaDatasourceIntegration is one datasource in the Grafana of the
+// instance. Oodle creates, updates and deletes the datasource together with
+// the integration.
+type GrafanaDatasourceIntegration struct {
+	// CloudWatch CloudWatchDatasource is a Grafana CloudWatch datasource that queries one AWS
+	// account through an IAM role in that account.
+	CloudWatch *CloudWatchDatasource `json:"cloudWatch,omitempty"`
+
+	// Kind Kind is the datasource kind. CLOUDWATCH is the only kind.
+	Kind string `json:"kind"`
+
+	// Name Name is the datasource name in Grafana. It is read-only.
+	Name *string `json:"name,omitempty"`
+
+	// Uid UID is the datasource UID in Grafana. It is read-only.
+	Uid *string `json:"uid,omitempty"`
+}
+
+// GrafanaDatasourceIntegrationWrapper defines model for GrafanaDatasourceIntegrationWrapper.
+type GrafanaDatasourceIntegrationWrapper struct {
+	// GrafanaDatasourceIntegration GrafanaDatasourceIntegration is one datasource in the Grafana of the
+	// instance. Oodle creates, updates and deletes the datasource together with
+	// the integration.
+	GrafanaDatasourceIntegration *GrafanaDatasourceIntegration `json:"grafanaDatasourceIntegration,omitempty"`
 }
 
 // Grouping Grouping is a model for grouping alerts.
@@ -1588,6 +2017,17 @@ type InputScore struct {
 	Value interface{} `json:"value"`
 }
 
+// InsertExperimentRowsRequest InsertExperimentRowsRequest writes rows into an experiment.
+type InsertExperimentRowsRequest struct {
+	Rows *[]ExperimentRow `json:"rows"`
+}
+
+// InsertExperimentRowsResponse InsertExperimentRowsResponse gives the stored row ids in the
+// order of the request.
+type InsertExperimentRowsResponse struct {
+	RowIds *[]string `json:"rowIds"`
+}
+
 // Instance defines model for Instance.
 type Instance struct {
 	Id     *string `json:"id,omitempty"`
@@ -1617,8 +2057,8 @@ type Integration struct {
 	UpdatedAt                    *time.Time                    `json:"updatedAt,omitempty"`
 }
 
-// IntegrationTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type IntegrationTypeSpecificData4 map[string]interface{}
+// IntegrationTypeSpecificData5 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type IntegrationTypeSpecificData5 map[string]interface{}
 
 // Integration_TypeSpecificData defines model for Integration.TypeSpecificData.
 type Integration_TypeSpecificData struct {
@@ -1797,6 +2237,16 @@ type ListEvaluatorsResponse struct {
 	Meta ListMeta `json:"meta"`
 }
 
+// ListExperimentsResponse ListExperimentsResponse is one page of experiments, newest
+// first.
+type ListExperimentsResponse struct {
+	Data *[]DatasetRunResponse `json:"data"`
+
+	// Meta ListMeta is the pagination envelope every llmops list
+	// endpoint returns alongside `data`.
+	Meta ListMeta `json:"meta"`
+}
+
 // ListInvitationsResponse ListInvitationsResponse is the response for listing
 // invitations.
 type ListInvitationsResponse struct {
@@ -1825,6 +2275,12 @@ type ListMeta struct {
 	Page       int  `json:"page"`
 	TotalItems int  `json:"totalItems"`
 	TotalPages *int `json:"totalPages,omitempty"`
+}
+
+// ListProjectsResponse ListProjectsResponse lists the projects. The built-in default
+// project is first, with `isDefault` true and an empty id.
+type ListProjectsResponse struct {
+	Data *[]Project `json:"data"`
 }
 
 // ListPromptVersionsResponse ListPromptVersionsResponse is the per-name version list.
@@ -1897,30 +2353,82 @@ type ListWebhooksResponse struct {
 	Data *[]Webhook `json:"data"`
 }
 
-// LogFilter LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.
+// LogBlock LogBlock defines a rule to drop logs matching specific filters.
+// When the filter matches, the log is dropped (blocked) and not ingested.
+type LogBlock struct {
+	// Description Description says why the logs are dropped.
+	Description *string `json:"description,omitempty"`
+
+	// Disabled Disabled stops the block without deleting it.
+	Disabled *bool `json:"disabled,omitempty"`
+
+	// ExpiresAtEpochMs ExpiresAtEpochMs is when the block stops dropping logs, in
+	// milliseconds since epoch, or 0 for never.
+	ExpiresAtEpochMs *int `json:"expiresAtEpochMs,omitempty"`
+
+	// Filter LogFilter selects logs. Set exactly one of these: a single condition, all (all filters must match), any (at least one filter must match), or not (the filter must not match). all, any and not contain LogFilter objects, so filters can be nested.
+	//
+	// A single condition has field, operator, value and jsonPath. Responses always give these properties inline, at the top level of the LogFilter: `{"field":"level","operator":"is","value":"error"}`. Requests can give them inline, or in a match object: `{"match":{"field":"level","operator":"is","value":"error"}}`. Both forms are accepted at each level of nesting. A filter that gives both forms is rejected.
+	Filter LogFilter `json:"filter"`
+
+	// Id ID is the unique identifier.
+	Id *openapi_types.UUID `json:"id,omitempty"`
+
+	// KeepPercent KeepPercent is the share of matching logs to keep, from 0 to 100.
+	// The default, 0, drops every matching log.
+	KeepPercent *float32 `json:"keepPercent,omitempty"`
+
+	// Name Name is the name of the log block rule.
+	Name string `json:"name"`
+
+	// UpdatedAtEpochMs UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+	UpdatedAtEpochMs *int `json:"updatedAtEpochMs,omitempty"`
+}
+
+// LogFilter LogFilter selects logs. Set exactly one of these: a single condition, all (all filters must match), any (at least one filter must match), or not (the filter must not match). all, any and not contain LogFilter objects, so filters can be nested.
+//
+// A single condition has field, operator, value and jsonPath. Responses always give these properties inline, at the top level of the LogFilter: `{"field":"level","operator":"is","value":"error"}`. Requests can give them inline, or in a match object: `{"match":{"field":"level","operator":"is","value":"error"}}`. Both forms are accepted at each level of nesting. A filter that gives both forms is rejected.
 type LogFilter struct {
 	// All All filters must match (AND). Each item is a LogFilter.
 	All *[]map[string]interface{} `json:"all,omitempty"`
 
 	// Any At least one filter must match (OR). Each item is a LogFilter.
-	Any   *[]map[string]interface{} `json:"any,omitempty"`
+	Any *[]map[string]interface{} `json:"any,omitempty"`
+
+	// Field Name of the log field to match.
+	Field *string `json:"field,omitempty"`
+
+	// JsonPath Path to a value in a JSON field. If not set, the match uses the full field value.
+	JsonPath *string `json:"jsonPath,omitempty"`
+
+	// Match Request only: a single condition in a wrapper object. The server reads it the same as the inline field, jsonPath, operator and value properties. Do not set it together with the inline properties. Responses never contain it.
 	Match *struct {
-		Field    string                 `json:"field"`
+		// Field Name of the log field to match.
+		Field string `json:"field"`
+
+		// JsonPath Path to a value in a JSON field. If not set, the match uses the full field value.
 		JsonPath *string                `json:"jsonPath,omitempty"`
 		Operator LogFilterMatchOperator `json:"operator"`
 		Value    *string                `json:"value,omitempty"`
 	} `json:"match,omitempty"`
 
 	// Not Nested LogFilter (recursive). Same structure as the parent LogFilter.
-	Not *map[string]interface{} `json:"not,omitempty"`
+	Not      *map[string]interface{} `json:"not,omitempty"`
+	Operator *LogFilterOperator      `json:"operator,omitempty"`
+	Value    *string                 `json:"value,omitempty"`
 }
 
 // LogFilterMatchOperator defines model for LogFilter.Match.Operator.
 type LogFilterMatchOperator string
 
+// LogFilterOperator defines model for LogFilter.Operator.
+type LogFilterOperator string
+
 // LogMetrics LogMetrics is a definition to convert logs to metrics.
 type LogMetrics struct {
-	// Filter LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.
+	// Filter LogFilter selects logs. Set exactly one of these: a single condition, all (all filters must match), any (at least one filter must match), or not (the filter must not match). all, any and not contain LogFilter objects, so filters can be nested.
+	//
+	// A single condition has field, operator, value and jsonPath. Responses always give these properties inline, at the top level of the LogFilter: `{"field":"level","operator":"is","value":"error"}`. Requests can give them inline, or in a match object: `{"match":{"field":"level","operator":"is","value":"error"}}`. Both forms are accepted at each level of nesting. A filter that gives both forms is rejected.
 	Filter *LogFilter `json:"filter,omitempty"`
 
 	// Id ID is the unique identifier.
@@ -2039,6 +2547,20 @@ type MetricLabelMatcher struct {
 	Name  *string `json:"name,omitempty"`
 	Type  *int    `json:"type,omitempty"`
 	Value *string `json:"value,omitempty"`
+}
+
+// MetricSummary MetricSummary is the same as ScoreSummary for a row metric,
+// for example duration, tokens or cost. A lower value is better
+// for every metric.
+type MetricSummary struct {
+	Average      *float32 `json:"average,omitempty"`
+	BaseAverage  *float32 `json:"baseAverage,omitempty"`
+	Count        int      `json:"count"`
+	Diff         *float32 `json:"diff,omitempty"`
+	Improvements int      `json:"improvements"`
+	Name         string   `json:"name"`
+	Regressions  int      `json:"regressions"`
+	Unit         *string  `json:"unit,omitempty"`
 }
 
 // MetricType Type of metric to be created. Values:
@@ -2370,12 +2892,26 @@ type PatchIntegration struct {
 	TypeSpecificData *PatchIntegration_TypeSpecificData `json:"typeSpecificData,omitempty"`
 }
 
-// PatchIntegrationTypeSpecificData4 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
-type PatchIntegrationTypeSpecificData4 map[string]interface{}
+// PatchIntegrationTypeSpecificData5 Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
+type PatchIntegrationTypeSpecificData5 map[string]interface{}
 
 // PatchIntegration_TypeSpecificData defines model for PatchIntegration.TypeSpecificData.
 type PatchIntegration_TypeSpecificData struct {
 	union json.RawMessage
+}
+
+// Project defines model for Project.
+type Project struct {
+	CreatedAt   string  `json:"createdAt"`
+	CreatedBy   *string `json:"createdBy,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Id          string  `json:"id"`
+
+	// IsDefault IsDefault is true for the built-in project that holds
+	// everything that names no project. It has no row: its id is "".
+	IsDefault bool   `json:"isDefault"`
+	Name      string `json:"name"`
+	UpdatedAt string `json:"updatedAt"`
 }
 
 // PrometheusQueryResponse defines model for PrometheusQueryResponse.
@@ -2537,6 +3073,40 @@ type RunScoreAggregate struct {
 	Values *map[string]int `json:"values,omitempty"`
 }
 
+// SamplingRule SamplingRule is the API model of a trace sampling rule.
+type SamplingRule struct {
+	Description *string `json:"description,omitempty"`
+	Enabled     bool    `json:"enabled"`
+
+	// ExpiresAtEpochMs ExpiresAtEpochMs is when the rule stops applying, or 0 for never.
+	ExpiresAtEpochMs *int   `json:"expires_at_epoch_ms,omitempty"`
+	Id               string `json:"id"`
+
+	// KeepErrors KeepErrors stores every span with an error status.
+	KeepErrors bool `json:"keep_errors"`
+
+	// KeepPercent KeepPercent is the share of matching traces to store, from 0 to 100.
+	KeepPercent float32 `json:"keep_percent"`
+
+	// Matchers Matchers must all match a span for the rule to apply. A name is a span
+	// metric label (service_name, span_name, span_status, env, cluster,
+	// namespace) or a stored attribute column such as `span::http.route`.
+	Matchers         *[]MetricLabelMatcher `json:"matchers"`
+	RuleName         string                `json:"rule_name"`
+	UpdatedAtEpochMs *int                  `json:"updated_at_epoch_ms,omitempty"`
+}
+
+// SamplingRuleRequest SamplingRuleRequest is the request body to create or update a rule.
+type SamplingRuleRequest struct {
+	Description      *string               `json:"description,omitempty"`
+	Enabled          *bool                 `json:"enabled,omitempty"`
+	ExpiresAtEpochMs *int                  `json:"expires_at_epoch_ms,omitempty"`
+	KeepErrors       *bool                 `json:"keep_errors,omitempty"`
+	KeepPercent      float32               `json:"keep_percent"`
+	Matchers         *[]MetricLabelMatcher `json:"matchers"`
+	RuleName         string                `json:"rule_name"`
+}
+
 // SaveDashboardRequest defines model for SaveDashboardRequest.
 type SaveDashboardRequest struct {
 	// Dashboard Grafana-compatible dashboard JSON
@@ -2666,12 +3236,43 @@ type ScoreResponse struct {
 	Value       *float32 `json:"value,omitempty"`
 }
 
+// ScoreSummary ScoreSummary is the result of one score name over the rows
+// of an experiment, and its change against the base experiment.
+type ScoreSummary struct {
+	// Average Average is nil when no row has a number for the score.
+	Average     *float32 `json:"average,omitempty"`
+	BaseAverage *float32 `json:"baseAverage,omitempty"`
+	Count       int      `json:"count"`
+
+	// Diff Diff is Average minus BaseAverage.
+	Diff           *float32 `json:"diff,omitempty"`
+	HigherIsBetter bool     `json:"higherIsBetter"`
+
+	// Improvements Improvements and Regressions count the matched rows whose
+	// score moved in the good or the bad direction.
+	Improvements int    `json:"improvements"`
+	Name         string `json:"name"`
+	Regressions  int    `json:"regressions"`
+}
+
 // SendInvitationRequest SendInvitationRequest is the request body for sending
 // a single organization invitation.
 type SendInvitationRequest struct {
 	Email       string    `json:"email"`
 	Roles       *[]string `json:"roles"`
 	SenderEmail string    `json:"sender_email"`
+}
+
+// SetDropRuleEnabledRequest SetDropRuleEnabledRequest switches a rule on or off without sending the
+// whole rule.
+type SetDropRuleEnabledRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// SetSamplingRuleEnabledRequest SetSamplingRuleEnabledRequest switches a rule on or off without sending
+// the whole rule.
+type SetSamplingRuleEnabledRequest struct {
+	Enabled bool `json:"enabled"`
 }
 
 // SlackAction SlackAction configures a single Slack action that is sent with each notification.
@@ -3054,6 +3655,7 @@ type TestWebhookRequest struct {
 	Headers         *map[string]string `json:"headers,omitempty"`
 	Input           interface{}        `json:"input,omitempty"`
 	OutputPath      *string            `json:"outputPath,omitempty"`
+	OutputRegex     *string            `json:"outputRegex,omitempty"`
 	RequestTemplate *string            `json:"requestTemplate,omitempty"`
 	TimeoutSeconds  *int               `json:"timeoutSeconds,omitempty"`
 	Url             *string            `json:"url,omitempty"`
@@ -3089,11 +3691,181 @@ type TraceProcess struct {
 	Tags        *[]TraceSpanTag `json:"tags"`
 }
 
+// TraceQLAnyValue AnyValue is an attribute value in the OTLP JSON format. Only one
+// field is set.
+type TraceQLAnyValue struct {
+	BoolValue   *bool    `json:"boolValue,omitempty"`
+	DoubleValue *float32 `json:"doubleValue,omitempty"`
+
+	// IntValue IntValue is a 64-bit integer as a decimal string.
+	IntValue    *string `json:"intValue,omitempty"`
+	StringValue *string `json:"stringValue,omitempty"`
+}
+
+// TraceQLExemplar Exemplar is a span that is an example of a value in a series.
+type TraceQLExemplar struct {
+	// Labels Labels hold the trace ID and other span attributes.
+	Labels *[]TraceQLKeyValue `json:"labels,omitempty"`
+
+	// TimestampMs TimestampMs is the exemplar time in Unix epoch milliseconds.
+	TimestampMs int     `json:"timestampMs"`
+	Value       float32 `json:"value"`
+}
+
+// TraceQLKeyValue KeyValue is an attribute in the OTLP JSON format.
+type TraceQLKeyValue struct {
+	Key string `json:"key"`
+
+	// Value AnyValue is an attribute value in the OTLP JSON format. Only one
+	// field is set.
+	Value *TraceQLAnyValue `json:"value,omitempty"`
+}
+
+// TraceQLMetricsResponse QueryRangeResponse is the result of a TraceQL metrics query.
+type TraceQLMetricsResponse struct {
+	// Message Message tells why the response is partial.
+	Message *string `json:"message,omitempty"`
+
+	// Metrics SearchMetrics is information about the work that a query did.
+	Metrics *TraceQLSearchMetrics `json:"metrics,omitempty"`
+	Series  *[]TraceQLTimeSeries  `json:"series"`
+
+	// Status Status is "PARTIAL" when the series are not all the series
+	// of the query. Tempo uses the same field and values. Empty
+	// means complete.
+	Status *string `json:"status,omitempty"`
+}
+
+// TraceQLSample MetricsSample is one data point in a series.
+type TraceQLSample struct {
+	// TimestampMs TimestampMs is the sample time in Unix epoch milliseconds.
+	TimestampMs int     `json:"timestampMs"`
+	Value       float32 `json:"value"`
+}
+
+// TraceQLSearchMetrics SearchMetrics is information about the work that a query did.
+type TraceQLSearchMetrics struct {
+	CompletedJobs   *int `json:"completedJobs,omitempty"`
+	InspectedBytes  *int `json:"inspectedBytes,omitempty"`
+	InspectedTraces *int `json:"inspectedTraces,omitempty"`
+	TotalBlockBytes *int `json:"totalBlockBytes,omitempty"`
+	TotalBlocks     *int `json:"totalBlocks,omitempty"`
+	TotalJobs       *int `json:"totalJobs,omitempty"`
+}
+
+// TraceQLSearchResponse SearchResponse is the result of a TraceQL search.
+type TraceQLSearchResponse struct {
+	// Metrics SearchMetrics is information about the work that a query did.
+	Metrics *TraceQLSearchMetrics `json:"metrics,omitempty"`
+
+	// Traces Traces that have at least one span set that matches the
+	// query, newest first.
+	Traces *[]TraceQLTrace `json:"traces"`
+}
+
+// TraceQLServiceStats ServiceStats is the span count of one service in a trace.
+type TraceQLServiceStats struct {
+	ErrorCount *int `json:"errorCount,omitempty"`
+	SpanCount  int  `json:"spanCount"`
+}
+
+// TraceQLSpan TempoSpan is a matched span in a search result. It has only some
+// of the span fields. Get the trace by ID for the full spans.
+type TraceQLSpan struct {
+	Attributes *[]TraceQLKeyValue `json:"attributes,omitempty"`
+
+	// DurationNanos DurationNanos is the span duration in nanoseconds, as a
+	// decimal string.
+	DurationNanos string  `json:"durationNanos"`
+	Name          *string `json:"name,omitempty"`
+	SpanID        string  `json:"spanID"`
+
+	// StartTimeUnixNano StartTimeUnixNano is the span start time in Unix epoch
+	// nanoseconds, as a decimal string.
+	StartTimeUnixNano string `json:"startTimeUnixNano"`
+}
+
+// TraceQLSpanSet SpanSet is a set of spans in a trace that matched the query.
+type TraceQLSpanSet struct {
+	Attributes *[]TraceQLKeyValue `json:"attributes,omitempty"`
+
+	// Matched Matched is the number of spans that matched.
+	Matched int            `json:"matched"`
+	Spans   *[]TraceQLSpan `json:"spans"`
+}
+
+// TraceQLTagScope ScopeTagsV2 is the tag names of one scope.
+type TraceQLTagScope struct {
+	// Name Name is the scope: "resource", "span" or "intrinsic".
+	Name string    `json:"name"`
+	Tags *[]string `json:"tags"`
+}
+
+// TraceQLTagValue TagValue is one value of a tag, with its type.
+type TraceQLTagValue struct {
+	// Type Type is the value type, for example "string".
+	Type  string `json:"type"`
+	Value string `json:"value"`
+}
+
+// TraceQLTagValuesResponse SearchTagValuesV2Response is the list of values of one tag.
+type TraceQLTagValuesResponse struct {
+	TagValues *[]TraceQLTagValue `json:"tagValues"`
+}
+
+// TraceQLTagsResponse SearchTagsV2Response is the list of tag names, grouped by scope.
+type TraceQLTagsResponse struct {
+	Scopes *[]TraceQLTagScope `json:"scopes"`
+}
+
+// TraceQLTimeSeries TimeSeries is one series of a TraceQL metrics query. There is one
+// series for each group of the `by(...)` clause.
+type TraceQLTimeSeries struct {
+	Exemplars *[]TraceQLExemplar `json:"exemplars,omitempty"`
+
+	// Labels Labels identify the series. They hold the `by(...)` values.
+	Labels  *[]TraceQLKeyValue `json:"labels"`
+	Samples *[]TraceQLSample   `json:"samples"`
+}
+
+// TraceQLTrace TraceSearchMetadata is one trace in a TraceQL search result.
+type TraceQLTrace struct {
+	// DurationMs DurationMs is the trace duration in milliseconds.
+	DurationMs int `json:"durationMs"`
+
+	// RootServiceName RootServiceName is the service name of the root span.
+	RootServiceName string `json:"rootServiceName"`
+
+	// RootTraceName RootTraceName is the name of the root span.
+	RootTraceName string `json:"rootTraceName"`
+
+	// ServiceStats ServiceStats are span counts for each service in the trace.
+	ServiceStats *map[string]TraceQLServiceStats `json:"serviceStats,omitempty"`
+
+	// SpanSet SpanSet is a set of spans in a trace that matched the query.
+	SpanSet *TraceQLSpanSet `json:"spanSet,omitempty"`
+
+	// SpanSets SpanSets are the span sets that matched the query.
+	SpanSets *[]TraceQLSpanSet `json:"spanSets,omitempty"`
+
+	// StartTimeUnixNano StartTimeUnixNano is the trace start time in Unix epoch
+	// nanoseconds, as a decimal string.
+	StartTimeUnixNano string `json:"startTimeUnixNano"`
+
+	// TraceID TraceID is the hex trace ID.
+	TraceID string `json:"traceID"`
+}
+
 // TraceSpan defines model for TraceSpan.
 type TraceSpan struct {
-	Duration      int                   `json:"duration"`
-	EndTime       int                   `json:"endTime"`
-	Logs          *[]TraceSpanLog       `json:"logs"`
+	Duration int             `json:"duration"`
+	EndTime  int             `json:"endTime"`
+	Logs     *[]TraceSpanLog `json:"logs"`
+
+	// OmittedTags OmittedTags names the span tags whose values the response
+	// leaves out because they are large. Each tag exists on the
+	// span, and a read of the span with its values returns it.
+	OmittedTags   *[]string             `json:"omittedTags,omitempty"`
 	OperationName string                `json:"operationName"`
 	ParentSpanID  string                `json:"parentSpanID"`
 	ProcessID     string                `json:"processID"`
@@ -3241,7 +4013,11 @@ type UpdateDatasetItemRequest struct {
 
 // UpdateDropRuleRequest UpdateDropRuleRequest is the request body for updating a drop rule.
 type UpdateDropRuleRequest struct {
-	Filters *[]MetricLabelMatcher `json:"filters"`
+	// Enabled Enabled defaults to true on create and to the current state on
+	// update, so a client that does not know the field changes nothing.
+	Enabled          *bool                 `json:"enabled,omitempty"`
+	ExpiresAtEpochMs *int                  `json:"expires_at_epoch_ms,omitempty"`
+	Filters          *[]MetricLabelMatcher `json:"filters"`
 
 	// MetricName Matcher specifies a rule, which can match or set of labels or not.
 	MetricName MetricLabelMatcher `json:"metric_name"`
@@ -3287,8 +4063,18 @@ type UpdateEvalTemplateRequest struct {
 // UpdateEvaluationRuleRequest UpdateEvaluationRuleRequest patches an evaluation rule.
 // Pointer fields distinguish "not supplied" from a zero value.
 type UpdateEvaluationRuleRequest struct {
-	DependsOnRuleIds      *[]string   `json:"dependsOnRuleIds,omitempty"`
-	Enabled               *bool       `json:"enabled,omitempty"`
+	DependsOnRuleIds *[]string `json:"dependsOnRuleIds,omitempty"`
+	Enabled          *bool     `json:"enabled,omitempty"`
+
+	// Filters Filters pick the spans the evaluator scores: a list of
+	// {"name", "type", "value"}. An attribute is named with its
+	// kind, "span::gen_ai.operation.name" or
+	// "resource::service.name"; a dotted name without it is
+	// refused. "type" is 0 (equals), 1 (not equals), 2 (regex),
+	// 3 (not regex), 4 (one of) or 5 (not one of), the last two
+	// with a "multi_value" list, or "GT"/"GTE"/"LT"/"LTE". The
+	// words eq, neq, re, nre, oneof, not_oneof, gt, gte, lt and
+	// lte are accepted and stored as those.
 	Filters               interface{} `json:"filters,omitempty"`
 	GenerationSpansOnly   *bool       `json:"generationSpansOnly,omitempty"`
 	LlmConnectionId       *string     `json:"llmConnectionId,omitempty"`
@@ -3305,6 +4091,16 @@ type UpdateEvaluationRuleRequest struct {
 	VariableMapping interface{}             `json:"variableMapping,omitempty"`
 }
 
+// UpdateExperimentRequest UpdateExperimentRequest changes an experiment. An absent
+// field keeps its value.
+type UpdateExperimentRequest struct {
+	BaseExperimentId *string     `json:"baseExperimentId,omitempty"`
+	Description      *string     `json:"description,omitempty"`
+	Metadata         interface{} `json:"metadata,omitempty"`
+	Name             *string     `json:"name,omitempty"`
+	Tags             *[]string   `json:"tags,omitempty"`
+}
+
 // UpdateJobRequest UpdateJobRequest changes a job's status. Only cancellation is
 // accepted over the API; workers own the other transitions.
 type UpdateJobRequest struct {
@@ -3313,7 +4109,9 @@ type UpdateJobRequest struct {
 }
 
 // UpdateLLMConnectionRequest UpdateLLMConnectionRequest patches a connection. An empty
-// apiKey leaves the stored credential in place.
+// apiKey leaves the stored credential in place. An absent baseUrl
+// keeps the stored one, and an empty string clears it: a patch
+// that sets one field, such as isDefault, must not clear another.
 type UpdateLLMConnectionRequest struct {
 	ApiKey              *string     `json:"apiKey,omitempty"`
 	BaseUrl             *string     `json:"baseUrl,omitempty"`
@@ -3325,6 +4123,13 @@ type UpdateLLMConnectionRequest struct {
 	IsDefault           *bool       `json:"isDefault,omitempty"`
 	Name                *string     `json:"name,omitempty"`
 	Provider            *string     `json:"provider,omitempty"`
+}
+
+// UpdateProjectRequest UpdateProjectRequest changes a project. The name cannot
+// change, because traces carry it in the `oodle.project`
+// attribute.
+type UpdateProjectRequest struct {
+	Description string `json:"description"`
 }
 
 // UpdatePromptLabelsRequest UpdatePromptLabelsRequest replaces the label set on one
@@ -3350,13 +4155,15 @@ type UpdateUserRequest struct {
 // UpdateWebhookRequest UpdateWebhookRequest patches a webhook. A nil headers map
 // keeps the stored headers; an empty one clears them; a value
 // equal to WebhookSecretMask keeps that one header's stored
-// value. Nil requestTemplate / outputPath keep the stored
-// values; an empty string resets them to the default.
+// value. Nil requestTemplate / outputPath / outputRegex keep
+// the stored values; an empty string resets them to the
+// default.
 type UpdateWebhookRequest struct {
 	Description     *string            `json:"description,omitempty"`
 	Headers         *map[string]string `json:"headers,omitempty"`
 	Name            *string            `json:"name,omitempty"`
 	OutputPath      *string            `json:"outputPath,omitempty"`
+	OutputRegex     *string            `json:"outputRegex,omitempty"`
 	RequestTemplate *string            `json:"requestTemplate,omitempty"`
 	TimeoutSeconds  *int               `json:"timeoutSeconds,omitempty"`
 	Url             *string            `json:"url,omitempty"`
@@ -3441,6 +4248,10 @@ type ValidateEvalTemplateRequest struct {
 	Libraries   *map[string]string `json:"libraries,omitempty"`
 	LibraryPins *map[string]int    `json:"libraryPins,omitempty"`
 
+	// ModelParams ModelParams of a webhook evaluator: `webhookId` and an
+	// optional `requestTemplate`.
+	ModelParams interface{} `json:"modelParams,omitempty"`
+
 	// Name Name is the name of the evaluator (rule) that would run
 	// the code. With it, the score reads are also checked for a
 	// read of its own scores and for a cycle.
@@ -3455,7 +4266,7 @@ type ValidateEvalTemplateRequest struct {
 	SourceCode         *string                 `json:"sourceCode,omitempty"`
 	SourceCodeLanguage *string                 `json:"sourceCodeLanguage,omitempty"`
 
-	// Type Type is "llm", "code" or "output_comparer".
+	// Type Type is "llm", "code", "output_comparer" or "webhook".
 	Type string `json:"type"`
 }
 
@@ -3508,10 +4319,6 @@ type ValueExtractor struct {
 // experiment run against one posts every dataset item to its
 // URL and scores the reply, instead of calling an LLM
 // connection with a prompt.
-//
-// It is read and written through raw SQL for the same reason
-// `DatasetSchedule` is: the sqlboiler models predate the table.
-// `webhookColumns` is the one place the column list lives.
 type Webhook struct {
 	CreatedAt   string  `json:"createdAt"`
 	CreatedBy   *string `json:"createdBy,omitempty"`
@@ -3524,11 +4331,14 @@ type Webhook struct {
 	Id          string    `json:"id"`
 	Name        string    `json:"name"`
 	OutputPath  string    `json:"outputPath"`
+	OutputRegex string    `json:"outputRegex"`
 
 	// RequestTemplate RequestTemplate is the body sent per item, JSON text with
 	// `{{path}}` placeholders; empty means the item's input as
 	// the body. OutputPath reads the output out of the reply;
-	// empty means the whole body. See experiments/webhook.go.
+	// empty means the whole body. OutputRegex then cuts the
+	// output down to its match; empty keeps it whole. See
+	// experiments/webhook.go.
 	RequestTemplate string `json:"requestTemplate"`
 	TimeoutSeconds  int    `json:"timeoutSeconds"`
 	UpdatedAt       string `json:"updatedAt"`
@@ -3742,6 +4552,18 @@ type QueryMetricsRangeParams struct {
 	OODLEINSTANCE string `json:"OODLE-INSTANCE"`
 }
 
+// RenameGenaiDatasetFolderParams defines parameters for RenameGenaiDatasetFolder.
+type RenameGenaiDatasetFolderParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// CreateGenaiDatasetItemParams defines parameters for CreateGenaiDatasetItem.
+type CreateGenaiDatasetItemParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
 // ListGenaiExperimentItemsParams defines parameters for ListGenaiExperimentItems.
 type ListGenaiExperimentItemsParams struct {
 	// DatasetRunId Run to list items for.
@@ -3761,6 +4583,33 @@ type ListGenaiDatasetsParams struct {
 
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// CreateGenaiDatasetParams defines parameters for CreateGenaiDataset.
+type CreateGenaiDatasetParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// DeleteGenaiDatasetParams defines parameters for DeleteGenaiDataset.
+type DeleteGenaiDatasetParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// GetGenaiDatasetParams defines parameters for GetGenaiDataset.
+type GetGenaiDatasetParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// RenameGenaiDatasetParams defines parameters for RenameGenaiDataset.
+type RenameGenaiDatasetParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
 }
 
 // ListGenaiDatasetItemsParams defines parameters for ListGenaiDatasetItems.
@@ -3770,6 +4619,9 @@ type ListGenaiDatasetItemsParams struct {
 
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
 
 	// Version RFC3339 timestamp. Returns the dataset as it stood at that moment, which is how a past run's inputs are recovered.
 	Version *string `form:"version,omitempty" json:"version,omitempty"`
@@ -3782,6 +4634,27 @@ type ListGenaiExperimentsParams struct {
 
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// DeleteGenaiDatasetScheduleParams defines parameters for DeleteGenaiDatasetSchedule.
+type DeleteGenaiDatasetScheduleParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// GetGenaiDatasetScheduleParams defines parameters for GetGenaiDatasetSchedule.
+type GetGenaiDatasetScheduleParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+}
+
+// SetGenaiDatasetScheduleParams defines parameters for SetGenaiDatasetSchedule.
+type SetGenaiDatasetScheduleParams struct {
+	// ProjectId Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
 }
 
 // ListGenaiEvaluatorsParams defines parameters for ListGenaiEvaluators.
@@ -3797,6 +4670,54 @@ type ListGenaiEvaluatorsParams struct {
 type ListGenaiEvaluationRulesParams struct {
 	// EvaluatorType Narrow to evaluators whose template is of this type: `llm`, `code`, or `output_comparer`.
 	EvaluatorType *string `form:"evaluatorType,omitempty" json:"evaluatorType,omitempty"`
+}
+
+// CompareGenaiExperimentsParams defines parameters for CompareGenaiExperiments.
+type CompareGenaiExperimentsParams struct {
+	// ExperimentIds Two to five experiment IDs, separated by commas. Each one after the first is summarized against the first.
+	ExperimentIds string `form:"experimentIds" json:"experimentIds"`
+
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+}
+
+// ListGenaiProjectExperimentsParams defines parameters for ListGenaiProjectExperiments.
+type ListGenaiProjectExperimentsParams struct {
+	// DatasetId Only experiments over this dataset.
+	DatasetId *string `form:"datasetId,omitempty" json:"datasetId,omitempty"`
+
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Name Only the experiment with this name.
+	Name *string `form:"name,omitempty" json:"name,omitempty"`
+
+	// Page 1-based page number. Defaults to 1.
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// ProjectId Project ID. Omit it for the default project. Send `*` to list the experiments of every project.
+	ProjectId *string `form:"projectId,omitempty" json:"projectId,omitempty"`
+
+	// Source Only experiments from this source: `oodle` (Oodle ran it), `api` or `braintrust` (your code uploaded the rows).
+	Source *string `form:"source,omitempty" json:"source,omitempty"`
+}
+
+// ListGenaiExperimentRowsParams defines parameters for ListGenaiExperimentRows.
+type ListGenaiExperimentRowsParams struct {
+	// Cursor The `cursor` of the previous page. Omit it for the first page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit Results per page. Defaults to 50, capped at 200.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetGenaiExperimentSummaryParams defines parameters for GetGenaiExperimentSummary.
+type GetGenaiExperimentSummaryParams struct {
+	// CompareTo Experiment ID to compare with. Defaults to the experiment's `baseExperimentId`, else the newest earlier experiment of the project.
+	CompareTo *string `form:"compareTo,omitempty" json:"compareTo,omitempty"`
 }
 
 // ListGenaiJobsParams defines parameters for ListGenaiJobs.
@@ -3859,6 +4780,12 @@ type ListGenaiScoresParams struct {
 	TraceId *string `form:"traceId,omitempty" json:"traceId,omitempty"`
 }
 
+// CreateLogmetricsParams defines parameters for CreateLogmetrics.
+type CreateLogmetricsParams struct {
+	// KeepId When true, the create keeps the id of the body. Without it, the create makes a new id.
+	KeepId *bool `form:"keep_id,omitempty" json:"keep_id,omitempty"`
+}
+
 // ListNamesParams defines parameters for ListNames.
 type ListNamesParams struct {
 	// EndTimeEpochMs End of the time range in epoch milliseconds
@@ -3916,6 +4843,69 @@ type GetTraceLabelValuesByIdParams struct {
 	End *int64 `form:"end,omitempty" json:"end,omitempty"`
 
 	// Start Start of the time range in epoch microseconds
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
+}
+
+// QueryTraceQLMetricsRangeParams defines parameters for QueryTraceQLMetricsRange.
+type QueryTraceQLMetricsRangeParams struct {
+	// End End of the time range in Unix epoch seconds
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Exemplars Maximum number of exemplars to return. The default is 100 and the maximum is 1000. Send 0 for no exemplars.
+	Exemplars *int `form:"exemplars,omitempty" json:"exemplars,omitempty"`
+
+	// Q TraceQL metrics query, for example `{} | rate() by (resource.service.name)`
+	Q string `form:"q" json:"q"`
+
+	// Start Start of the time range in Unix epoch seconds
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
+
+	// Step Width of each step: a duration such as `30s`, `5m` or `1h`, or a number of seconds. The default divides the range into 100 steps, with a minimum of 1 second.
+	Step *string `form:"step,omitempty" json:"step,omitempty"`
+}
+
+// SearchTraceQLParams defines parameters for SearchTraceQL.
+type SearchTraceQLParams struct {
+	// End End of the time range in Unix epoch seconds
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Limit Maximum number of traces to return. The default is 20 and the maximum is 1000.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Q TraceQL span selector, for example `{ span.http.status_code >= 500 }`
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Spss Spans for each span set. Accepted for Tempo compatibility. It has no effect at this time.
+	Spss *int `form:"spss,omitempty" json:"spss,omitempty"`
+
+	// Start Start of the time range in Unix epoch seconds
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
+}
+
+// ListTraceQLTagsParams defines parameters for ListTraceQLTags.
+type ListTraceQLTagsParams struct {
+	// End End of the time range in Unix epoch seconds. It has no effect at this time.
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Q TraceQL span selector. Only tags of spans that match it are listed.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Scope Scope of the tags: `resource`, `span` or `intrinsic`. It has no effect at this time.
+	Scope *string `form:"scope,omitempty" json:"scope,omitempty"`
+
+	// Start Start of the time range in Unix epoch seconds. It has no effect at this time.
+	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
+}
+
+// ListTraceQLTagValuesParams defines parameters for ListTraceQLTagValues.
+type ListTraceQLTagValuesParams struct {
+	// End End of the time range in Unix epoch seconds. It has no effect at this time.
+	End *int64 `form:"end,omitempty" json:"end,omitempty"`
+
+	// Q TraceQL span selector. Only values from spans that match it are listed. A selector that does not parse, such as the partial query that an editor sends while you type a value, is ignored, and values from all spans are listed.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Start Start of the time range in Unix epoch seconds. It has no effect at this time.
 	Start *int64 `form:"start,omitempty" json:"start,omitempty"`
 }
 
@@ -3982,6 +4972,9 @@ type CreateDropRulesJSONRequestBody = CreateDropRuleRequest
 // UpdateDropRulesByIdJSONRequestBody defines body for UpdateDropRulesById for application/json ContentType.
 type UpdateDropRulesByIdJSONRequestBody = UpdateDropRuleRequest
 
+// SetDropRuleEnabledJSONRequestBody defines body for SetDropRuleEnabled for application/json ContentType.
+type SetDropRuleEnabledJSONRequestBody = SetDropRuleEnabledRequest
+
 // CreateDashboardsJSONRequestBody defines body for CreateDashboards for application/json ContentType.
 type CreateDashboardsJSONRequestBody = SaveDashboardRequest
 
@@ -4042,6 +5035,18 @@ type CreateGenaiEvaluationRuleJSONRequestBody = CreateEvaluationRuleRequest
 // UpdateGenaiEvaluationRuleJSONRequestBody defines body for UpdateGenaiEvaluationRule for application/json ContentType.
 type UpdateGenaiEvaluationRuleJSONRequestBody = UpdateEvaluationRuleRequest
 
+// CreateGenaiProjectExperimentJSONRequestBody defines body for CreateGenaiProjectExperiment for application/json ContentType.
+type CreateGenaiProjectExperimentJSONRequestBody = CreateExperimentRequest
+
+// UpdateGenaiExperimentJSONRequestBody defines body for UpdateGenaiExperiment for application/json ContentType.
+type UpdateGenaiExperimentJSONRequestBody = UpdateExperimentRequest
+
+// AddGenaiExperimentFeedbackJSONRequestBody defines body for AddGenaiExperimentFeedback for application/json ContentType.
+type AddGenaiExperimentFeedbackJSONRequestBody = ExperimentFeedbackRequest
+
+// InsertGenaiExperimentRowsJSONRequestBody defines body for InsertGenaiExperimentRows for application/json ContentType.
+type InsertGenaiExperimentRowsJSONRequestBody = InsertExperimentRowsRequest
+
 // CreateGenaiJobJSONRequestBody defines body for CreateGenaiJob for application/json ContentType.
 type CreateGenaiJobJSONRequestBody = CreateJobRequest
 
@@ -4053,6 +5058,12 @@ type CreateGenaiLlmConnectionJSONRequestBody = CreateLLMConnectionRequest
 
 // UpdateGenaiLlmConnectionJSONRequestBody defines body for UpdateGenaiLlmConnection for application/json ContentType.
 type UpdateGenaiLlmConnectionJSONRequestBody = UpdateLLMConnectionRequest
+
+// CreateGenaiProjectJSONRequestBody defines body for CreateGenaiProject for application/json ContentType.
+type CreateGenaiProjectJSONRequestBody = CreateProjectRequest
+
+// UpdateGenaiProjectJSONRequestBody defines body for UpdateGenaiProject for application/json ContentType.
+type UpdateGenaiProjectJSONRequestBody = UpdateProjectRequest
 
 // CreateGenaiScoreJSONRequestBody defines body for CreateGenaiScore for application/json ContentType.
 type CreateGenaiScoreJSONRequestBody = CreateScoreRequest
@@ -4077,6 +5088,12 @@ type CreateGenaiWebhookJSONRequestBody = CreateWebhookRequest
 
 // UpdateGenaiWebhookJSONRequestBody defines body for UpdateGenaiWebhook for application/json ContentType.
 type UpdateGenaiWebhookJSONRequestBody = UpdateWebhookRequest
+
+// CreateLogblocksJSONRequestBody defines body for CreateLogblocks for application/json ContentType.
+type CreateLogblocksJSONRequestBody = LogBlock
+
+// UpdateLogblocksByIdJSONRequestBody defines body for UpdateLogblocksById for application/json ContentType.
+type UpdateLogblocksByIdJSONRequestBody = LogBlock
 
 // CreateLogmetricsJSONRequestBody defines body for CreateLogmetrics for application/json ContentType.
 type CreateLogmetricsJSONRequestBody = LogMetrics
@@ -4113,6 +5130,15 @@ type CreateSyntheticMonitorsJSONRequestBody = SyntheticMonitor
 
 // UpdateSyntheticMonitorsByIdJSONRequestBody defines body for UpdateSyntheticMonitorsById for application/json ContentType.
 type UpdateSyntheticMonitorsByIdJSONRequestBody = SyntheticMonitor
+
+// CreateTraceSamplingRulesJSONRequestBody defines body for CreateTraceSamplingRules for application/json ContentType.
+type CreateTraceSamplingRulesJSONRequestBody = SamplingRuleRequest
+
+// UpdateTraceSamplingRulesByIdJSONRequestBody defines body for UpdateTraceSamplingRulesById for application/json ContentType.
+type UpdateTraceSamplingRulesByIdJSONRequestBody = SamplingRuleRequest
+
+// SetTraceSamplingRuleEnabledJSONRequestBody defines body for SetTraceSamplingRuleEnabled for application/json ContentType.
+type SetTraceSamplingRuleEnabledJSONRequestBody = SetSamplingRuleEnabledRequest
 
 // DeleteUsersJSONRequestBody defines body for DeleteUsers for application/json ContentType.
 type DeleteUsersJSONRequestBody = DeleteUserRequest
@@ -4292,22 +5318,48 @@ func (t *CreateIntegrationRequest_TypeSpecificData) MergeCockroachDBCloudIntegra
 	return err
 }
 
-// AsCreateIntegrationRequestTypeSpecificData4 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData4
-func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData4() (CreateIntegrationRequestTypeSpecificData4, error) {
-	var body CreateIntegrationRequestTypeSpecificData4
+// AsGrafanaDatasourceIntegrationWrapper returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a GrafanaDatasourceIntegrationWrapper
+func (t CreateIntegrationRequest_TypeSpecificData) AsGrafanaDatasourceIntegrationWrapper() (GrafanaDatasourceIntegrationWrapper, error) {
+	var body GrafanaDatasourceIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromCreateIntegrationRequestTypeSpecificData4 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData4
-func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData4(v CreateIntegrationRequestTypeSpecificData4) error {
+// FromGrafanaDatasourceIntegrationWrapper overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided GrafanaDatasourceIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) FromGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeCreateIntegrationRequestTypeSpecificData4 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData4
-func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData4(v CreateIntegrationRequestTypeSpecificData4) error {
+// MergeGrafanaDatasourceIntegrationWrapper performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided GrafanaDatasourceIntegrationWrapper
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCreateIntegrationRequestTypeSpecificData5 returns the union data inside the CreateIntegrationRequest_TypeSpecificData as a CreateIntegrationRequestTypeSpecificData5
+func (t CreateIntegrationRequest_TypeSpecificData) AsCreateIntegrationRequestTypeSpecificData5() (CreateIntegrationRequestTypeSpecificData5, error) {
+	var body CreateIntegrationRequestTypeSpecificData5
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCreateIntegrationRequestTypeSpecificData5 overwrites any union data inside the CreateIntegrationRequest_TypeSpecificData as the provided CreateIntegrationRequestTypeSpecificData5
+func (t *CreateIntegrationRequest_TypeSpecificData) FromCreateIntegrationRequestTypeSpecificData5(v CreateIntegrationRequestTypeSpecificData5) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCreateIntegrationRequestTypeSpecificData5 performs a merge with any union data inside the CreateIntegrationRequest_TypeSpecificData, using the provided CreateIntegrationRequestTypeSpecificData5
+func (t *CreateIntegrationRequest_TypeSpecificData) MergeCreateIntegrationRequestTypeSpecificData5(v CreateIntegrationRequestTypeSpecificData5) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4432,22 +5484,48 @@ func (t *Integration_TypeSpecificData) MergeCockroachDBCloudIntegrationWrapper(v
 	return err
 }
 
-// AsIntegrationTypeSpecificData4 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData4
-func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData4() (IntegrationTypeSpecificData4, error) {
-	var body IntegrationTypeSpecificData4
+// AsGrafanaDatasourceIntegrationWrapper returns the union data inside the Integration_TypeSpecificData as a GrafanaDatasourceIntegrationWrapper
+func (t Integration_TypeSpecificData) AsGrafanaDatasourceIntegrationWrapper() (GrafanaDatasourceIntegrationWrapper, error) {
+	var body GrafanaDatasourceIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromIntegrationTypeSpecificData4 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData4
-func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData4(v IntegrationTypeSpecificData4) error {
+// FromGrafanaDatasourceIntegrationWrapper overwrites any union data inside the Integration_TypeSpecificData as the provided GrafanaDatasourceIntegrationWrapper
+func (t *Integration_TypeSpecificData) FromGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergeIntegrationTypeSpecificData4 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData4
-func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData4(v IntegrationTypeSpecificData4) error {
+// MergeGrafanaDatasourceIntegrationWrapper performs a merge with any union data inside the Integration_TypeSpecificData, using the provided GrafanaDatasourceIntegrationWrapper
+func (t *Integration_TypeSpecificData) MergeGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsIntegrationTypeSpecificData5 returns the union data inside the Integration_TypeSpecificData as a IntegrationTypeSpecificData5
+func (t Integration_TypeSpecificData) AsIntegrationTypeSpecificData5() (IntegrationTypeSpecificData5, error) {
+	var body IntegrationTypeSpecificData5
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromIntegrationTypeSpecificData5 overwrites any union data inside the Integration_TypeSpecificData as the provided IntegrationTypeSpecificData5
+func (t *Integration_TypeSpecificData) FromIntegrationTypeSpecificData5(v IntegrationTypeSpecificData5) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeIntegrationTypeSpecificData5 performs a merge with any union data inside the Integration_TypeSpecificData, using the provided IntegrationTypeSpecificData5
+func (t *Integration_TypeSpecificData) MergeIntegrationTypeSpecificData5(v IntegrationTypeSpecificData5) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err
@@ -4572,22 +5650,48 @@ func (t *PatchIntegration_TypeSpecificData) MergeCockroachDBCloudIntegrationWrap
 	return err
 }
 
-// AsPatchIntegrationTypeSpecificData4 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData4
-func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData4() (PatchIntegrationTypeSpecificData4, error) {
-	var body PatchIntegrationTypeSpecificData4
+// AsGrafanaDatasourceIntegrationWrapper returns the union data inside the PatchIntegration_TypeSpecificData as a GrafanaDatasourceIntegrationWrapper
+func (t PatchIntegration_TypeSpecificData) AsGrafanaDatasourceIntegrationWrapper() (GrafanaDatasourceIntegrationWrapper, error) {
+	var body GrafanaDatasourceIntegrationWrapper
 	err := json.Unmarshal(t.union, &body)
 	return body, err
 }
 
-// FromPatchIntegrationTypeSpecificData4 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData4
-func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData4(v PatchIntegrationTypeSpecificData4) error {
+// FromGrafanaDatasourceIntegrationWrapper overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided GrafanaDatasourceIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) FromGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
 	b, err := json.Marshal(v)
 	t.union = b
 	return err
 }
 
-// MergePatchIntegrationTypeSpecificData4 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData4
-func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData4(v PatchIntegrationTypeSpecificData4) error {
+// MergeGrafanaDatasourceIntegrationWrapper performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided GrafanaDatasourceIntegrationWrapper
+func (t *PatchIntegration_TypeSpecificData) MergeGrafanaDatasourceIntegrationWrapper(v GrafanaDatasourceIntegrationWrapper) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPatchIntegrationTypeSpecificData5 returns the union data inside the PatchIntegration_TypeSpecificData as a PatchIntegrationTypeSpecificData5
+func (t PatchIntegration_TypeSpecificData) AsPatchIntegrationTypeSpecificData5() (PatchIntegrationTypeSpecificData5, error) {
+	var body PatchIntegrationTypeSpecificData5
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPatchIntegrationTypeSpecificData5 overwrites any union data inside the PatchIntegration_TypeSpecificData as the provided PatchIntegrationTypeSpecificData5
+func (t *PatchIntegration_TypeSpecificData) FromPatchIntegrationTypeSpecificData5(v PatchIntegrationTypeSpecificData5) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePatchIntegrationTypeSpecificData5 performs a merge with any union data inside the PatchIntegration_TypeSpecificData, using the provided PatchIntegrationTypeSpecificData5
+func (t *PatchIntegration_TypeSpecificData) MergePatchIntegrationTypeSpecificData5(v PatchIntegrationTypeSpecificData5) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/oodle-ai/oodle-cli/internal/api"
+	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
 
@@ -221,7 +222,7 @@ The file is sent to the server as it is (YAML is converted to JSON).
 			if err != nil {
 				return err
 			}
-			httpResp, err := c.Inner.CreateLogmetricsWithBody(cmd.Context(), instance, "application/json", bytes.NewReader(body))
+			httpResp, err := c.Inner.CreateLogmetricsWithBody(cmd.Context(), instance, &client.CreateLogmetricsParams{}, "application/json", bytes.NewReader(body))
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}

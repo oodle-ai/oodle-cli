@@ -7,6 +7,10 @@ components:
   schemas:
     AnonymousType1:
       type: object
+    AnonymousType2:
+      type: object
+    AnonymousType3:
+      type: object
     ApiKey:
       type: object
       required:
@@ -123,8 +127,7 @@ components:
       type: object
       description: |-
         AlsoRun is an evaluator a backfill runs because a chosen one
-        reads its scores. The run adds it the same way, so the
-        caller sees here what the run will write.
+        reads its scores.
       required:
         - id
         - name
@@ -199,7 +202,7 @@ components:
           description: |-
             AlsoRuns are the evaluators the run adds because a chosen
             one reads their scores. Only the create answer carries
-            them; the run works out the same set again.
+            them.
           nullable: true
           items:
             $ref: '#/components/schemas/BackfillAlsoRun'
@@ -316,6 +319,68 @@ components:
           type: string
         invitation:
           $ref: '#/components/schemas/UserInvitation'
+    CloudWatchDatasource:
+      type: object
+      description: |-
+        CloudWatchDatasource is a Grafana CloudWatch datasource that queries one AWS
+        account through an IAM role in that account.
+      required:
+        - roleSource
+        - defaultRegion
+      properties:
+        accountId:
+          type: string
+          description: |-
+            AccountID is the AWS account ID. When RoleSource is AWS_INTEGRATION, it
+            comes from the AWS integration account and the request value is ignored.
+        awsIntegrationId:
+          type: string
+          description: |-
+            AWSIntegrationID is the ID of the AWS integration account whose role the
+            datasource uses. It is required when RoleSource is AWS_INTEGRATION.
+        crossAccountObservability:
+          type: boolean
+          description: |-
+            CrossAccountObservability records whether the new role was created with
+            the permissions that list the source accounts linked to a CloudWatch
+            cross-account observability monitoring account.
+        customMetricsNamespaces:
+          type: array
+          description: |-
+            CustomMetricsNamespaces are the custom CloudWatch namespaces that you can
+            query in addition to the AWS namespaces.
+          nullable: true
+          items:
+            type: string
+        defaultRegion:
+          type: string
+          description: DefaultRegion is the AWS region that queries use when they do not set one.
+        externalId:
+          type: string
+          description: |-
+            ExternalID is the external ID in the trust policy of the role. When
+            RoleSource is AWS_INTEGRATION, it comes from the AWS integration account.
+        launchCFStackRegion:
+          type: string
+          description: |-
+            LaunchCFStackRegion is the AWS region where the CloudFormation stack of a
+            new role was created.
+        logsAccess:
+          type: boolean
+          description: |-
+            LogsAccess records whether the new role was created with CloudWatch Logs
+            read access.
+        roleArn:
+          type: string
+          description: |-
+            RoleArn is the IAM role that Grafana assumes. When RoleSource is
+            AWS_INTEGRATION, it comes from the AWS integration account.
+        roleSource:
+          type: string
+          description: |-
+            RoleSource is AWS_INTEGRATION to use the IAM role of an AWS account that
+            the AWS integration connects, or NEW_ROLE to use a role created for this
+            datasource.
     CloudWatchMetricPullIntegration:
       type: object
       properties:
@@ -694,6 +759,13 @@ components:
             ConnectionID: the provider that scores it is the
             customer's, so a draft is reviewed against the model it
             will actually run on.
+        requestTemplate:
+          type: string
+          description: |-
+            RequestTemplate is a webhook evaluator draft's request
+            body. Omitted, the stored template's applies, then the
+            default.
+          nullable: true
         scores:
           type: object
           description: |-
@@ -735,21 +807,34 @@ components:
           description: |-
             VariableMapping maps each prompt variable to where its
             value is read from, as an evaluation rule's does.
+        webhookId:
+          type: string
+          description: |-
+            WebhookID runs a webhook evaluator draft: the span is
+            posted to that webhook and the reply read as a score.
+            Omitted, a stored webhook template uses its own.
     CodeEvalTestRunResponse:
       type: object
       description: |-
-        CodeEvalTestRunResponse is what a test run returns. The
-        fields present depend on what ran:
+        CodeEvalTestRunResponse is what a test run returns. The fields
+        present depend on what ran:
 
           - code: `scores`, `logs` and `duration_ms`, or `error`
             as `{code, message}` (for example BLOCKED_IMPORT,
             INVALID_PARAMS, LIBRARY_NOT_FOUND, TIMEOUT).
           - a judge: `score`, `reasoning`, `raw_output` and the token
             counts, or `error` as a string naming the provider failure.
+          - a webhook evaluator: `score`, `data_type`, `label`,
+            `reasoning` (the reply's `reason`), `metadata` and
+            `webhook` (the exchange), or `error` as a string with
+            `webhook` still set.
 
         A failed run is a 200 with `error` set: the person drafting the
         code can act on it.
       properties:
+        data_type:
+          type: string
+          description: DataType is NUMERIC or BOOLEAN for a webhook evaluator.
         duration_ms:
           type: number
         error:
@@ -769,8 +854,13 @@ components:
           description: Error is `{code, message}` for code, a string for a judge.
         input_tokens:
           type: integer
+        label:
+          type: string
+          description: Label is the webhook reply's `label`.
         logs:
           type: string
+        metadata:
+          description: Metadata is the webhook reply's `metadata` object.
         output_tokens:
           type: integer
         raw_output:
@@ -785,11 +875,13 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/InputScore'
+        webhook:
+          $ref: '#/components/schemas/WebhookCall'
     CodeLibrary:
       type: object
       description: |-
-        CodeLibrary is one Python module the customer writes once and
-        imports from many code evaluators as `shared.<name>`.
+        CodeLibrary is one Python module written once and imported
+        from many code evaluators as `shared.<name>`.
       required:
         - id
         - name
@@ -893,6 +985,39 @@ components:
           type: string
         version:
           type: integer
+    ComparedRow:
+      type: object
+      description: |-
+        ComparedRow is one row key with the row of each compared
+        experiment that has it.
+      required:
+        - key
+        - rows
+      properties:
+        key:
+          type: string
+        rows:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ComparedRowRef'
+    ComparedRowRef:
+      type: object
+      description: |-
+        ComparedRowRef is the row of one experiment, with its scores.
+        Row is absent when the experiment has no row for the key.
+      required:
+        - experimentId
+      properties:
+        experimentId:
+          type: string
+        row:
+          $ref: '#/components/schemas/DatasetRunItem'
+        scores:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
     Condition:
       type: object
       description: Condition is a model for a condition to be evaluated in monitors.
@@ -1068,6 +1193,14 @@ components:
         - filters
         - type
       properties:
+        enabled:
+          type: boolean
+          description: |-
+            Enabled defaults to true on create and to the current state on
+            update, so a client that does not know the field changes nothing.
+          nullable: true
+        expires_at_epoch_ms:
+          type: integer
         filters:
           type: array
           nullable: true
@@ -1114,6 +1247,14 @@ components:
             (A pointer so the handler can tell an explicit false
             from an omitted field.)
           nullable: true
+        id:
+          type: string
+          description: |-
+            ID is optional. Send it to keep the id of a template
+            that is kept in a file, as git sync does, so that the
+            same file always maps to the same template. It must
+            be a UUID that no template uses. Omit it and the
+            server makes one.
         libraryPins:
           type: object
           description: |-
@@ -1123,7 +1264,15 @@ components:
           nullable: true
           additionalProperties:
             type: integer
-        modelParams: {}
+        modelParams:
+          description: |-
+            ModelParams holds the judge settings. For a webhook
+            evaluator it is `{"webhookId": "...", "requestTemplate":
+            "..."}`: the webhook to call and, optionally, the request
+            body with `{{input}}`, `{{output}}`, `{{expected_output}}`,
+            `{{metadata}}`, `{{trace_id}}`, `{{span_id}}`,
+            `{{span_name}}` and `{{tool.name}}` / `{{tool.arguments}}` /
+            `{{tool.result}}` placeholders.
         name:
           type: string
         outputSchema: {}
@@ -1158,13 +1307,17 @@ components:
         type:
           type: string
           description: |-
-            Type is "llm", "code" or "output_comparer".
+            Type is "llm", "code", "output_comparer" or "webhook".
 
             An output comparer is an LLM judge with ground truth: its
             prompt may use {{expected_output}} and {{output}}, and it
             only runs inside an experiment, where the dataset item
             supplies the expected output. It is skipped on live
             traffic, which has none.
+
+            A webhook evaluator posts each span or experiment item to
+            a stored webhook and stores the score in the reply. It
+            needs no LLM connection.
         vars:
           type: array
           nullable: true
@@ -1194,7 +1347,17 @@ components:
           type: boolean
         evaluatorId:
           type: string
-        filters: {}
+        filters:
+          description: |-
+            Filters pick the spans the evaluator scores: a list of
+            {"name", "type", "value"}. An attribute is named with its
+            kind, "span::gen_ai.operation.name" or
+            "resource::service.name"; a dotted name without it is
+            refused. "type" is 0 (equals), 1 (not equals), 2 (regex),
+            3 (not regex), 4 (one of) or 5 (not one of), the last two
+            with a "multi_value" list, or "GT"/"GTE"/"LT"/"LTE". The
+            words eq, neq, re, nre, oneof, not_oneof, gt, gte, lt and
+            lte are accepted and stored as those.
         generationSpansOnly:
           type: boolean
           description: |-
@@ -1202,6 +1365,14 @@ components:
             calls. Absent means true, which is what every rule did
             before the field existed.
           nullable: true
+        id:
+          type: string
+          description: |-
+            ID is optional. Send it to keep the id of an
+            evaluator that is kept in a file, as git sync does,
+            so that the same file always maps to the same
+            evaluator. It must be a UUID that no evaluator uses.
+            Omit it and the server makes one.
         llmConnectionId:
           type: string
           nullable: true
@@ -1226,6 +1397,53 @@ components:
         targetType:
           type: string
         variableMapping: {}
+    CreateExperimentRequest:
+      type: object
+      description: |-
+        CreateExperimentRequest creates an experiment: a set of rows
+        that the customer's own code ran and scored, or that Oodle
+        ran. Create is idempotent by project and name unless
+        `ensureNew` is true, in which case a name in use gets a
+        number added.
+      properties:
+        baseExperimentId:
+          type: string
+          description: |-
+            BaseExperimentID is the experiment that comparisons use.
+            When absent, the newest earlier experiment of the project
+            on the same git branch, else the newest earlier one.
+        datasetId:
+          type: string
+          description: DatasetID links the experiment to a dataset. Optional.
+        datasetVersion:
+          type: string
+          description: |-
+            DatasetVersion is the RFC3339 time of the dataset version
+            the experiment read. Defaults to the latest version.
+        description:
+          type: string
+        ensureNew:
+          type: boolean
+        metadata: {}
+        name:
+          type: string
+          description: Name defaults to "experiment" with ensureNew set.
+        parameters:
+          description: |-
+            Parameters are the settings of the run, for example the
+            model and the prompt version.
+        projectId:
+          type: string
+          description: ProjectID is "" or absent for the default project.
+        repoInfo:
+          description: |-
+            RepoInfo is the git state of the run: commit, branch,
+            tag, dirty, author_name, commit_message, commit_time.
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
     CreateFolderRequest:
       type: object
       description: CreateFolderRequest represents a request to create a folder
@@ -1256,6 +1474,7 @@ components:
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
             - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
+            - $ref: '#/components/schemas/GrafanaDatasourceIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -1353,6 +1572,22 @@ components:
         name:
           type: string
         provider:
+          type: string
+    CreateProjectRequest:
+      type: object
+      description: |-
+        CreateProjectRequest creates a project. A project keeps
+        datasets, experiments, evaluators, prompts and traces apart
+        from those of other projects. Create is idempotent by name:
+        posting a name in use returns that project. The name
+        "default" is the built-in default project and cannot be
+        created.
+      required:
+        - name
+      properties:
+        description:
+          type: string
+        name:
           type: string
     CreatePromptRequest:
       type: object
@@ -1480,6 +1715,14 @@ components:
             OutputPath picks the output out of the reply, such as
             `output`, `result.answer` or `choices[0].message.content`.
             Empty stores the whole body.
+        outputRegex:
+          type: string
+          description: |-
+            OutputRegex is applied to the output that OutputPath
+            picked. The output becomes the first capture group, or
+            the whole match when the regex has no group. `.` matches a
+            newline. A reply that does not match fails the item.
+            Empty keeps the output whole.
         requestTemplate:
           type: string
           description: |-
@@ -1637,6 +1880,59 @@ components:
           nullable: true
         version:
           type: integer
+    DatasetRun:
+      type: object
+      required:
+        - id
+        - datasetId
+        - name
+        - description
+        - metadata
+        - projectId
+        - source
+        - createdAt
+        - updatedAt
+      properties:
+        baseExperimentId:
+          type: string
+          description: |-
+            BaseExperimentID names the run that comparisons use when
+            the caller names none.
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        datasetId:
+          type: string
+        datasetVersion:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
+        id:
+          type: string
+        metadata: {}
+        name:
+          type: string
+        parameters: {}
+        projectId:
+          type: string
+          description: ProjectID is "" for the default project.
+        repoInfo: {}
+        source:
+          type: string
+          description: |-
+            Source says who made the run: "oodle" for a run that
+            Oodle executed, "api" or "braintrust" for a run whose rows
+            the customer's own code uploaded.
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        updatedAt:
+          type: string
     DatasetRunItem:
       type: object
       required:
@@ -1655,14 +1951,34 @@ components:
           type: string
         errorMessage:
           type: string
+        expected: {}
+        externalId:
+          type: string
+          description: |-
+            ExternalID is the caller's id for the row. A write that
+            repeats it updates the row instead of adding a second one.
         id:
           type: string
+        input:
+          description: |-
+            The fields below are set on rows that the customer's code
+            uploaded. A row that Oodle executed reads its input and
+            expected output from the dataset item instead.
+        metadata: {}
+        metrics: {}
         observationId:
           type: string
         output:
           type: string
+        spanId:
+          type: string
         status:
           type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
         traceId:
           type: string
         updatedAt:
@@ -1690,11 +2006,18 @@ components:
           type: string
         errorMessage:
           type: string
+        expected: {}
         expectedOutput: {}
+        externalId:
+          type: string
+          description: |-
+            ExternalID is the caller's id for the row. A write that
+            repeats it updates the row instead of adding a second one.
         id:
           type: string
         input: {}
         metadata: {}
+        metrics: {}
         observationId:
           type: string
         output:
@@ -1704,8 +2027,15 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/Score'
+        spanId:
+          type: string
         status:
           type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
         traceId:
           type: string
         updatedAt:
@@ -1722,11 +2052,20 @@ components:
         - name
         - description
         - metadata
+        - projectId
+        - source
         - createdAt
         - updatedAt
         - scores
       properties:
+        baseExperimentId:
+          type: string
+          description: |-
+            BaseExperimentID names the run that comparisons use when
+            the caller names none.
         createdAt:
+          type: string
+        createdBy:
           type: string
         datasetId:
           type: string
@@ -1744,11 +2083,27 @@ components:
         metadata: {}
         name:
           type: string
+        parameters: {}
+        projectId:
+          type: string
+          description: ProjectID is "" for the default project.
+        repoInfo: {}
         scores:
           type: array
           nullable: true
           items:
             $ref: '#/components/schemas/RunScoreAggregate'
+        source:
+          type: string
+          description: |-
+            Source says who made the run: "oodle" for a run that
+            Oodle executed, "api" or "braintrust" for a run whose rows
+            the customer's own code uploaded.
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
         updatedAt:
           type: string
     DatasetScheduleResponse:
@@ -1779,8 +2134,8 @@ components:
         experimentConfig:
           description: |-
             ExperimentConfig is the `llm-experiment` job config this
-            schedule launches, minus `runName` (assigned per run).
-            The keys are the ones `experiment_runner.py` reads.
+            schedule launches, minus `runName` (assigned per run): the
+            same keys an experiment run takes.
         id:
           type: string
         intervalUnit:
@@ -1871,7 +2226,13 @@ components:
         - metric_name
         - filters
         - type
+        - enabled
       properties:
+        enabled:
+          type: boolean
+        expires_at_epoch_ms:
+          type: integer
+          description: ExpiresAtEpochMs is when the rule stops dropping, or 0 for never.
         filters:
           type: array
           nullable: true
@@ -2186,7 +2547,8 @@ components:
         evaluatorType:
           type: string
           description: |-
-            EvaluatorType is "llm", "code" or "output_comparer", and
+            EvaluatorType is "llm", "code", "output_comparer" or
+            "webhook", and
             is empty when the referenced template no longer exists.
         filters: {}
         generationSpansOnly:
@@ -2245,6 +2607,245 @@ components:
         updatedAt:
           type: string
         variableMapping: {}
+    ExperimentComparisonResponse:
+      type: object
+      description: |-
+        ExperimentComparisonResponse is one page of rows matched
+        across experiments by input.
+      required:
+        - experiments
+        - data
+        - summaries
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ComparedRow'
+        experiments:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DatasetRun'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+        summaries:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ExperimentSummary'
+    ExperimentFeedback:
+      type: object
+      description: |-
+        ExperimentFeedback adds scores, an expected value, tags or a
+        comment to a row after it was written.
+      required:
+        - id
+      properties:
+        comment:
+          type: string
+        expected: {}
+        id:
+          type: string
+          description: |-
+            ID is the row id that the insert returned, or the
+            caller's id for the row.
+        metadata: {}
+        scores:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: number
+            nullable: true
+        source:
+          type: string
+          description: Source is "API" (default), "ANNOTATION" or "EXTERNAL".
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ExperimentFeedbackRequest:
+      type: object
+      description: ExperimentFeedbackRequest adds feedback to rows.
+      required:
+        - feedback
+      properties:
+        feedback:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ExperimentFeedback'
+    ExperimentFeedbackResponse:
+      type: object
+      description: |-
+        ExperimentFeedbackResponse gives the row id of each feedback
+        entry in the order of the request. An entry whose row was not
+        found has an empty id, and its id is also in `missing`.
+      required:
+        - rowIds
+      properties:
+        missing:
+          type: array
+          nullable: true
+          items:
+            type: string
+        rowIds:
+          type: array
+          nullable: true
+          items:
+            type: string
+    ExperimentRow:
+      type: object
+      description: |-
+        ExperimentRow is one row of an experiment: one input that
+        the code under test ran, what it returned, and how it scored.
+      properties:
+        datasetItemId:
+          type: string
+          description: DatasetItemID links the row to a dataset item. Optional.
+        error:
+          description: Error marks the row as failed. A string or any JSON.
+        expected: {}
+        id:
+          type: string
+          description: |-
+            ID is the caller's id for the row. A write that repeats it
+            updates the row, so a retried upload adds no duplicate.
+            Oodle makes one when it is absent.
+        input: {}
+        metadata: {}
+        metrics:
+          description: |-
+            Metrics holds numbers such as start, end (Unix seconds),
+            prompt_tokens, completion_tokens, tokens and
+            estimated_cost.
+        output: {}
+        scores:
+          type: object
+          description: |-
+            Scores are numbers from 0 to 1 by name. A null score is
+            ignored.
+          nullable: true
+          additionalProperties:
+            type: number
+            nullable: true
+        spanId:
+          type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        traceId:
+          type: string
+          description: |-
+            TraceID links the row to its GenAI trace (32 hex). When
+            absent, the row gets a trace id of its own.
+    ExperimentRowView:
+      type: object
+      description: ExperimentRowView is a stored row with its scores.
+      required:
+        - id
+        - datasetRunId
+        - datasetItemId
+        - traceId
+        - createdAt
+        - updatedAt
+        - scores
+      properties:
+        createdAt:
+          type: string
+        datasetItemId:
+          type: string
+        datasetRunId:
+          type: string
+        errorMessage:
+          type: string
+        expected: {}
+        externalId:
+          type: string
+          description: |-
+            ExternalID is the caller's id for the row. A write that
+            repeats it updates the row instead of adding a second one.
+        id:
+          type: string
+        input:
+          description: |-
+            The fields below are set on rows that the customer's code
+            uploaded. A row that Oodle executed reads its input and
+            expected output from the dataset item instead.
+        metadata: {}
+        metrics: {}
+        observationId:
+          type: string
+        output:
+          type: string
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Score'
+        spanId:
+          type: string
+        status:
+          type: string
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+        traceId:
+          type: string
+        updatedAt:
+          type: string
+    ExperimentRowsResponse:
+      type: object
+      description: |-
+        ExperimentRowsResponse is one page of experiment rows with
+        their scores. Pass `cursor` back to read the next page.
+      required:
+        - data
+      properties:
+        cursor:
+          type: string
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ExperimentRowView'
+    ExperimentSummary:
+      type: object
+      description: |-
+        ExperimentSummary is the summary of one experiment, compared
+        with a base experiment when one is given.
+      required:
+        - experiment
+        - rowCount
+        - scores
+        - metrics
+      properties:
+        comparison:
+          $ref: '#/components/schemas/DatasetRun'
+        comparisonRowCount:
+          type: integer
+        experiment:
+          $ref: '#/components/schemas/DatasetRun'
+        matchedRows:
+          type: integer
+        metrics:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/MetricSummary'
+        rowCount:
+          type: integer
+        scores:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ScoreSummary'
     Folder:
       type: object
       description: Folder represents a Grafana folder
@@ -2322,6 +2923,31 @@ components:
           type: boolean
         url:
           type: string
+    GrafanaDatasourceIntegration:
+      type: object
+      description: |-
+        GrafanaDatasourceIntegration is one datasource in the Grafana of the
+        instance. Oodle creates, updates and deletes the datasource together with
+        the integration.
+      required:
+        - kind
+      properties:
+        cloudWatch:
+          $ref: '#/components/schemas/CloudWatchDatasource'
+        kind:
+          type: string
+          description: Kind is the datasource kind. CLOUDWATCH is the only kind.
+        name:
+          type: string
+          description: Name is the datasource name in Grafana. It is read-only.
+        uid:
+          type: string
+          description: UID is the datasource UID in Grafana. It is read-only.
+    GrafanaDatasourceIntegrationWrapper:
+      type: object
+      properties:
+        grafanaDatasourceIntegration:
+          $ref: '#/components/schemas/GrafanaDatasourceIntegration'
     Grouping:
       type: object
       description: Grouping is a model for grouping alerts.
@@ -2480,6 +3106,30 @@ components:
           description: |-
             Value is a number, true or false, a string for a
             categorical score, or null.
+    InsertExperimentRowsRequest:
+      type: object
+      description: InsertExperimentRowsRequest writes rows into an experiment.
+      required:
+        - rows
+      properties:
+        rows:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ExperimentRow'
+    InsertExperimentRowsResponse:
+      type: object
+      description: |-
+        InsertExperimentRowsResponse gives the stored row ids in the
+        order of the request.
+      required:
+        - rowIds
+      properties:
+        rowIds:
+          type: array
+          nullable: true
+          items:
+            type: string
     Instance:
       type: object
       properties:
@@ -2537,6 +3187,7 @@ components:
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
             - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
+            - $ref: '#/components/schemas/GrafanaDatasourceIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
@@ -2843,6 +3494,22 @@ components:
             $ref: '#/components/schemas/EvalTemplate'
         meta:
           $ref: '#/components/schemas/ListMeta'
+    ListExperimentsResponse:
+      type: object
+      description: |-
+        ListExperimentsResponse is one page of experiments, newest
+        first.
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/DatasetRunResponse'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
     ListInvitationsResponse:
       type: object
       description: |-
@@ -2901,6 +3568,19 @@ components:
           type: integer
         totalPages:
           type: integer
+    ListProjectsResponse:
+      type: object
+      description: |-
+        ListProjectsResponse lists the projects. The built-in default
+        project is first, with `isDefault` true and an empty id.
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/Project'
     ListPromptVersionsResponse:
       type: object
       description: ListPromptVersionsResponse is the per-name version list.
@@ -3030,9 +3710,49 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/Webhook'
+    LogBlock:
+      type: object
+      description: |-
+        LogBlock defines a rule to drop logs matching specific filters.
+        When the filter matches, the log is dropped (blocked) and not ingested.
+      required:
+        - name
+        - filter
+      properties:
+        description:
+          type: string
+          description: Description says why the logs are dropped.
+        disabled:
+          type: boolean
+          description: Disabled stops the block without deleting it.
+        expiresAtEpochMs:
+          type: integer
+          description: |-
+            ExpiresAtEpochMs is when the block stops dropping logs, in
+            milliseconds since epoch, or 0 for never.
+        filter:
+          $ref: '#/components/schemas/LogFilter'
+        id:
+          type: string
+          format: uuid
+          description: ID is the unique identifier.
+        keepPercent:
+          type: number
+          description: |-
+            KeepPercent is the share of matching logs to keep, from 0 to 100.
+            The default, 0, drops every matching log.
+        name:
+          type: string
+          description: Name is the name of the log block rule.
+        updatedAtEpochMs:
+          type: integer
+          description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
     LogFilter:
       type: object
-      description: 'LogFilter is a union type that can be one of: match (simple field matching), all (all filters must match), any (at least one filter must match), or not (negation of a filter). Filters can be nested recursively.'
+      description: |-
+        LogFilter selects logs. Set exactly one of these: a single condition, all (all filters must match), any (at least one filter must match), or not (the filter must not match). all, any and not contain LogFilter objects, so filters can be nested.
+
+        A single condition has field, operator, value and jsonPath. Responses always give these properties inline, at the top level of the LogFilter: `{"field":"level","operator":"is","value":"error"}`. Requests can give them inline, or in a match object: `{"match":{"field":"level","operator":"is","value":"error"}}`. Both forms are accepted at each level of nesting. A filter that gives both forms is rejected.
       properties:
         all:
           type: array
@@ -3048,16 +3768,26 @@ components:
           items:
             type: object
             description: Nested LogFilter (recursive). Same structure as the parent LogFilter.
+        field:
+          type: string
+          description: Name of the log field to match.
+        jsonPath:
+          type: string
+          description: Path to a value in a JSON field. If not set, the match uses the full field value.
+          nullable: true
         match:
           type: object
+          description: 'Request only: a single condition in a wrapper object. The server reads it the same as the inline field, jsonPath, operator and value properties. Do not set it together with the inline properties. Responses never contain it.'
           required:
             - field
             - operator
           properties:
             field:
               type: string
+              description: Name of the log field to match.
             jsonPath:
               type: string
+              description: Path to a value in a JSON field. If not set, the match uses the full field value.
               nullable: true
             operator:
               type: string
@@ -3072,6 +3802,16 @@ components:
         not:
           type: object
           description: Nested LogFilter (recursive). Same structure as the parent LogFilter.
+        operator:
+          type: string
+          enum:
+            - is
+            - contains
+            - matches regex
+            - exists
+        value:
+          type: string
+          nullable: true
     LogMetrics:
       type: object
       description: LogMetrics is a definition to convert logs to metrics.
@@ -3237,6 +3977,37 @@ components:
         type:
           type: integer
         value:
+          type: string
+    MetricSummary:
+      type: object
+      description: |-
+        MetricSummary is the same as ScoreSummary for a row metric,
+        for example duration, tokens or cost. A lower value is better
+        for every metric.
+      required:
+        - name
+        - count
+        - improvements
+        - regressions
+      properties:
+        average:
+          type: number
+          nullable: true
+        baseAverage:
+          type: number
+          nullable: true
+        count:
+          type: integer
+        diff:
+          type: number
+          nullable: true
+        improvements:
+          type: integer
+        name:
+          type: string
+        regressions:
+          type: integer
+        unit:
           type: string
     MetricType:
       type: string
@@ -3803,9 +4574,36 @@ components:
             - $ref: '#/components/schemas/ConfluentCloudIntegrationWrapper'
             - $ref: '#/components/schemas/AzureMetricsIntegrationWrapper'
             - $ref: '#/components/schemas/CockroachDBCloudIntegrationWrapper'
+            - $ref: '#/components/schemas/GrafanaDatasourceIntegrationWrapper'
             - type: object
               description: Type-specific config for integration variants not yet typed in this spec (Grafana, GCP, CloudWatch dashboard, S3 log pull). Shape depends on the parent `type` field; consult the backend models for the variant in use.
               additionalProperties: true
+    Project:
+      type: object
+      required:
+        - id
+        - name
+        - isDefault
+        - createdAt
+        - updatedAt
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        isDefault:
+          type: boolean
+          description: |-
+            IsDefault is true for the built-in project that holds
+            everything that names no project. It has no row: its id is "".
+        name:
+          type: string
+        updatedAt:
+          type: string
     PrometheusQueryResponse:
       type: object
       required:
@@ -4103,6 +4901,71 @@ components:
           nullable: true
           additionalProperties:
             type: integer
+    SamplingRule:
+      type: object
+      description: SamplingRule is the API model of a trace sampling rule.
+      required:
+        - id
+        - rule_name
+        - matchers
+        - keep_percent
+        - keep_errors
+        - enabled
+      properties:
+        description:
+          type: string
+        enabled:
+          type: boolean
+        expires_at_epoch_ms:
+          type: integer
+          description: ExpiresAtEpochMs is when the rule stops applying, or 0 for never.
+        id:
+          type: string
+        keep_errors:
+          type: boolean
+          description: KeepErrors stores every span with an error status.
+        keep_percent:
+          type: number
+          description: KeepPercent is the share of matching traces to store, from 0 to 100.
+        matchers:
+          type: array
+          description: |-
+            Matchers must all match a span for the rule to apply. A name is a span
+            metric label (service_name, span_name, span_status, env, cluster,
+            namespace) or a stored attribute column such as `span::http.route`.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/MetricLabelMatcher'
+        rule_name:
+          type: string
+        updated_at_epoch_ms:
+          type: integer
+    SamplingRuleRequest:
+      type: object
+      description: SamplingRuleRequest is the request body to create or update a rule.
+      required:
+        - rule_name
+        - matchers
+        - keep_percent
+      properties:
+        description:
+          type: string
+        enabled:
+          type: boolean
+          nullable: true
+        expires_at_epoch_ms:
+          type: integer
+        keep_errors:
+          type: boolean
+        keep_percent:
+          type: number
+        matchers:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/MetricLabelMatcher'
+        rule_name:
+          type: string
     SaveDashboardRequest:
       type: object
       required:
@@ -4358,6 +5221,42 @@ components:
         value:
           type: number
           nullable: true
+    ScoreSummary:
+      type: object
+      description: |-
+        ScoreSummary is the result of one score name over the rows
+        of an experiment, and its change against the base experiment.
+      required:
+        - name
+        - count
+        - improvements
+        - regressions
+        - higherIsBetter
+      properties:
+        average:
+          type: number
+          description: Average is nil when no row has a number for the score.
+          nullable: true
+        baseAverage:
+          type: number
+          nullable: true
+        count:
+          type: integer
+        diff:
+          type: number
+          description: Diff is Average minus BaseAverage.
+          nullable: true
+        higherIsBetter:
+          type: boolean
+        improvements:
+          type: integer
+          description: |-
+            Improvements and Regressions count the matched rows whose
+            score moved in the good or the bad direction.
+        name:
+          type: string
+        regressions:
+          type: integer
     SendInvitationRequest:
       type: object
       description: |-
@@ -4377,6 +5276,26 @@ components:
             type: string
         sender_email:
           type: string
+    SetDropRuleEnabledRequest:
+      type: object
+      description: |-
+        SetDropRuleEnabledRequest switches a rule on or off without sending the
+        whole rule.
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
+    SetSamplingRuleEnabledRequest:
+      type: object
+      description: |-
+        SetSamplingRuleEnabledRequest switches a rule on or off without sending
+        the whole rule.
+      required:
+        - enabled
+      properties:
+        enabled:
+          type: boolean
     SlackAction:
       type: object
       description: |-
@@ -5017,6 +5936,9 @@ components:
         outputPath:
           type: string
           nullable: true
+        outputRegex:
+          type: string
+          nullable: true
         requestTemplate:
           type: string
           nullable: true
@@ -5089,6 +6011,294 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/TraceSpanTag'
+    TraceQLAnyValue:
+      type: object
+      description: |-
+        AnyValue is an attribute value in the OTLP JSON format. Only one
+        field is set.
+      properties:
+        boolValue:
+          type: boolean
+          nullable: true
+        doubleValue:
+          type: number
+          nullable: true
+        intValue:
+          type: string
+          description: IntValue is a 64-bit integer as a decimal string.
+          nullable: true
+        stringValue:
+          type: string
+          nullable: true
+    TraceQLExemplar:
+      type: object
+      description: Exemplar is a span that is an example of a value in a series.
+      required:
+        - value
+        - timestampMs
+      properties:
+        labels:
+          type: array
+          description: Labels hold the trace ID and other span attributes.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLKeyValue'
+        timestampMs:
+          type: integer
+          description: TimestampMs is the exemplar time in Unix epoch milliseconds.
+        value:
+          type: number
+    TraceQLKeyValue:
+      type: object
+      description: KeyValue is an attribute in the OTLP JSON format.
+      required:
+        - key
+      properties:
+        key:
+          type: string
+        value:
+          $ref: '#/components/schemas/TraceQLAnyValue'
+    TraceQLMetricsResponse:
+      type: object
+      description: QueryRangeResponse is the result of a TraceQL metrics query.
+      required:
+        - series
+      properties:
+        message:
+          type: string
+          description: Message tells why the response is partial.
+        metrics:
+          $ref: '#/components/schemas/TraceQLSearchMetrics'
+        series:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLTimeSeries'
+        status:
+          type: string
+          description: |-
+            Status is "PARTIAL" when the series are not all the series
+            of the query. Tempo uses the same field and values. Empty
+            means complete.
+    TraceQLSample:
+      type: object
+      description: MetricsSample is one data point in a series.
+      required:
+        - timestampMs
+        - value
+      properties:
+        timestampMs:
+          type: integer
+          description: TimestampMs is the sample time in Unix epoch milliseconds.
+        value:
+          type: number
+    TraceQLSearchMetrics:
+      type: object
+      description: SearchMetrics is information about the work that a query did.
+      properties:
+        completedJobs:
+          type: integer
+        inspectedBytes:
+          type: integer
+        inspectedTraces:
+          type: integer
+        totalBlockBytes:
+          type: integer
+        totalBlocks:
+          type: integer
+        totalJobs:
+          type: integer
+    TraceQLSearchResponse:
+      type: object
+      description: SearchResponse is the result of a TraceQL search.
+      required:
+        - traces
+      properties:
+        metrics:
+          $ref: '#/components/schemas/TraceQLSearchMetrics'
+        traces:
+          type: array
+          description: |-
+            Traces that have at least one span set that matches the
+            query, newest first.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLTrace'
+    TraceQLServiceStats:
+      type: object
+      description: ServiceStats is the span count of one service in a trace.
+      required:
+        - spanCount
+      properties:
+        errorCount:
+          type: integer
+        spanCount:
+          type: integer
+    TraceQLSpan:
+      type: object
+      description: |-
+        TempoSpan is a matched span in a search result. It has only some
+        of the span fields. Get the trace by ID for the full spans.
+      required:
+        - spanID
+        - startTimeUnixNano
+        - durationNanos
+      properties:
+        attributes:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLKeyValue'
+        durationNanos:
+          type: string
+          description: |-
+            DurationNanos is the span duration in nanoseconds, as a
+            decimal string.
+        name:
+          type: string
+        spanID:
+          type: string
+        startTimeUnixNano:
+          type: string
+          description: |-
+            StartTimeUnixNano is the span start time in Unix epoch
+            nanoseconds, as a decimal string.
+    TraceQLSpanSet:
+      type: object
+      description: SpanSet is a set of spans in a trace that matched the query.
+      required:
+        - spans
+        - matched
+      properties:
+        attributes:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLKeyValue'
+        matched:
+          type: integer
+          description: Matched is the number of spans that matched.
+        spans:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLSpan'
+    TraceQLTagScope:
+      type: object
+      description: ScopeTagsV2 is the tag names of one scope.
+      required:
+        - name
+        - tags
+      properties:
+        name:
+          type: string
+          description: 'Name is the scope: "resource", "span" or "intrinsic".'
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
+    TraceQLTagValue:
+      type: object
+      description: TagValue is one value of a tag, with its type.
+      required:
+        - type
+        - value
+      properties:
+        type:
+          type: string
+          description: Type is the value type, for example "string".
+        value:
+          type: string
+    TraceQLTagValuesResponse:
+      type: object
+      description: SearchTagValuesV2Response is the list of values of one tag.
+      required:
+        - tagValues
+      properties:
+        tagValues:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLTagValue'
+    TraceQLTagsResponse:
+      type: object
+      description: SearchTagsV2Response is the list of tag names, grouped by scope.
+      required:
+        - scopes
+      properties:
+        scopes:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLTagScope'
+    TraceQLTimeSeries:
+      type: object
+      description: |-
+        TimeSeries is one series of a TraceQL metrics query. There is one
+        series for each group of the `by(...)` clause.
+      required:
+        - labels
+        - samples
+      properties:
+        exemplars:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLExemplar'
+        labels:
+          type: array
+          description: Labels identify the series. They hold the `by(...)` values.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLKeyValue'
+        samples:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLSample'
+    TraceQLTrace:
+      type: object
+      description: TraceSearchMetadata is one trace in a TraceQL search result.
+      required:
+        - traceID
+        - rootServiceName
+        - rootTraceName
+        - startTimeUnixNano
+        - durationMs
+      properties:
+        durationMs:
+          type: integer
+          description: DurationMs is the trace duration in milliseconds.
+        rootServiceName:
+          type: string
+          description: RootServiceName is the service name of the root span.
+        rootTraceName:
+          type: string
+          description: RootTraceName is the name of the root span.
+        serviceStats:
+          type: object
+          description: ServiceStats are span counts for each service in the trace.
+          nullable: true
+          additionalProperties:
+            allOf:
+              - $ref: '#/components/schemas/TraceQLServiceStats'
+        spanSet:
+          $ref: '#/components/schemas/TraceQLSpanSet'
+        spanSets:
+          type: array
+          description: SpanSets are the span sets that matched the query.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/TraceQLSpanSet'
+        startTimeUnixNano:
+          type: string
+          description: |-
+            StartTimeUnixNano is the trace start time in Unix epoch
+            nanoseconds, as a decimal string.
+        traceID:
+          type: string
+          description: TraceID is the hex trace ID.
     TraceSpan:
       type: object
       required:
@@ -5113,6 +6323,15 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/TraceSpanLog'
+        omittedTags:
+          type: array
+          description: |-
+            OmittedTags names the span tags whose values the response
+            leaves out because they are large. Each tag exists on the
+            span, and a read of the span with its values returns it.
+          nullable: true
+          items:
+            type: string
         operationName:
           type: string
         parentSpanID:
@@ -5340,6 +6559,14 @@ components:
         - filters
         - type
       properties:
+        enabled:
+          type: boolean
+          description: |-
+            Enabled defaults to true on create and to the current state on
+            update, so a client that does not know the field changes nothing.
+          nullable: true
+        expires_at_epoch_ms:
+          type: integer
         filters:
           type: array
           nullable: true
@@ -5423,7 +6650,17 @@ components:
         enabled:
           type: boolean
           nullable: true
-        filters: {}
+        filters:
+          description: |-
+            Filters pick the spans the evaluator scores: a list of
+            {"name", "type", "value"}. An attribute is named with its
+            kind, "span::gen_ai.operation.name" or
+            "resource::service.name"; a dotted name without it is
+            refused. "type" is 0 (equals), 1 (not equals), 2 (regex),
+            3 (not regex), 4 (one of) or 5 (not one of), the last two
+            with a "multi_value" list, or "GT"/"GTE"/"LT"/"LTE". The
+            words eq, neq, re, nre, oneof, not_oneof, gt, gte, lt and
+            lte are accepted and stored as those.
         generationSpansOnly:
           type: boolean
           nullable: true
@@ -5451,6 +6688,27 @@ components:
         targetType:
           type: string
         variableMapping: {}
+    UpdateExperimentRequest:
+      type: object
+      description: |-
+        UpdateExperimentRequest changes an experiment. An absent
+        field keeps its value.
+      properties:
+        baseExperimentId:
+          type: string
+          nullable: true
+        description:
+          type: string
+          nullable: true
+        metadata: {}
+        name:
+          type: string
+          nullable: true
+        tags:
+          type: array
+          nullable: true
+          items:
+            type: string
     UpdateJobRequest:
       type: object
       description: |-
@@ -5467,12 +6725,15 @@ components:
       type: object
       description: |-
         UpdateLLMConnectionRequest patches a connection. An empty
-        apiKey leaves the stored credential in place.
+        apiKey leaves the stored credential in place. An absent baseUrl
+        keeps the stored one, and an empty string clears it: a patch
+        that sets one field, such as isDefault, must not clear another.
       properties:
         apiKey:
           type: string
         baseUrl:
           type: string
+          nullable: true
         customHeaders: {}
         customModels:
           type: array
@@ -5490,6 +6751,17 @@ components:
         name:
           type: string
         provider:
+          type: string
+    UpdateProjectRequest:
+      type: object
+      description: |-
+        UpdateProjectRequest changes a project. The name cannot
+        change, because traces carry it in the `oodle.project`
+        attribute.
+      required:
+        - description
+      properties:
+        description:
           type: string
     UpdatePromptLabelsRequest:
       type: object
@@ -5542,8 +6814,9 @@ components:
         UpdateWebhookRequest patches a webhook. A nil headers map
         keeps the stored headers; an empty one clears them; a value
         equal to WebhookSecretMask keeps that one header's stored
-        value. Nil requestTemplate / outputPath keep the stored
-        values; an empty string resets them to the default.
+        value. Nil requestTemplate / outputPath / outputRegex keep
+        the stored values; an empty string resets them to the
+        default.
       properties:
         description:
           type: string
@@ -5556,6 +6829,9 @@ components:
         name:
           type: string
         outputPath:
+          type: string
+          nullable: true
+        outputRegex:
           type: string
           nullable: true
         requestTemplate:
@@ -5704,6 +6980,10 @@ components:
           nullable: true
           additionalProperties:
             type: integer
+        modelParams:
+          description: |-
+            ModelParams of a webhook evaluator: `webhookId` and an
+            optional `requestTemplate`.
         name:
           type: string
           description: |-
@@ -5730,7 +7010,7 @@ components:
           type: string
         type:
           type: string
-          description: Type is "llm", "code" or "output_comparer".
+          description: Type is "llm", "code", "output_comparer" or "webhook".
     ValidateEvalTemplateResponse:
       type: object
       description: |-
@@ -5819,10 +7099,6 @@ components:
         experiment run against one posts every dataset item to its
         URL and scores the reply, instead of calling an LLM
         connection with a prompt.
-
-        It is read and written through raw SQL for the same reason
-        `DatasetSchedule` is: the sqlboiler models predate the table.
-        `webhookColumns` is the one place the column list lives.
       required:
         - id
         - name
@@ -5831,6 +7107,7 @@ components:
         - timeoutSeconds
         - requestTemplate
         - outputPath
+        - outputRegex
         - createdAt
         - updatedAt
       properties:
@@ -5855,13 +7132,17 @@ components:
           type: string
         outputPath:
           type: string
+        outputRegex:
+          type: string
         requestTemplate:
           type: string
           description: |-
             RequestTemplate is the body sent per item, JSON text with
             `{{path}}` placeholders; empty means the item's input as
             the body. OutputPath reads the output out of the reply;
-            empty means the whole body. See experiments/webhook.go.
+            empty means the whole body. OutputRegex then cuts the
+            output down to its match; empty keeps it whole. See
+            experiments/webhook.go.
         timeoutSeconds:
           type: integer
         updatedAt:
@@ -7064,6 +8345,64 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/drop-rules/{id}/enabled:
+    put:
+      tags:
+        - Metric Drop Rules
+      summary: Enable or disable a metric drop rule
+      description: |2-
+
+        **Required role:** Editor or Admin
+      operationId: setDropRuleEnabled
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetDropRuleEnabledRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DropRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/grafana/dashboards:
     get:
       tags:
@@ -8208,6 +9547,11 @@ paths:
       summary: Rename a folder and every dataset under it
       operationId: renameGenaiDatasetFolder
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
@@ -8269,6 +9613,11 @@ paths:
       summary: Create a dataset item
       operationId: createGenaiDatasetItem
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
@@ -8609,6 +9958,11 @@ paths:
           description: 1-based page number. Defaults to 1.
           schema:
             type: integer
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
@@ -8646,6 +10000,11 @@ paths:
       summary: Create a dataset
       operationId: createGenaiDataset
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
@@ -8701,6 +10060,11 @@ paths:
       summary: Delete a dataset
       operationId: deleteGenaiDataset
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -8746,6 +10110,11 @@ paths:
       summary: Get a dataset by name
       operationId: getGenaiDataset
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -8795,6 +10164,11 @@ paths:
       summary: Rename a dataset
       operationId: renameGenaiDataset
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -8872,6 +10246,11 @@ paths:
           description: 1-based page number. Defaults to 1.
           schema:
             type: integer
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: version
           in: query
           description: RFC3339 timestamp. Returns the dataset as it stood at that moment, which is how a past run's inputs are recovered.
@@ -8943,6 +10322,11 @@ paths:
           description: 1-based page number. Defaults to 1.
           schema:
             type: integer
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -8993,6 +10377,11 @@ paths:
       summary: Delete a dataset's experiment schedule
       operationId: deleteGenaiDatasetSchedule
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -9042,6 +10431,11 @@ paths:
       summary: Get a dataset's experiment schedule
       operationId: getGenaiDatasetSchedule
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -9091,6 +10485,11 @@ paths:
       summary: Set a dataset's experiment schedule
       operationId: setGenaiDatasetSchedule
       parameters:
+        - name: projectId
+          in: query
+          description: Project ID. Omit it, or send `default`, for the default project, which holds everything that names no project. Names are unique in a project, so the same name in two projects is two objects.
+          schema:
+            type: string
         - name: datasetName
           in: path
           description: Dataset name.
@@ -9776,6 +11175,625 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiment-comparisons:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: Compare the rows of two to five experiments
+      operationId: compareGenaiExperiments
+      parameters:
+        - name: experimentIds
+          in: query
+          description: Two to five experiment IDs, separated by commas. Each one after the first is summarized against the first.
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentComparisonResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiments:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: List a project's experiments
+      operationId: listGenaiProjectExperiments
+      parameters:
+        - name: datasetId
+          in: query
+          description: Only experiments over this dataset.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: name
+          in: query
+          description: Only the experiment with this name.
+          schema:
+            type: string
+        - name: page
+          in: query
+          description: 1-based page number. Defaults to 1.
+          schema:
+            type: integer
+        - name: projectId
+          in: query
+          description: Project ID. Omit it for the default project. Send `*` to list the experiments of every project.
+          schema:
+            type: string
+        - name: source
+          in: query
+          description: 'Only experiments from this source: `oodle` (Oodle ran it), `api` or `braintrust` (your code uploaded the rows).'
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListExperimentsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Experiments
+      summary: Create an experiment, or get the one with the name
+      operationId: createGenaiProjectExperiment
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExperimentRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRun'
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRun'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiments/{experimentId}:
+    delete:
+      tags:
+        - GenAI Experiments
+      summary: Delete an experiment and its rows
+      operationId: deleteGenaiExperiment
+      parameters:
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType2'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Experiments
+      summary: Get an experiment
+      operationId: getGenaiExperiment
+      parameters:
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRun'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Experiments
+      summary: Update an experiment
+      operationId: updateGenaiExperiment
+      parameters:
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateExperimentRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasetRun'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiments/{experimentId}/feedback:
+    post:
+      tags:
+        - GenAI Experiments
+      summary: Add scores, expected values or tags to experiment rows
+      operationId: addGenaiExperimentFeedback
+      parameters:
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExperimentFeedbackRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentFeedbackResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiments/{experimentId}/rows:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: List an experiment's rows with their scores
+      operationId: listGenaiExperimentRows
+      parameters:
+        - name: cursor
+          in: query
+          description: The `cursor` of the previous page. Omit it for the first page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: Results per page. Defaults to 50, capped at 200.
+          schema:
+            type: integer
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentRowsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Experiments
+      summary: Write rows into an experiment
+      operationId: insertGenaiExperimentRows
+      parameters:
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InsertExperimentRowsRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InsertExperimentRowsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/experiments/{experimentId}/summary:
+    get:
+      tags:
+        - GenAI Experiments
+      summary: Summarize an experiment against a base experiment
+      operationId: getGenaiExperimentSummary
+      parameters:
+        - name: compareTo
+          in: query
+          description: Experiment ID to compare with. Defaults to the experiment's `baseExperimentId`, else the newest earlier experiment of the project.
+          schema:
+            type: string
+        - name: experimentId
+          in: path
+          description: Experiment ID.
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExperimentSummary'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/langfuse/api/public/jobs:
     get:
       tags:
@@ -10133,6 +12151,263 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/LLMConnection'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/projects:
+    get:
+      tags:
+        - GenAI Projects
+      summary: List projects
+      operationId: listGenaiProjects
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListProjectsResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - GenAI Projects
+      summary: Create a project, or get the one with the name
+      operationId: createGenaiProject
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProjectRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "201":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/langfuse/api/public/projects/{projectId}:
+    delete:
+      tags:
+        - GenAI Projects
+      summary: Delete a project and everything in it
+      operationId: deleteGenaiProject
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: projectId
+          in: path
+          description: Project ID. Use `default` for the default project.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnonymousType3'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - GenAI Projects
+      summary: Get a project
+      operationId: getGenaiProject
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: projectId
+          in: path
+          description: Project ID. Use `default` for the default project.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    patch:
+      tags:
+        - GenAI Projects
+      summary: Update a project's description
+      operationId: updateGenaiProject
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: projectId
+          in: path
+          description: Project ID. Use `default` for the default project.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProjectRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
         "400":
           description: ""
           content:
@@ -10854,6 +13129,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "409":
           description: ""
           content:
@@ -11312,6 +13593,249 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/logblocks:
+    get:
+      tags:
+        - Log Blocks
+      summary: List Logblocks
+      operationId: listLogblocks
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/LogBlock'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - Log Blocks
+      summary: Create Logblocks
+      operationId: createLogblocks
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogBlock'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogBlock'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/logblocks/{id}:
+    delete:
+      tags:
+        - Log Blocks
+      summary: Delete Logblock
+      operationId: deleteLogblocksById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - Log Blocks
+      summary: Get Logblock
+      operationId: getLogblocksById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogBlock'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - Log Blocks
+      summary: Update Logblock
+      operationId: updateLogblocksById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogBlock'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogBlock'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/logmetrics:
     get:
       tags:
@@ -11364,6 +13888,11 @@ paths:
         **Required role:** Editor or Admin
       operationId: createLogmetrics
       parameters:
+        - name: keep_id
+          in: query
+          description: When true, the create keeps the id of the body. Without it, the create makes a new id.
+          schema:
+            type: boolean
         - name: instance
           in: path
           description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
@@ -11389,6 +13918,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
           description: ""
           content:
             application/json:
@@ -13440,6 +15975,304 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/trace-sampling-rules:
+    get:
+      tags:
+        - Trace Sampling Rules
+      summary: List Trace Sampling Rules
+      operationId: listTraceSamplingRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SamplingRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - Trace Sampling Rules
+      summary: Create Trace Sampling Rules
+      operationId: createTraceSamplingRules
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamplingRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplingRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/trace-sampling-rules/{id}:
+    delete:
+      tags:
+        - Trace Sampling Rules
+      summary: Delete Trace Sampling Rule
+      operationId: deleteTraceSamplingRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - Trace Sampling Rules
+      summary: Get Trace Sampling Rule
+      operationId: getTraceSamplingRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplingRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - Trace Sampling Rules
+      summary: Update Trace Sampling Rule
+      operationId: updateTraceSamplingRulesById
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SamplingRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplingRule'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/trace-sampling-rules/{id}/enabled:
+    put:
+      tags:
+        - Trace Sampling Rules
+      summary: Enable or disable a trace sampling rule
+      operationId: setTraceSamplingRuleEnabled
+      parameters:
+        - name: id
+          in: path
+          description: Resource ID
+          required: true
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SetSamplingRuleEnabledRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SamplingRule'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
   /v1/api/instance/{instance}/traces/labels:
     get:
       tags:
@@ -13547,6 +16380,346 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/traces/traceql/metrics/query_range:
+    get:
+      tags:
+        - Traces
+      summary: Run a TraceQL metrics query
+      description: |-
+        Runs a [TraceQL](https://grafana.com/docs/tempo/latest/traceql/) metrics query over a time range. The response is in the Tempo metrics format: one time series for each group.
+
+        The query is a span selector, then a metrics function, then an optional `by(...)` clause: `{ selector } | function(...) by (attribute, ...)`. The supported functions are:
+
+        - `rate()`: matching spans per second.
+        - `count_over_time()`: matching spans in each step.
+        - `avg_over_time(attribute)`, `min_over_time(attribute)`, `max_over_time(attribute)`, `sum_over_time(attribute)`: the average, minimum, maximum or sum of a numeric attribute, for example `duration`.
+        - `histogram_over_time(attribute)`: a histogram of a numeric attribute.
+        - `quantile_over_time(attribute, q, ...)`: one or more quantiles of a numeric attribute, for example `quantile_over_time(duration, 0.95, 0.99)`.
+
+        `by(...)` groups the result by one or more attributes. Example: `{ span.http.status_code >= 500 } | rate() by (resource.service.name)`.
+
+        This endpoint accepts only metrics queries. Send a span selector without a metrics function to the TraceQL search endpoint, `/traceql/search`.
+
+        `start` and `end` are Unix epoch **seconds**. When you do not send them, the range is the last hour.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: queryTraceQLMetricsRange
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in Unix epoch seconds
+          schema:
+            type: integer
+            format: int64
+        - name: exemplars
+          in: query
+          description: Maximum number of exemplars to return. The default is 100 and the maximum is 1000. Send 0 for no exemplars.
+          schema:
+            type: integer
+        - name: q
+          in: query
+          description: TraceQL metrics query, for example `{} | rate() by (resource.service.name)`
+          required: true
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start of the time range in Unix epoch seconds
+          schema:
+            type: integer
+            format: int64
+        - name: step
+          in: query
+          description: 'Width of each step: a duration such as `30s`, `5m` or `1h`, or a number of seconds. The default divides the range into 100 steps, with a minimum of 1 second.'
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceQLMetricsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "429":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/traces/traceql/search:
+    get:
+      tags:
+        - Traces
+      summary: Search traces with TraceQL
+      description: |-
+        Searches traces with a [TraceQL](https://grafana.com/docs/tempo/latest/traceql/) query. The response is in the Tempo search format: each trace has its root span data and the span sets that matched.
+
+        `q` takes a TraceQL span selector, for example `{ resource.service.name = "checkout" && span.http.status_code >= 500 }`. A trace ID in `q` finds that trace.
+
+        This endpoint does not accept a metrics query (a query with `| rate()` or another metrics function). Send a metrics query to the TraceQL metrics endpoint, `/traceql/metrics/query_range`.
+
+        `start` and `end` are Unix epoch **seconds**. When you do not send them, the range is the last hour.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: searchTraceQL
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in Unix epoch seconds
+          schema:
+            type: integer
+            format: int64
+        - name: limit
+          in: query
+          description: Maximum number of traces to return. The default is 20 and the maximum is 1000.
+          schema:
+            type: integer
+        - name: q
+          in: query
+          description: TraceQL span selector, for example `{ span.http.status_code >= 500 }`
+          schema:
+            type: string
+        - name: spss
+          in: query
+          description: Spans for each span set. Accepted for Tempo compatibility. It has no effect at this time.
+          schema:
+            type: integer
+        - name: start
+          in: query
+          description: Start of the time range in Unix epoch seconds
+          schema:
+            type: integer
+            format: int64
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceQLSearchResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "429":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/traces/traceql/tags:
+    get:
+      tags:
+        - Traces
+      summary: List TraceQL tag names
+      description: |-
+        Lists the attribute names that you can use in a TraceQL query, grouped by scope (`resource`, `span` and `intrinsic`). The response is in the Tempo tags format.
+
+        The list comes from the spans of the last hour. `start`, `end` and `scope` are accepted for Tempo compatibility. They have no effect at this time.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: listTraceQLTags
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in Unix epoch seconds. It has no effect at this time.
+          schema:
+            type: integer
+            format: int64
+        - name: q
+          in: query
+          description: TraceQL span selector. Only tags of spans that match it are listed.
+          schema:
+            type: string
+        - name: scope
+          in: query
+          description: 'Scope of the tags: `resource`, `span` or `intrinsic`. It has no effect at this time.'
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start of the time range in Unix epoch seconds. It has no effect at this time.
+          schema:
+            type: integer
+            format: int64
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceQLTagsResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "429":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/traces/traceql/tags/{tagName}/values:
+    get:
+      tags:
+        - Traces
+      summary: List TraceQL tag values
+      description: |-
+        Lists the values of one attribute. The response is in the Tempo tag values format. Use the scope-qualified name, for example `resource.service.name`, `span.http.route` or the intrinsic `name`. Percent-encode the name in the path.
+
+        The list comes from the spans of the last hour. `start` and `end` are accepted for Tempo compatibility. They have no effect at this time.
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: listTraceQLTagValues
+      parameters:
+        - name: end
+          in: query
+          description: End of the time range in Unix epoch seconds. It has no effect at this time.
+          schema:
+            type: integer
+            format: int64
+        - name: q
+          in: query
+          description: TraceQL span selector. Only values from spans that match it are listed. A selector that does not parse, such as the partial query that an editor sends while you type a value, is ignored, and values from all spans are listed.
+          schema:
+            type: string
+        - name: start
+          in: query
+          description: Start of the time range in Unix epoch seconds. It has no effect at this time.
+          schema:
+            type: integer
+            format: int64
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: tagName
+          in: path
+          description: Scope-qualified tag name, for example `resource.service.name`
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TraceQLTagValuesResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "429":
           description: ""
           content:
             application/json:
@@ -14316,9 +17489,11 @@ tags:
   - name: GenAI Scores
     description: Read evaluator output and attach your own scores to traces and observations.
   - name: GenAI Experiments
-    description: Run a prompt over a dataset, score the result, and compare runs.
+    description: Run a prompt over a dataset, or upload the rows your own code ran and scored, then compare runs.
   - name: GenAI LLM Connections
     description: Provider credentials that evaluators and experiments run against. Stored keys are encrypted and never returned.
+  - name: GenAI Projects
+    description: Keep experiments, datasets, prompts and test traces apart from production. A trace belongs to a project when its `oodle.project` resource attribute holds the project name; a trace without it belongs to the `default` project.
   - name: GenAI Backfills
     description: Run evaluators over traffic that already happened, to see what they would have found. A run also runs every evaluator whose scores a chosen one reads, and lists them in `alsoRuns`.
   - name: GenAI Shared Libraries

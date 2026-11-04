@@ -74,8 +74,12 @@ func newGenAIDatasetScheduleGetCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := getClient(cmd)
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.GetGenaiDatasetScheduleWithResponse(
-				cmd.Context(), getInstance(cmd), args[0],
+				cmd.Context(), getInstance(cmd), args[0], &client.GetGenaiDatasetScheduleParams{ProjectId: projectID},
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -180,8 +184,12 @@ Flags override the file. --mode is inferred from --every or
 				return err
 			}
 
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.SetGenaiDatasetScheduleWithResponse(
-				cmd.Context(), getInstance(cmd), args[0], body,
+				cmd.Context(), getInstance(cmd), args[0], &client.SetGenaiDatasetScheduleParams{ProjectId: projectID}, body,
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
@@ -367,8 +375,12 @@ func newGenAIDatasetScheduleDeleteCmd() *cobra.Command {
 			), forceFlag(cmd)) {
 				return fmt.Errorf("aborted")
 			}
+			projectID, err := projectIDParam(cmd)
+			if err != nil {
+				return err
+			}
 			resp, err := c.Inner.DeleteGenaiDatasetScheduleWithResponse(
-				cmd.Context(), getInstance(cmd), args[0],
+				cmd.Context(), getInstance(cmd), args[0], &client.DeleteGenaiDatasetScheduleParams{ProjectId: projectID},
 			)
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
