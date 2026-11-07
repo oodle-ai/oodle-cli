@@ -51,18 +51,30 @@ Example NDJSON file contents:
   {"index": "logs-*"}
   {"query": {"match_all": {}}, "size": 10}
 
-Query cost: a log query has a server time limit of 60 seconds, and a slow
-query also slows log queries for other users. To keep a query fast:
-  - Search text in the message field. It has a token index, so a
+Query cost: a log query has a server time limit, and a slow query also
+slows log queries for other users. To keep a query fast:
+  - Search text in the message field. It is indexed for word search, so a
     match_phrase on message reads only the parts of the logs that hold
     the words.
-  - Queries on raw_log are slow. raw_log has no index, so a search on it
+  - Queries on raw_log are slow. raw_log is not indexed, so a search on it
     reads every log line in the time range. Search message first. Search
     raw_log only when message does not hold the text, and then:
       * use a window of a few hours, not days;
       * put the raw_log search in its own query. In a bool should clause
         next to a message search, it makes the message search read every
         line too.
+  - JSON fields hold nested values, for example a field "log" with the
+    subfields "log.level" and "log.session_id":
+      * Do not filter on the JSON field itself ("log"). That reads the
+        whole field of every line. Query a subfield ("log.level").
+      * On a subfield, a match_phrase or query_string term without
+        .keyword is a contains search. It reads the whole JSON field of
+        every line and can time out over a few hours. For an exact value,
+        such as an ID, use the .keyword form:
+        {"term": {"log.session_id.keyword": "<id>"}}
+      * To find text inside log lines, search message, not a subfield
+        such as log.message. Do not add a log.message term for the same
+        text.
   - Use a .keyword field for an exact value, such as an ID.
   - Use a window of 3 days or less. Split a longer period into windows
     of 3 days or less, and stop when you have found what you need.
@@ -164,8 +176,9 @@ Run 'oodle logs index-patterns' to list the index names.`,
 // cheaper. An agent that gets only the error tends to run the same query
 // again, which adds the same load to the server again.
 const logsTimeoutHint = "The log query timed out. Do not run it again unchanged: make it narrower. " +
-	"Use a shorter window, search the message field (raw_log has no index and is slow), " +
-	"use a .keyword field for exact values, and run log queries one at a time. " +
+	"Use a shorter window, search the message field (raw_log is not indexed and is slow), " +
+	"query a JSON subfield instead of the whole JSON field, use a .keyword field for exact values " +
+	"(a subfield without .keyword is a slow contains search), and run log queries one at a time. " +
 	"Run 'oodle logs query --help' for details."
 
 // hasLogsTimeout reports whether a search in a multi-search response
