@@ -7,7 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/oodle-ai/oodle-cli/internal/useragent"
 )
 
 func TestMcpCmd_SkipsConfig(t *testing.T) {
@@ -210,6 +213,58 @@ func TestMcpProxyLoop_ForwardsRequest(t *testing.T) {
 	got := strings.TrimSpace(outBuf.String())
 	if !strings.Contains(got, `"tools"`) {
 		t.Errorf("output = %q, want tools/list response", got)
+	}
+}
+
+func TestMcpProxyLoop_NamesTheAgentInUserAgent(t *testing.T) {
+	var mu sync.Mutex
+	agents := map[string]string{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var msg struct {
+			Method string `json:"method"`
+		}
+		body, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(body, &msg)
+		mu.Lock()
+		agents[msg.Method] = r.Header.Get("User-Agent")
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{}}`))
+	}))
+	defer srv.Close()
+
+	input := `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"clientInfo":{"name":"codex-mcp-client","version":"0.46.0"}}}` + "\n" +
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}` + "\n"
+
+	err := runMcpProxyLoop(t.Context(), strings.NewReader(input), &strings.Builder{}, &strings.Builder{}, http.DefaultClient, srv.URL)
+	if err != nil {
+		t.Fatalf("runMcpProxyLoop: %v", err)
+	}
+
+	want := "codex-mcp-client/0.46.0 " + useragent.String() + " (mcp-proxy)"
+	for _, method := range []string{"initialize", "tools/list"} {
+		if got := agents[method]; got != want {
+			t.Errorf("%s User-Agent = %q, want %q", method, got, want)
+		}
+	}
+}
+
+func TestMcpProxyLoop_UserAgentWithoutInitialize(t *testing.T) {
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("User-Agent")
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"jsonrpc":"2.0","id":1,"result":{}}`))
+	}))
+	defer srv.Close()
+
+	input := `{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}` + "\n"
+	err := runMcpProxyLoop(t.Context(), strings.NewReader(input), &strings.Builder{}, &strings.Builder{}, http.DefaultClient, srv.URL)
+	if err != nil {
+		t.Fatalf("runMcpProxyLoop: %v", err)
+	}
+	if want := useragent.String() + " (mcp-proxy)"; got != want {
+		t.Errorf("User-Agent = %q, want %q", got, want)
 	}
 }
 
