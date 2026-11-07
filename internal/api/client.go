@@ -308,7 +308,10 @@ func NewAuthedHTTPClient(
 	}
 	return &http.Client{
 		Transport: &authTransport{
-			base:   newRetryTransport(http.DefaultTransport, maxRetries),
+			base: newRetryTransport(
+				NewClientHeadersTransport(http.DefaultTransport),
+				maxRetries,
+			),
 			editor: NewAuthRequestEditor(cfg),
 		},
 		Timeout: timeout,
@@ -339,8 +342,11 @@ func NewClient(cfg *config.Config, maxRetries int) (*Client, error) {
 		maxRetries = 0
 	}
 	httpClient := &http.Client{
-		Transport: &jsonFixTransport{base: newRetryTransport(http.DefaultTransport, maxRetries)},
-		Timeout:   60 * time.Second,
+		Transport: &jsonFixTransport{base: newRetryTransport(
+			NewClientHeadersTransport(http.DefaultTransport),
+			maxRetries,
+		)},
+		Timeout: 60 * time.Second,
 	}
 
 	gen, err := client.NewClientWithResponses(
