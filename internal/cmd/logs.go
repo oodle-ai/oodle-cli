@@ -87,21 +87,31 @@ Run 'oodle logs index-patterns' to list the index names.`,
 					endStr = defaultEndValue
 				}
 
-				startMs, err = parseTimeFlagMs(startStr)
+				rangeNow := time.Now()
+				startMs, err = parseLogsTimeFlagMs(startStr, rangeNow)
 				if err != nil {
 					return fmt.Errorf("--start: %w", err)
 				}
-				endMs, err = parseTimeFlagMs(endStr)
+				endMs, err = parseLogsTimeFlagMs(endStr, rangeNow)
 				if err != nil {
 					return fmt.Errorf("--end: %w", err)
 				}
 
+				if endMs < startMs {
+					return fmt.Errorf("log query end time must not be before start time")
+				}
+				if time.UnixMilli(endMs).Sub(time.UnixMilli(startMs)) > 7*24*time.Hour {
+					return fmt.Errorf("%s", logQueryRangeLimitError)
+				}
 				data, err = injectTimeRange(data, startMs, endMs)
 				if err != nil {
 					return fmt.Errorf("injecting time range: %w", err)
 				}
 			}
 
+			if err := validateLogsQueryBody(data, time.Now()); err != nil {
+				return err
+			}
 			params := &client.QueryLogsParams{
 				XOODLEINSTANCE: instance,
 			}
