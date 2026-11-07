@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -49,6 +50,37 @@ bool filter, the range clause is appended to the existing filter array.
 Example NDJSON file contents:
   {"index": "logs-*"}
   {"query": {"match_all": {}}, "size": 10}
+
+Query cost: a log query has a server time limit, and a slow query also
+slows log queries for other users. To keep a query fast:
+  - Search text in the message field. It is indexed for word search, so a
+    match_phrase on message reads only the parts of the logs that hold
+    the words.
+  - Queries on raw_log are slow. raw_log is not indexed, so a search on it
+    reads every log line in the time range. Search message first. Search
+    raw_log only when message does not hold the text, and then:
+      * use a window of a few hours, not days;
+      * put the raw_log search in its own query. In a bool should clause
+        next to a message search, it makes the message search read every
+        line too.
+  - JSON fields hold nested values, for example a field "log" with the
+    subfields "log.level" and "log.session_id":
+      * Do not filter on the JSON field itself ("log"). That reads the
+        whole field of every line. Query a subfield ("log.level").
+      * On a subfield, a match_phrase or query_string term without
+        .keyword is a contains search. It reads the whole JSON field of
+        every line and can time out over a few hours. For an exact value,
+        such as an ID, use the .keyword form:
+        {"term": {"log.session_id.keyword": "<id>"}}
+      * To find text inside log lines, search message, not a subfield
+        such as log.message. Do not add a log.message term for the same
+        text.
+  - Use a .keyword field for an exact value, such as an ID.
+  - Use a window of 3 days or less. Split a longer period into windows
+    of 3 days or less, and stop when you have found what you need.
+  - Run log queries one at a time, not in parallel.
+  - Use "size": 0 with aggs when you need counts, not log lines.
+  - If a query times out, make it narrower. Do not run it again unchanged.
 
 Run 'oodle logs index-patterns' to list the index names.`,
 		Example: `  oodle logs query -f query.ndjson --start -24h
@@ -119,7 +151,12 @@ Run 'oodle logs index-patterns' to list the index names.`,
 			if err != nil {
 				return fmt.Errorf("API request failed: %w", err)
 			}
-			return readAndPrintWithEmptyHint(cmd, format, httpResp, isEmptyLogsResult, func() {
+			return readAndPrintWithEmptyHint(cmd, format, httpResp, func(body []byte) bool {
+				if hasLogsTimeout(body) {
+					fmt.Fprintln(cmd.ErrOrStderr(), logsTimeoutHint)
+				}
+				return isEmptyLogsResult(body)
+			}, func() {
 				if startMs == 0 && endMs == 0 {
 					fmt.Fprintln(cmd.ErrOrStderr(), "No logs in the time range of the query. Widen the range or the filters before you decide that the logs do not exist.")
 					return
@@ -133,6 +170,36 @@ Run 'oodle logs index-patterns' to list the index names.`,
 	cmd.Flags().StringVar(&endStr, "end", "", "End of the time range (relative like -1h, 'now', RFC3339, or epoch s/ms/µs/ns). Defaults to "+defaultEndValue+" if omitted")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
+}
+
+// logsTimeoutHint tells the caller how to make a timed-out log query
+// cheaper. An agent that gets only the error tends to run the same query
+// again, which adds the same load to the server again.
+const logsTimeoutHint = "The log query timed out. Do not run it again unchanged: make it narrower. " +
+	"Use a shorter window, search the message field (raw_log is not indexed and is slow), " +
+	"query a JSON subfield instead of the whole JSON field, use a .keyword field for exact values " +
+	"(a subfield without .keyword is a slow contains search), and run log queries one at a time. " +
+	"Run 'oodle logs query --help' for details."
+
+// hasLogsTimeout reports whether a search in a multi-search response
+// failed because the query took longer than the server time limit.
+func hasLogsTimeout(body []byte) bool {
+	var resp struct {
+		Responses []struct {
+			Error json.RawMessage `json:"error"`
+		} `json:"responses"`
+	}
+	if json.Unmarshal(body, &resp) != nil {
+		return false
+	}
+	for _, r := range resp.Responses {
+		e := strings.ToLower(string(r.Error))
+		if strings.Contains(e, "timeout exceeded") ||
+			strings.Contains(e, "timeout_exceeded") {
+			return true
+		}
+	}
+	return false
 }
 
 // isEmptyLogsResult reports whether a multi-search response has no hits in

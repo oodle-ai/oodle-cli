@@ -123,3 +123,32 @@ func TestGenAIScoresEmptyHint(t *testing.T) {
 		t.Errorf("stdout is not clean JSON: %q", stdout)
 	}
 }
+
+func TestLogsQueryTimeoutHint(t *testing.T) {
+	logsFile := filepath.Join(t.TempDir(), "q.ndjson")
+	if err := os.WriteFile(logsFile, []byte("{\"index\":\"logs\"}\n{\"query\":{\"match_phrase\":{\"raw_log\":\"x\"}}}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name     string
+		body     string
+		wantHint bool
+	}{
+		{"ClickHouse timeout", `{"responses":[{"error":{"reason":"Code: 159. DB::Exception: Timeout exceeded: elapsed 60017 ms (TIMEOUT_EXCEEDED)"}}]}`, true},
+		{"request timeout", `{"responses":[{"error":"ClickHouse query cancelled: request timeout exceeded"}]}`, true},
+		{"other error", `{"responses":[{"error":{"reason":"unknown field"}}]}`, false},
+		{"hits", `{"responses":[{"hits":{"hits":[{"_source":{"message":"x"}}]}}]}`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, _ := newTraceQLTestServer(t, 200, tt.body)
+			_, stderr, err := runCmdSplit(t, srv.URL, newLogsQueryCmd(), output.FormatJSON, "-f", logsFile)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := strings.Contains(stderr, "The log query timed out"); got != tt.wantHint {
+				t.Errorf("timeout hint shown = %v, want %v; stderr = %q", got, tt.wantHint, stderr)
+			}
+		})
+	}
+}

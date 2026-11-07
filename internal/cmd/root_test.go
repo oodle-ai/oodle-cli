@@ -133,3 +133,24 @@ func TestIsUsageError(t *testing.T) {
 		})
 	}
 }
+
+func TestClientInfoForNamesTheCommandAndTheAgent(t *testing.T) {
+	t.Setenv("CLAUDECODE", "1")
+	root := NewRootCmd()
+	query, _, err := root.Find([]string{"logs", "query"})
+	if err != nil {
+		t.Fatalf("finding logs query: %v", err)
+	}
+
+	info := clientInfoFor(query)
+
+	if info.Command != "logs query" {
+		t.Errorf("command = %q, want %q", info.Command, "logs query")
+	}
+	if info.Agent != "claude-code" {
+		t.Errorf("agent = %q, want claude-code", info.Agent)
+	}
+	if info.Version != version {
+		t.Errorf("version = %q, want %q", info.Version, version)
+	}
+}

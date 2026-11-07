@@ -386,7 +386,7 @@ func runMcpServe(cmd *cobra.Command, deployment, toolsets string) error {
 			}
 			req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
 			api.MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
-			return http.DefaultTransport.RoundTrip(req)
+			return api.NewClientHeadersTransport(http.DefaultTransport).RoundTrip(req)
 		}),
 	}
 

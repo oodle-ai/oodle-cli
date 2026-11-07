@@ -10,6 +10,7 @@ import (
 	"github.com/oodle-ai/oodle-cli/internal/api"
 	"github.com/oodle-ai/oodle-cli/internal/config"
 	"github.com/oodle-ai/oodle-cli/internal/output"
+	"github.com/oodle-ai/oodle-cli/internal/skills"
 )
 
 // Persistent flag values; populated by cobra during parsing.
@@ -53,6 +54,7 @@ OODLE_INSTANCE, and OODLE_DEPLOYMENT environment variables.`,
 			return cmd.Help()
 		},
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			api.SetClientInfo(clientInfoFor(cmd))
 			if shouldSkipConfig(cmd) {
 				// Even commands that skip config benefit from output format
 				// detection (e.g. version with -o json).
@@ -179,4 +181,18 @@ func isUsageError(err error) bool {
 		strings.Contains(msg, "missing required argument") ||
 		strings.Contains(msg, "too many arguments") ||
 		strings.Contains(msg, "required flag")
+}
+
+// clientInfoFor names this CLI, the command and the AI coding agent (if
+// one runs the CLI) on every request, so that the Oodle servers can tell
+// CLI traffic apart from other API callers.
+func clientInfoFor(cmd *cobra.Command) api.ClientInfo {
+	command := strings.TrimSpace(
+		strings.TrimPrefix(cmd.CommandPath(), cmd.Root().Name()),
+	)
+	return api.ClientInfo{
+		Version: version,
+		Command: command,
+		Agent:   skills.DetectAgent(),
+	}
 }

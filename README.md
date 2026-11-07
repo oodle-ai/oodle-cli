@@ -556,6 +556,26 @@ EOF
 oodle logs query -f errors.ndjson --start -30m -o json
 ```
 
+Keep log queries cheap. A query has a server time limit, and a slow query
+also slows log queries for other users:
+
+- Search text in `message`. It is indexed for word search, so it is fast.
+- Queries on `raw_log` are slow: `raw_log` is not indexed, so a search on it
+  reads every log line in the range. Search `raw_log` only when `message`
+  does not hold the text. Then use a window of a few hours, and put the
+  `raw_log` search in its own query, not in a `bool` `should` clause next to
+  `message` (that makes the `message` search read every line too).
+- JSON fields (such as `log`, with subfields `log.level` and
+  `log.session_id`): do not filter on the JSON field itself, query a
+  subfield. On a subfield, a term without `.keyword` is a contains search
+  that reads the whole JSON field of every line, so use the `.keyword` form
+  for an exact value: `{"term": {"log.session_id.keyword": "<id>"}}`. To
+  find text inside log lines, search `message`, not `log.message`.
+- Use a `.keyword` field for an exact value, such as an ID.
+- Use windows of 3 days or less, and run queries one at a time.
+- If a query times out, make it narrower. Do not run it again unchanged. The
+  CLI prints a hint on stderr when a query times out.
+
 To alert on logs, use [log metrics](#log-metrics--oodle-log-metrics).
 
 ### GenAI — `oodle genai`
@@ -1283,6 +1303,14 @@ pipelines and AI agents.
   ```bash
   oodle monitors delete mon-abc123 --force
   ```
+
+- **Request identity**: every request sends `User-Agent:
+  oodle-cli/<version> (<os>/<arch>; agent=<agent>; cmd=<command>)` and the
+  `OODLE-CLIENT`, `OODLE-CLIENT-AGENT` and `OODLE-CLIENT-COMMAND` headers.
+  The agent is the AI coding agent found from its environment variables
+  (for example `CLAUDECODE` for Claude Code); with no agent, `agent=` and
+  `OODLE-CLIENT-AGENT` are left out. Oodle uses these values to attribute
+  query load. They do not change what a request is allowed to do.
 
 - **Pipe-friendly**: when stdout is not a TTY, the default output format
   becomes JSON automatically. No interactive prompts are issued in
