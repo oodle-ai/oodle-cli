@@ -23,11 +23,12 @@ func newGrafanaCmd() *cobra.Command {
 
 func newGrafanaMigrateCmd() *cobra.Command {
 	var (
-		grafanaURL   string
-		grafanaToken string
-		includeTags  []string
-		overwrite    bool
-		runImport    bool
+		grafanaURL            string
+		grafanaToken          string
+		includeTags           []string
+		overwrite             bool
+		runImport             bool
+		insecureSkipTLSVerify bool
 	)
 
 	cmd := &cobra.Command{
@@ -39,6 +40,10 @@ The export runs entirely from your machine, so it works even when Grafana is
 only reachable locally (e.g. behind a VPN). It exports dashboards, folders,
 data sources and alert rules, uploads them to Oodle, and prints a link where
 you choose what to import.
+
+Oodle verifies the Grafana server certificate before it sends the service
+account token. Pass --insecure-skip-tls-verify only when Grafana uses a
+self-signed certificate that the system trust store does not know.
 
 Pass --import to skip the review and import everything straight away.
 
@@ -55,9 +60,10 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 
 			// 1. Export assets from Grafana to a local tarball.
 			exporter := grafana.NewExporter(grafana.ExportConfig{
-				GrafanaURL:   grafanaURL,
-				GrafanaToken: grafanaToken,
-				IncludeTags:  includeTags,
+				GrafanaURL:         grafanaURL,
+				GrafanaToken:       grafanaToken,
+				IncludeTags:        includeTags,
+				InsecureSkipVerify: insecureSkipTLSVerify,
 			})
 			fmt.Fprintf(out, "Exporting assets from %s ...\n", grafanaURL)
 			result, err := exporter.ExportWithProgress(
@@ -127,6 +133,7 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 	cmd.Flags().StringVar(&grafanaURL, "grafana-url", "", "Grafana base URL (required)")
 	cmd.Flags().StringVar(&grafanaToken, "grafana-token", "", "Grafana service account token (required)")
 	cmd.Flags().StringSliceVar(&includeTags, "include-tags", nil, "Only migrate dashboards with these tags (comma-separated); empty migrates all")
+	cmd.Flags().BoolVar(&insecureSkipTLSVerify, "insecure-skip-tls-verify", false, "Skip TLS certificate verification when connecting to Grafana (use only for a self-signed certificate)")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", true, "Overwrite existing dashboards and data sources")
 	cmd.Flags().BoolVar(&runImport, "import", false, "Import everything immediately instead of choosing what to import in the Oodle UI")
 	_ = cmd.MarkFlagRequired("grafana-url")
