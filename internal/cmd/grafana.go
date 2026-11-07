@@ -40,7 +40,9 @@ only reachable locally (e.g. behind a VPN). It exports dashboards, folders,
 data sources and alert rules, uploads them to Oodle, and prints a link where
 you choose what to import.
 
-Pass --import to skip the review and import everything straight away.
+Pass --import to import everything straight away. The import replaces
+existing dashboards and data sources with the same names, so it asks for
+confirmation unless you pass --force.
 
 Oodle credentials are taken from your CLI configuration ('oodle configure' or
 the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
@@ -111,7 +113,19 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 				return nil
 			}
 
-			// 4. Import into Oodle.
+			// 4. Import into Oodle. With --overwrite the import replaces any
+			// existing dashboard or data source with the same name, so confirm
+			// it like other destructive commands and let --force skip the
+			// prompt.
+			if overwrite && !confirmAction(
+				"Import migration "+migrationID+" into Oodle? Existing"+
+					" dashboards and data sources with the same names are"+
+					" overwritten.",
+				forceFlag(cmd),
+			) {
+				return fmt.Errorf("aborted")
+			}
+
 			fmt.Fprintln(out, "Importing into Oodle ...")
 			status, err := oc.Import(ctx, migrationID, overwrite)
 			if err != nil {
