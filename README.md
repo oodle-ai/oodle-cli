@@ -560,6 +560,11 @@ Keep log queries cheap. A query has a server time limit, and a slow query
 also slows log queries for other users:
 
 - Search text in `message`. It is indexed for word search, so it is fast.
+  A search on `message` matches whole words: `for` finds "blocked for 5s"
+  but not "for180seconds", so no match does not prove that part of a word is
+  absent. To match part of a word, use a wildcard:
+  `{"query_string": {"query": "message:*for*"}}`. It reads the whole
+  `message` field of every line, so use a window of a few hours.
 - Queries on `raw_log` are slow: `raw_log` is not indexed, so a search on it
   reads every log line in the range. Search `raw_log` only when `message`
   does not hold the text. Then use a window of a few hours, and put the
@@ -569,9 +574,20 @@ also slows log queries for other users:
   `log.session_id`): do not filter on the JSON field itself, query a
   subfield. On a subfield, a term without `.keyword` is a contains search
   that reads the whole JSON field of every line, so use the `.keyword` form
-  for an exact value: `{"term": {"log.session_id.keyword": "<id>"}}`. To
-  find text inside log lines, search `message`, not `log.message`.
+  for an exact value: `{"term": {"log.session_id.keyword": "<id>"}}`. For
+  part of a value, use a `.keyword` wildcard, which also reads only that
+  subfield. The pattern must match the whole value, and case matters:
+  `{"query_string": {"query": "log.logger.keyword:uvicorn*"}}` finds
+  `uvicorn.error`. Use a `.keyword` wildcard also for "starts with" or
+  "ends with" on any field: `container_name.keyword:payment*` finds
+  `payment-api` but not `legacy-payment`, while `container_name:payment*`
+  (no `.keyword`) is a contains search and finds both. To find text inside
+  log lines, search `message`, not `log.message`.
 - Use a `.keyword` field for an exact value, such as an ID.
+- Put wildcards (`?` for one character, `*` for zero or more) only in a
+  `query_string` clause, outside quotes. Inside quotes, and in a `term`
+  clause, `*` is a literal character. `wildcard`, `prefix` and `regexp`
+  clauses are not supported.
 - Use windows of 3 days or less, and run queries one at a time.
 - If a query times out, make it narrower. Do not run it again unchanged. The
   CLI prints a hint on stderr when a query times out.
