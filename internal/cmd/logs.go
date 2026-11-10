@@ -56,6 +56,12 @@ slows log queries for other users. To keep a query fast:
   - Search text in the message field. It is indexed for word search, so a
     match_phrase on message reads only the parts of the logs that hold
     the words.
+  - A search on message matches whole words: "for" finds "blocked for 5s"
+    but not "for180seconds". No match does not prove that part of a word
+    is absent. To match part of a word, use a wildcard (see below):
+    {"query_string": {"query": "message:*for*"}}. A wildcard on message
+    reads the whole message field of every line, so use a window of a few
+    hours.
   - Queries on raw_log are slow. raw_log is not indexed, so a search on it
     reads every log line in the time range. Search message first. Search
     raw_log only when message does not hold the text, and then:
@@ -72,10 +78,20 @@ slows log queries for other users. To keep a query fast:
         every line and can time out over a few hours. For an exact value,
         such as an ID, use the .keyword form:
         {"term": {"log.session_id.keyword": "<id>"}}
+      * For part of a value in a subfield, use a .keyword wildcard. It
+        reads only that subfield. The pattern must match the whole value,
+        and case matters: "log.file.keyword:*server.py" finds
+        "/app/server.py", and "log.logger.keyword:uvicorn*" finds
+        "uvicorn.error":
+        {"query_string": {"query": "log.logger.keyword:uvicorn*"}}
       * To find text inside log lines, search message, not a subfield
         such as log.message. Do not add a log.message term for the same
         text.
   - Use a .keyword field for an exact value, such as an ID.
+  - Wildcards: ? matches one character and * matches zero or more
+    characters. Put them only in a query_string clause, outside quotes.
+    Inside quotes, and in a term clause, * is a literal character. Do not
+    use wildcard, prefix or regexp clauses: they are not supported.
   - Use a window of 3 days or less. Split a longer period into windows
     of 3 days or less, and stop when you have found what you need.
   - Run log queries one at a time, not in parallel.
@@ -178,7 +194,8 @@ Run 'oodle logs index-patterns' to list the index names.`,
 const logsTimeoutHint = "The log query timed out. Do not run it again unchanged: make it narrower. " +
 	"Use a shorter window, search the message field (raw_log is not indexed and is slow), " +
 	"query a JSON subfield instead of the whole JSON field, use a .keyword field for exact values " +
-	"(a subfield without .keyword is a slow contains search), and run log queries one at a time. " +
+	"(a subfield without .keyword is a slow contains search), a .keyword wildcard in query_string " +
+	"for part of a value, and run log queries one at a time. " +
 	"Run 'oodle logs query --help' for details."
 
 // hasLogsTimeout reports whether a search in a multi-search response
