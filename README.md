@@ -578,8 +578,11 @@ also slows log queries for other users:
   part of a value, use a `.keyword` wildcard, which also reads only that
   subfield. The pattern must match the whole value, and case matters:
   `{"query_string": {"query": "log.logger.keyword:uvicorn*"}}` finds
-  `uvicorn.error`. To find text inside log lines, search `message`, not
-  `log.message`.
+  `uvicorn.error`. Use a `.keyword` wildcard also for "starts with" or
+  "ends with" on any field: `container_name.keyword:compactor*` finds
+  `compactor-wal` but not `log-compactor-x`, while `container_name:compactor*`
+  (no `.keyword`) is a contains search and finds both. To find text inside
+  log lines, search `message`, not `log.message`.
 - Use a `.keyword` field for an exact value, such as an ID.
 - Put wildcards (`?` for one character, `*` for zero or more) only in a
   `query_string` clause, outside quotes. Inside quotes, and in a `term`
