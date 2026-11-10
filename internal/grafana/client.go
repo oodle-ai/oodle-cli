@@ -18,24 +18,30 @@ type Client struct {
 	token      string
 }
 
-// NewClient creates a new Grafana API client
-func NewClient(baseURL, token string) *Client {
+// NewClient creates a new Grafana API client.
+//
+// When insecureSkipVerify is true the client does not verify the Grafana
+// server's TLS certificate. Callers must request this explicitly.
+func NewClient(baseURL, token string, insecureSkipVerify bool) *Client {
 	return &Client{
-		httpClient: createHTTPClient(),
+		httpClient: createHTTPClient(insecureSkipVerify),
 		baseURL:    baseURL,
 		token:      token,
 	}
 }
 
-func createHTTPClient() *http.Client {
+func createHTTPClient(insecureSkipVerify bool) *http.Client {
+	transport := &http.Transport{
+		IdleConnTimeout: 90 * time.Second,
+	}
+	if insecureSkipVerify {
+		transport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+	}
 	return &http.Client{
-		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-			IdleConnTimeout: 90 * time.Second,
-		},
+		Timeout:   30 * time.Second,
+		Transport: transport,
 	}
 }
 

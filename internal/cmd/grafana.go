@@ -28,6 +28,7 @@ func newGrafanaMigrateCmd() *cobra.Command {
 		includeTags  []string
 		overwrite    bool
 		runImport    bool
+		insecureTLS  bool
 	)
 
 	cmd := &cobra.Command{
@@ -55,9 +56,10 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 
 			// 1. Export assets from Grafana to a local tarball.
 			exporter := grafana.NewExporter(grafana.ExportConfig{
-				GrafanaURL:   grafanaURL,
-				GrafanaToken: grafanaToken,
-				IncludeTags:  includeTags,
+				GrafanaURL:         grafanaURL,
+				GrafanaToken:       grafanaToken,
+				IncludeTags:        includeTags,
+				InsecureSkipVerify: insecureTLS,
 			})
 			fmt.Fprintf(out, "Exporting assets from %s ...\n", grafanaURL)
 			result, err := exporter.ExportWithProgress(
@@ -129,6 +131,12 @@ the OODLE_API_KEY / OODLE_INSTANCE / OODLE_DEPLOYMENT environment variables).`,
 	cmd.Flags().StringSliceVar(&includeTags, "include-tags", nil, "Only migrate dashboards with these tags (comma-separated); empty migrates all")
 	cmd.Flags().BoolVar(&overwrite, "overwrite", true, "Overwrite existing dashboards and data sources")
 	cmd.Flags().BoolVar(&runImport, "import", false, "Import everything immediately instead of choosing what to import in the Oodle UI")
+	cmd.Flags().BoolVar(
+		&insecureTLS,
+		"insecure-skip-verify",
+		false,
+		"Skip TLS certificate verification for the Grafana API (only for self-signed certificates)",
+	)
 	_ = cmd.MarkFlagRequired("grafana-url")
 	_ = cmd.MarkFlagRequired("grafana-token")
 
