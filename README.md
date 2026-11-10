@@ -579,8 +579,8 @@ also slows log queries for other users:
   subfield. The pattern must match the whole value, and case matters:
   `{"query_string": {"query": "log.logger.keyword:uvicorn*"}}` finds
   `uvicorn.error`. Use a `.keyword` wildcard also for "starts with" or
-  "ends with" on any field: `container_name.keyword:compactor*` finds
-  `compactor-wal` but not `log-compactor-x`, while `container_name:compactor*`
+  "ends with" on any field: `container_name.keyword:payment*` finds
+  `payment-api` but not `legacy-payment`, while `container_name:payment*`
   (no `.keyword`) is a contains search and finds both. To find text inside
   log lines, search `message`, not `log.message`.
 - Use a `.keyword` field for an exact value, such as an ID.

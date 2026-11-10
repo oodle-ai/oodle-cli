@@ -85,9 +85,9 @@ slows log queries for other users. To keep a query fast:
         "uvicorn.error":
         {"query_string": {"query": "log.logger.keyword:uvicorn*"}}
       * Use a .keyword wildcard also for "starts with" or "ends with" on
-        any field: "container_name.keyword:compactor*" finds
-        "compactor-wal" but not "log-compactor-x". Without .keyword,
-        "container_name:compactor*" is a contains search and finds both.
+        any field: "container_name.keyword:payment*" finds
+        "payment-api" but not "legacy-payment". Without .keyword,
+        "container_name:payment*" is a contains search and finds both.
       * To find text inside log lines, search message, not a subfield
         such as log.message. Do not add a log.message term for the same
         text.
