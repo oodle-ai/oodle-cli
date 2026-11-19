@@ -55,11 +55,13 @@ how a prompt change is judged before it ships.
     --model gpt-4o --evaluator-id oodle-managed-hallucination-v1
 
   oodle genai experiments list <dataset-name>
-  oodle genai experiments items <run-id>`,
+  oodle genai experiments items <run-id>
+  oodle genai experiments rows <id> --compare-to <base-id>`,
 	}
 
 	cmd.AddCommand(newGenAIExperimentsListCmd())
 	cmd.AddCommand(newGenAIExperimentsItemsCmd())
+	cmd.AddCommand(newGenAIExperimentsRowsCmd())
 	cmd.AddCommand(newGenAIExperimentsRunCmd())
 	cmd.AddCommand(newGenAIExperimentsStatusCmd())
 	cmd.AddCommand(newGenAIExperimentsCancelCmd())

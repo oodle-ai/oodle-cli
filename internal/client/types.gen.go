@@ -1810,11 +1810,14 @@ type ExperimentRow struct {
 
 // ExperimentRowView ExperimentRowView is a stored row with its scores.
 type ExperimentRowView struct {
-	CreatedAt     string      `json:"createdAt"`
-	DatasetItemId string      `json:"datasetItemId"`
-	DatasetRunId  string      `json:"datasetRunId"`
-	ErrorMessage  *string     `json:"errorMessage,omitempty"`
-	Expected      interface{} `json:"expected,omitempty"`
+	// Comparison RowComparison is how one row of an experiment compares with
+	// the base experiment.
+	Comparison    *RowComparison `json:"comparison,omitempty"`
+	CreatedAt     string         `json:"createdAt"`
+	DatasetItemId string         `json:"datasetItemId"`
+	DatasetRunId  string         `json:"datasetRunId"`
+	ErrorMessage  *string        `json:"errorMessage,omitempty"`
+	Expected      interface{}    `json:"expected,omitempty"`
 
 	// ExternalId ExternalID is the caller's id for the row. A write that
 	// repeats it updates the row instead of adding a second one.
@@ -1829,12 +1832,14 @@ type ExperimentRowView struct {
 	Metrics       interface{} `json:"metrics,omitempty"`
 	ObservationId *string     `json:"observationId,omitempty"`
 	Output        *string     `json:"output,omitempty"`
-	Scores        *[]Score    `json:"scores"`
-	SpanId        *string     `json:"spanId,omitempty"`
-	Status        *string     `json:"status,omitempty"`
-	Tags          *[]string   `json:"tags,omitempty"`
-	TraceId       string      `json:"traceId"`
-	UpdatedAt     string      `json:"updatedAt"`
+
+	// Scores Scores holds the newest score of each name.
+	Scores    *[]Score  `json:"scores"`
+	SpanId    *string   `json:"spanId,omitempty"`
+	Status    *string   `json:"status,omitempty"`
+	Tags      *[]string `json:"tags,omitempty"`
+	TraceId   string    `json:"traceId"`
+	UpdatedAt string    `json:"updatedAt"`
 }
 
 // ExperimentRowsResponse ExperimentRowsResponse is one page of experiment rows with
@@ -1842,6 +1847,12 @@ type ExperimentRowView struct {
 type ExperimentRowsResponse struct {
 	Cursor *string              `json:"cursor,omitempty"`
 	Data   *[]ExperimentRowView `json:"data"`
+
+	// MovedTotal MovedTotal is set when the request names `moved`. It is
+	// the number of row keys that moved that way, which is the
+	// "better" or "worse" count of the summary. Rows that share
+	// an input are one key, so the rows can be more.
+	MovedTotal *int `json:"movedTotal,omitempty"`
 }
 
 // ExperimentSummary ExperimentSummary is the summary of one experiment, compared
@@ -3006,6 +3017,19 @@ type RenameDatasetFolderResponse struct {
 // there is no prompt rename.
 type RenameDatasetRequest struct {
 	Name string `json:"name"`
+}
+
+// RowComparison RowComparison is how one row of an experiment compares with
+// the base experiment.
+type RowComparison struct {
+	// BaseScores BaseScores is the base's score of each name for the key,
+	// averaged over the base rows that share the key. Empty when
+	// the row is not matched.
+	BaseScores *map[string]float32 `json:"baseScores"`
+
+	// Matched Matched is true when the base has a row with the same
+	// RowMatchKey.
+	Matched bool `json:"matched"`
 }
 
 // RuleInUseResponse RuleInUseResponse is the 409 answer to a rename or delete of
@@ -4707,11 +4731,17 @@ type ListGenaiProjectExperimentsParams struct {
 
 // ListGenaiExperimentRowsParams defines parameters for ListGenaiExperimentRows.
 type ListGenaiExperimentRowsParams struct {
+	// CompareTo The id of a base experiment. Each row then carries `comparison`: whether the base has a row with the same input, and the base's scores for it. The rules are those of the summary.
+	CompareTo *string `form:"compareTo,omitempty" json:"compareTo,omitempty"`
+
 	// Cursor The `cursor` of the previous page. Omit it for the first page.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
 }
 
 // GetGenaiExperimentSummaryParams defines parameters for GetGenaiExperimentSummary.

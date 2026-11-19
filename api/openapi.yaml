@@ -2755,6 +2755,8 @@ components:
         - updatedAt
         - scores
       properties:
+        comparison:
+          $ref: '#/components/schemas/RowComparison'
         createdAt:
           type: string
         datasetItemId:
@@ -2784,6 +2786,7 @@ components:
           type: string
         scores:
           type: array
+          description: Scores holds the newest score of each name.
           nullable: true
           items:
             $ref: '#/components/schemas/Score'
@@ -2815,6 +2818,14 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/ExperimentRowView'
+        movedTotal:
+          type: integer
+          description: |-
+            MovedTotal is set when the request names `moved`. It is
+            the number of row keys that moved that way, which is the
+            "better" or "worse" count of the summary. Rows that share
+            an input are one key, so the rows can be more.
+          nullable: true
     ExperimentSummary:
       type: object
       description: |-
@@ -4798,6 +4809,29 @@ components:
       properties:
         name:
           type: string
+    RowComparison:
+      type: object
+      description: |-
+        RowComparison is how one row of an experiment compares with
+        the base experiment.
+      required:
+        - matched
+        - baseScores
+      properties:
+        baseScores:
+          type: object
+          description: |-
+            BaseScores is the base's score of each name for the key,
+            averaged over the base rows that share the key. Empty when
+            the row is not matched.
+          nullable: true
+          additionalProperties:
+            type: number
+        matched:
+          type: boolean
+          description: |-
+            Matched is true when the base has a row with the same
+            RowMatchKey.
     RuleInUseResponse:
       type: object
       description: |-
@@ -11614,6 +11648,11 @@ paths:
       summary: List an experiment's rows with their scores
       operationId: listGenaiExperimentRows
       parameters:
+        - name: compareTo
+          in: query
+          description: 'The id of a base experiment. Each row then carries `comparison`: whether the base has a row with the same input, and the base''s scores for it. The rules are those of the summary.'
+          schema:
+            type: string
         - name: cursor
           in: query
           description: The `cursor` of the previous page. Omit it for the first page.
@@ -11624,6 +11663,11 @@ paths:
           description: Results per page. Defaults to 50, capped at 200.
           schema:
             type: integer
+        - name: moved
+          in: query
+          description: '`<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.'
+          schema:
+            type: string
         - name: experimentId
           in: path
           description: Experiment ID.
