@@ -2753,6 +2753,9 @@ type Notifier struct {
 	// UpdatedAtEpochMs UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
 	UpdatedAtEpochMs *int `json:"updated_at_epoch_ms,omitempty"`
 
+	// VictoropsConfig VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+	VictoropsConfig *VictorOpsConfig `json:"victorops_config,omitempty"`
+
 	// WebhookConfig WebhookConfig configures notifications via a generic webhook.
 	WebhookConfig *WebhookConfig `json:"webhook_config,omitempty"`
 }
@@ -4313,6 +4316,24 @@ type ValueExtractor struct {
 	// https://rustexp.lpil.uk/ for trying out the pattern.
 	// If not set, the entire field value is used as the label value.
 	Regex *string `json:"regex,omitempty"`
+}
+
+// VictorOpsConfig VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+type VictorOpsConfig struct {
+	ApiKey *string `json:"api_key,omitempty"`
+
+	// ApiUrl URL is a custom URL type that allows validation at configuration load time.
+	ApiUrl            *URL               `json:"api_url,omitempty"`
+	CustomFields      *map[string]string `json:"custom_fields,omitempty"`
+	EntityDisplayName *string            `json:"entity_display_name,omitempty"`
+
+	// HttpConfig HTTPClientConfig configures an HTTP client.
+	HttpConfig     *HTTPClientConfig `json:"http_config,omitempty"`
+	MessageType    *string           `json:"message_type,omitempty"`
+	MonitoringTool *string           `json:"monitoring_tool,omitempty"`
+	RoutingKey     *string           `json:"routing_key,omitempty"`
+	SendResolved   bool              `json:"send_resolved"`
+	StateMessage   *string           `json:"state_message,omitempty"`
 }
 
 // Webhook Webhook is an experiment target the customer hosts. An
