@@ -165,17 +165,37 @@ type AnonymousType3 = map[string]interface{}
 
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
-	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
-	DeletedAtEpochMillis  *int      `json:"deletedAtEpochMillis,omitempty"`
-	ExpiresAtEpochMillis  int       `json:"expiresAtEpochMillis"`
-	Id                    string    `json:"id"`
-	IsPrimary             bool      `json:"isPrimary"`
-	LastUsedAtEpochMillis int       `json:"lastUsedAtEpochMillis"`
-	Name                  string    `json:"name"`
-	Roles                 *[]string `json:"roles,omitempty"`
-	Scopes                *[]string `json:"scopes,omitempty"`
-	Token                 string    `json:"token"`
-	UpdatedAtEpochMillis  int       `json:"updatedAtEpochMillis"`
+	Access               string `json:"access"`
+	CreatedAtEpochMillis int    `json:"createdAtEpochMillis"`
+
+	// CreatedBy CreatedBy is empty for keys that an API key created, and for keys
+	// created before it was recorded.
+	CreatedBy             *string `json:"createdBy,omitempty"`
+	DeletedAtEpochMillis  *int    `json:"deletedAtEpochMillis,omitempty"`
+	ExpiresAtEpochMillis  int     `json:"expiresAtEpochMillis"`
+	Id                    string  `json:"id"`
+	IsPrimary             bool    `json:"isPrimary"`
+	LastUsedAtEpochMillis int     `json:"lastUsedAtEpochMillis"`
+	Name                  string  `json:"name"`
+
+	// OwnerEmail OwnerEmail is set only on personal keys.
+	OwnerEmail           *string   `json:"ownerEmail,omitempty"`
+	Roles                *[]string `json:"roles,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	Token                string    `json:"token"`
+	UpdatedAtEpochMillis int       `json:"updatedAtEpochMillis"`
+}
+
+// ApiKeyPermissions ApiKeyPermissions tells what kind of API key the caller may create.
+type ApiKeyPermissions struct {
+	// AccessOptions AccessOptions lists the access values the caller may give a new key.
+	AccessOptions *[]string `json:"accessOptions"`
+
+	// AssignableRoles AssignableRoles lists the roles the caller may give a key.
+	AssignableRoles *[]string `json:"assignableRoles"`
+
+	// CanCreate CanCreate is true when the caller may create at least one kind of key.
+	CanCreate bool `json:"canCreate"`
 }
 
 // Authorization Authorization contains HTTP authorization credentials.
@@ -821,6 +841,10 @@ type ConfluentCloudIntegrationWrapper struct {
 
 // CreateApiKeyRequest defines model for CreateApiKeyRequest.
 type CreateApiKeyRequest struct {
+	// Access Access is optional. When it is absent, an admin gets an organization
+	// key and other users get a personal key, which is the only kind they
+	// may create.
+	Access *string   `json:"access,omitempty"`
 	Name   string    `json:"name"`
 	Roles  *[]string `json:"roles,omitempty"`
 	Scopes *[]string `json:"scopes"`
@@ -1833,7 +1857,8 @@ type ExperimentRowView struct {
 	ObservationId *string     `json:"observationId,omitempty"`
 	Output        *string     `json:"output,omitempty"`
 
-	// Scores Scores holds the newest score of each name.
+	// Scores Scores holds one score of each name: the row's own, else
+	// the average of the scores that spans under it wrote.
 	Scores    *[]Score  `json:"scores"`
 	SpanId    *string   `json:"spanId,omitempty"`
 	Status    *string   `json:"status,omitempty"`
@@ -4172,6 +4197,10 @@ type UpdatePromptVersionLabelsRequest struct {
 // UpdateUserRequest UpdateUserRequest is the request body for updating a
 // user within the organization.
 type UpdateUserRequest struct {
+	// Force Force lowers the user's personal api keys to the new roles. Without
+	// it, a change that leaves a key with more access than its owner is
+	// refused.
+	Force  *bool     `json:"force,omitempty"`
 	Roles  *[]string `json:"roles"`
 	UserId string    `json:"user_id"`
 }
