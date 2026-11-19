@@ -91,10 +91,11 @@ func newNotifiersCreateCmd() *cobra.Command {
 		Long: `Create a notifier from a JSON/YAML file.
 
 Set "name", "type" and the config object that matches the type:
-  0 email_config       4 webhook_config
-  1 pagerduty_config   5 googlechat_config
-  2 slack_config       6 msteamsv2_config
-  3 opsgenie_config    7 rootly_config
+  0 email_config       5 googlechat_config
+  1 pagerduty_config   6 msteamsv2_config
+  2 slack_config       7 rootly_config
+  3 opsgenie_config    8 victorops_config (Splunk On-Call)
+  4 webhook_config
 
 Run 'oodle notifiers get <id> -o json' on an existing notifier for a
 template.`,

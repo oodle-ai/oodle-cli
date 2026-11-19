@@ -4323,6 +4323,8 @@ components:
         updated_at_epoch_ms:
           type: integer
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+        victorops_config:
+          $ref: '#/components/schemas/VictorOpsConfig'
         webhook_config:
           $ref: '#/components/schemas/WebhookConfig'
     NotifierTestResult:
@@ -7092,6 +7094,35 @@ components:
             https://rustexp.lpil.uk/ for trying out the pattern.
             If not set, the entire field value is used as the label value.
           nullable: true
+    VictorOpsConfig:
+      type: object
+      description: VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+      required:
+        - send_resolved
+      properties:
+        api_key:
+          type: string
+        api_url:
+          $ref: '#/components/schemas/URL'
+        custom_fields:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        entity_display_name:
+          type: string
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        message_type:
+          type: string
+        monitoring_tool:
+          type: string
+        routing_key:
+          type: string
+        send_resolved:
+          type: boolean
+        state_message:
+          type: string
     Webhook:
       type: object
       description: |-
