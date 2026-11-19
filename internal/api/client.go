@@ -259,8 +259,10 @@ func (t *jsonFixTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 }
 
 // NewAuthRequestEditor returns a request editor that applies Oodle
-// authentication: an OAuth Bearer token when one is configured (refreshing and
-// persisting it as needed), falling back to the API key.
+// authentication: an OAuth Bearer token when OAuth credentials are configured
+// (refreshing and persisting it as needed), or the API key when they are not.
+// A token refresh that fails returns an error to the caller instead of falling
+// back to the API key or sending an empty credential.
 //
 // Exported so hand-rolled clients for endpoints the generated OpenAPI client
 // does not cover (e.g. the Grafana migration endpoints) authenticate exactly
@@ -279,15 +281,19 @@ func NewAuthRequestEditor(cfg *config.Config) func(context.Context, *http.Reques
 		if cfg == nil {
 			return nil
 		}
-		if tokenSource != nil {
-			tok, err := tokenSource.Token()
-			if err == nil && tok != nil && tok.AccessToken != "" {
-				req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
-				MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
-				return nil
-			}
+		if tokenSource == nil {
+			req.Header.Set("X-API-Key", cfg.APIKey)
+			return nil
 		}
-		req.Header.Set("X-API-Key", cfg.APIKey)
+		tok, err := tokenSource.Token()
+		if err != nil {
+			return fmt.Errorf("obtaining OAuth access token: %w\nRun 'oodle auth login' to re-authenticate", err)
+		}
+		if tok == nil || tok.AccessToken == "" {
+			return fmt.Errorf("OAuth token source returned an empty access token\nRun 'oodle auth login' to re-authenticate")
+		}
+		req.Header.Set("Authorization", "Bearer "+tok.AccessToken)
+		MaybePersistRefreshedOAuthToken(cfg, tok, &mu)
 		return nil
 	}
 }
