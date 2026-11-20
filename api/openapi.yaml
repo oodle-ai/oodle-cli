@@ -4376,6 +4376,8 @@ components:
         updated_at_epoch_ms:
           type: integer
           description: UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
+        victorops_config:
+          $ref: '#/components/schemas/VictorOpsConfig'
         webhook_config:
           $ref: '#/components/schemas/WebhookConfig'
     NotifierTestResult:
@@ -7174,6 +7176,35 @@ components:
             https://rustexp.lpil.uk/ for trying out the pattern.
             If not set, the entire field value is used as the label value.
           nullable: true
+    VictorOpsConfig:
+      type: object
+      description: VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+      required:
+        - send_resolved
+      properties:
+        api_key:
+          type: string
+        api_url:
+          $ref: '#/components/schemas/URL'
+        custom_fields:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+        entity_display_name:
+          type: string
+        http_config:
+          $ref: '#/components/schemas/HTTPClientConfig'
+        message_type:
+          type: string
+        monitoring_tool:
+          type: string
+        routing_key:
+          type: string
+        send_resolved:
+          type: boolean
+        state_message:
+          type: string
     Webhook:
       type: object
       description: |-
@@ -11334,6 +11365,21 @@ paths:
           description: Results per page. Defaults to 50, capped at 200.
           schema:
             type: integer
+        - name: moved
+          in: query
+          description: '`<scoreName>:better` or `<scoreName>:worse`. Needs `movedIn`. Lists only the inputs whose score of that name moved that way in `movedIn` against the first experiment, the rows behind the summary''s count. `meta.totalItems` counts them.'
+          schema:
+            type: string
+        - name: movedIn
+          in: query
+          description: 'The experiment that `moved` reads: one of `experimentIds` other than the first.'
+          schema:
+            type: string
+        - name: movedKind
+          in: query
+          description: 'What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.'
+          schema:
+            type: string
         - name: page
           in: query
           description: 1-based page number. Defaults to 1.
@@ -11773,6 +11819,11 @@ paths:
         - name: moved
           in: query
           description: '`<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.'
+          schema:
+            type: string
+        - name: movedKind
+          in: query
+          description: 'What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.'
           schema:
             type: string
         - name: experimentId

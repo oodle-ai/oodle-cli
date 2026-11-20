@@ -2789,6 +2789,9 @@ type Notifier struct {
 	// UpdatedAtEpochMs UpdatedAtEpochMs is the updated at time in milliseconds since epoch.
 	UpdatedAtEpochMs *int `json:"updated_at_epoch_ms,omitempty"`
 
+	// VictoropsConfig VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+	VictoropsConfig *VictorOpsConfig `json:"victorops_config,omitempty"`
+
 	// WebhookConfig WebhookConfig configures notifications via a generic webhook.
 	WebhookConfig *WebhookConfig `json:"webhook_config,omitempty"`
 }
@@ -4368,6 +4371,24 @@ type ValueExtractor struct {
 	Regex *string `json:"regex,omitempty"`
 }
 
+// VictorOpsConfig VictorOpsConfig configures notifications via Splunk On-Call (VictorOps).
+type VictorOpsConfig struct {
+	ApiKey *string `json:"api_key,omitempty"`
+
+	// ApiUrl URL is a custom URL type that allows validation at configuration load time.
+	ApiUrl            *URL               `json:"api_url,omitempty"`
+	CustomFields      *map[string]string `json:"custom_fields,omitempty"`
+	EntityDisplayName *string            `json:"entity_display_name,omitempty"`
+
+	// HttpConfig HTTPClientConfig configures an HTTP client.
+	HttpConfig     *HTTPClientConfig `json:"http_config,omitempty"`
+	MessageType    *string           `json:"message_type,omitempty"`
+	MonitoringTool *string           `json:"monitoring_tool,omitempty"`
+	RoutingKey     *string           `json:"routing_key,omitempty"`
+	SendResolved   bool              `json:"send_resolved"`
+	StateMessage   *string           `json:"state_message,omitempty"`
+}
+
 // Webhook Webhook is an experiment target the customer hosts. An
 // experiment run against one posts every dataset item to its
 // URL and scores the reply, instead of calling an LLM
@@ -4733,6 +4754,15 @@ type CompareGenaiExperimentsParams struct {
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `movedIn`. Lists only the inputs whose score of that name moved that way in `movedIn` against the first experiment, the rows behind the summary's count. `meta.totalItems` counts them.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedIn The experiment that `moved` reads: one of `experimentIds` other than the first.
+	MovedIn *string `form:"movedIn,omitempty" json:"movedIn,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
+
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
@@ -4771,6 +4801,9 @@ type ListGenaiExperimentRowsParams struct {
 
 	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.
 	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
 }
 
 // GetGenaiExperimentSummaryParams defines parameters for GetGenaiExperimentSummary.
