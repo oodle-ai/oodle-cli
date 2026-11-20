@@ -37,6 +37,7 @@ func newGenAIExperimentsRowsCmd() *cobra.Command {
 		cursor    string
 		compareTo string
 		moved     string
+		movedKind string
 	)
 	cmd := &cobra.Command{
 		Use:   "rows <experiment-id>",
@@ -46,12 +47,16 @@ func newGenAIExperimentsRowsCmd() *cobra.Command {
 With --compare-to, each row also shows the base experiment's
 scores for the same input. With --moved, only the rows whose
 score moved that way are listed; these are the rows behind the
-"better" and "worse" counts of the summary.
+"better" and "worse" counts of the summary. With --moved-kind
+metric, --moved names a row metric such as duration, where lower
+is better.
 
   oodle genai experiments rows <id>
   oodle genai experiments rows <id> --compare-to <base-id>
   oodle genai experiments rows <id> --compare-to <base-id> \
-    --moved accuracy:worse`,
+    --moved accuracy:worse
+  oodle genai experiments rows <id> --compare-to <base-id> \
+    --moved duration:worse --moved-kind metric`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if moved != "" {
@@ -62,10 +67,19 @@ score moved that way are listed; these are the rows behind the
 					return err
 				}
 			}
+			switch movedKind {
+			case "", "score", "metric":
+			default:
+				return fmt.Errorf("--moved-kind must be score or metric, not %q", movedKind)
+			}
+			if movedKind != "" && moved == "" {
+				return fmt.Errorf("--moved-kind needs --moved")
+			}
 			params := &client.ListGenaiExperimentRowsParams{
 				Cursor:    optStr(cursor),
 				CompareTo: optStr(compareTo),
 				Moved:     optStr(moved),
+				MovedKind: optStr(movedKind),
 			}
 			if limit > 0 {
 				params.Limit = &limit
@@ -117,6 +131,8 @@ score moved that way are listed; these are the rows behind the
 		"The id of a base experiment to compare each row with")
 	cmd.Flags().StringVar(&moved, "moved", "",
 		"<score-name>:better or <score-name>:worse; needs --compare-to")
+	cmd.Flags().StringVar(&movedKind, "moved-kind", "",
+		"What --moved names: score (the default) or metric, such as duration")
 	return cmd
 }
 

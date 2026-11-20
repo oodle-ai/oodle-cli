@@ -54,11 +54,35 @@ func TestExperimentsRowsMovedChecks(t *testing.T) {
 		{"exp-1", "--moved", "accuracy:worse"},
 		{"exp-1", "--compare-to", "b", "--moved", "accuracy"},
 		{"exp-1", "--compare-to", "b", "--moved", "accuracy:down"},
+		{"exp-1", "--compare-to", "b", "--moved", "duration:worse", "--moved-kind", "cost"},
+		{"exp-1", "--compare-to", "b", "--moved-kind", "metric"},
 	}
 	for _, args := range cases {
 		if _, err := runLibCmd(t, srv.URL, output.FormatTable,
 			newGenAIExperimentsRowsCmd(), args...); err == nil {
 			t.Errorf("%v: want an error", args)
+		}
+	}
+}
+
+// --moved-kind metric sends the metric kind with the moved filter.
+func TestExperimentsRowsMovedMetric(t *testing.T) {
+	var query string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		query = r.URL.RawQuery
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"data":[],"movedTotal":0}`))
+	}))
+	defer srv.Close()
+
+	if _, err := runLibCmd(t, srv.URL, output.FormatTable, newGenAIExperimentsRowsCmd(),
+		"exp-1", "--compare-to", "exp-0", "--moved", "duration:worse",
+		"--moved-kind", "metric"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, want := range []string{"moved=duration%3Aworse", "movedKind=metric"} {
+		if !strings.Contains(query, want) {
+			t.Errorf("query %q lacks %q", query, want)
 		}
 	}
 }
