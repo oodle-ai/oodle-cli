@@ -122,6 +122,9 @@ type ClientInterface interface {
 
 	CreateApiKeys(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListApiKeysPermissions request
+	ListApiKeysPermissions(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteApiKeysById request
 	DeleteApiKeysById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -656,6 +659,28 @@ type ClientInterface interface {
 	// TestNotifier request
 	TestNotifier(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListRecordingRules request
+	ListRecordingRules(ctx context.Context, instance string, params *ListRecordingRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateRecordingRuleWithBody request with any body
+	CreateRecordingRuleWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateRecordingRule(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteRecordingRule request
+	DeleteRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRecordingRule request
+	GetRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateRecordingRuleWithBody request with any body
+	UpdateRecordingRuleWithBody(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateRecordingRule(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetRecordingRuleStatus request
+	GetRecordingRuleStatus(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListRolesOp request
 	ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -908,6 +933,18 @@ func (c *Client) CreateApiKeysWithBody(ctx context.Context, instance string, con
 
 func (c *Client) CreateApiKeys(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateApiKeysRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListApiKeysPermissions(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApiKeysPermissionsRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -3270,6 +3307,102 @@ func (c *Client) TestNotifier(ctx context.Context, instance string, id string, r
 	return c.Client.Do(req)
 }
 
+func (c *Client) ListRecordingRules(ctx context.Context, instance string, params *ListRecordingRulesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListRecordingRulesRequest(c.Server, instance, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRecordingRuleWithBody(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRecordingRuleRequestWithBody(c.Server, instance, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) CreateRecordingRule(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateRecordingRuleRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) DeleteRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRecordingRuleRequest(c.Server, instance, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRecordingRuleRequest(c.Server, instance, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateRecordingRuleWithBody(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRecordingRuleRequestWithBody(c.Server, instance, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) UpdateRecordingRule(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRecordingRuleRequest(c.Server, instance, slug, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetRecordingRuleStatus(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRecordingRuleStatusRequest(c.Server, instance, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *Client) ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListRolesOpRequest(c.Server, instance)
 	if err != nil {
@@ -4312,6 +4445,40 @@ func NewCreateApiKeysRequestWithBody(server string, instance string, contentType
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListApiKeysPermissionsRequest generates requests for ListApiKeysPermissions
+func NewListApiKeysPermissionsRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/api-keys-permissions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -7511,6 +7678,54 @@ func NewCompareGenaiExperimentsRequest(server string, instance string, params *C
 
 		}
 
+		if params.Moved != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "moved", *params.Moved, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedIn != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedIn", *params.MovedIn, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedKind", *params.MovedKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Page != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -7947,6 +8162,22 @@ func NewListGenaiExperimentRowsRequest(server string, instance string, experimen
 	if params != nil {
 		queryValues := queryURL.Query()
 
+		if params.CompareTo != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "compareTo", *params.CompareTo, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Cursor != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -7966,6 +8197,38 @@ func NewListGenaiExperimentRowsRequest(server string, instance string, experimen
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Moved != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "moved", *params.Moved, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedKind", *params.MovedKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -11629,6 +11892,350 @@ func NewTestNotifierRequest(server string, instance string, id string) (*http.Re
 	return req, nil
 }
 
+// NewListRecordingRulesRequest generates requests for ListRecordingRules
+func NewListRecordingRulesRequest(server string, instance string, params *ListRecordingRulesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.ExecutionGroups != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "execution_groups", *params.ExecutionGroups, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Names != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "names", *params.Names, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PageMaxSize != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page.max_size", *params.PageMaxSize, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.PageToken != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page.token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Slugs != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "slugs", *params.Slugs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateRecordingRuleRequest calls the generic CreateRecordingRule builder with application/json body
+func NewCreateRecordingRuleRequest(server string, instance string, body CreateRecordingRuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateRecordingRuleRequestWithBody(server, instance, "application/json", bodyReader)
+}
+
+// NewCreateRecordingRuleRequestWithBody generates requests for CreateRecordingRule with any type of body
+func NewCreateRecordingRuleRequestWithBody(server string, instance string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteRecordingRuleRequest generates requests for DeleteRecordingRule
+func NewDeleteRecordingRuleRequest(server string, instance string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetRecordingRuleRequest generates requests for GetRecordingRule
+func NewGetRecordingRuleRequest(server string, instance string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateRecordingRuleRequest calls the generic UpdateRecordingRule builder with application/json body
+func NewUpdateRecordingRuleRequest(server string, instance string, slug string, body UpdateRecordingRuleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateRecordingRuleRequestWithBody(server, instance, slug, "application/json", bodyReader)
+}
+
+// NewUpdateRecordingRuleRequestWithBody generates requests for UpdateRecordingRule with any type of body
+func NewUpdateRecordingRuleRequestWithBody(server string, instance string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetRecordingRuleStatusRequest generates requests for GetRecordingRuleStatus
+func NewGetRecordingRuleStatusRequest(server string, instance string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/recording-rules/%s/status", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListRolesOpRequest generates requests for ListRolesOp
 func NewListRolesOpRequest(server string, instance string) (*http.Request, error) {
 	var err error
@@ -13583,6 +14190,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateApiKeysWithResponse(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeysResponse, error)
 
+	// ListApiKeysPermissionsWithResponse request
+	ListApiKeysPermissionsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysPermissionsResponse, error)
+
 	// DeleteApiKeysByIdWithResponse request
 	DeleteApiKeysByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteApiKeysByIdResponse, error)
 
@@ -14117,6 +14727,28 @@ type ClientWithResponsesInterface interface {
 	// TestNotifierWithResponse request
 	TestNotifierWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*TestNotifierResponse, error)
 
+	// ListRecordingRulesWithResponse request
+	ListRecordingRulesWithResponse(ctx context.Context, instance string, params *ListRecordingRulesParams, reqEditors ...RequestEditorFn) (*ListRecordingRulesResponse, error)
+
+	// CreateRecordingRuleWithBodyWithResponse request with any body
+	CreateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRecordingRuleResponse, error)
+
+	CreateRecordingRuleWithResponse(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRecordingRuleResponse, error)
+
+	// DeleteRecordingRuleWithResponse request
+	DeleteRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error)
+
+	// GetRecordingRuleWithResponse request
+	GetRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error)
+
+	// UpdateRecordingRuleWithBodyWithResponse request with any body
+	UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
+
+	UpdateRecordingRuleWithResponse(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
+
+	// GetRecordingRuleStatusWithResponse request
+	GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error)
+
 	// ListRolesOpWithResponse request
 	ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error)
 
@@ -14425,6 +15057,7 @@ type CreateApiKeysResponse struct {
 	JSON200      *ApiKey
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -14445,10 +15078,36 @@ func (r CreateApiKeysResponse) StatusCode() int {
 	return 0
 }
 
+type ListApiKeysPermissionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKeyPermissions
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApiKeysPermissionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApiKeysPermissionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteApiKeysByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
@@ -14502,6 +15161,7 @@ type PatchApiKeysByIdResponse struct {
 	JSON200      *ApiKey
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
@@ -18153,6 +18813,167 @@ func (r TestNotifierResponse) StatusCode() int {
 	return 0
 }
 
+type ListRecordingRulesResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecordingRuleListResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListRecordingRulesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListRecordingRulesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateRecordingRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecordingRuleResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateRecordingRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateRecordingRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteRecordingRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteRecordingRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteRecordingRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRecordingRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecordingRuleResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRecordingRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRecordingRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateRecordingRuleResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecordingRuleResponse
+	JSON400      *OodleUtilHttputilsModelsErrors
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateRecordingRuleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateRecordingRuleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetRecordingRuleStatusResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *RecordingRuleStatusResponse
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON404      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSON502      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r GetRecordingRuleStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetRecordingRuleStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ListRolesOpResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -18786,6 +19607,7 @@ type PatchUsersResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -19114,6 +19936,15 @@ func (c *ClientWithResponses) CreateApiKeysWithResponse(ctx context.Context, ins
 		return nil, err
 	}
 	return ParseCreateApiKeysResponse(rsp)
+}
+
+// ListApiKeysPermissionsWithResponse request returning *ListApiKeysPermissionsResponse
+func (c *ClientWithResponses) ListApiKeysPermissionsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysPermissionsResponse, error) {
+	rsp, err := c.ListApiKeysPermissions(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApiKeysPermissionsResponse(rsp)
 }
 
 // DeleteApiKeysByIdWithResponse request returning *DeleteApiKeysByIdResponse
@@ -20826,6 +21657,76 @@ func (c *ClientWithResponses) TestNotifierWithResponse(ctx context.Context, inst
 	return ParseTestNotifierResponse(rsp)
 }
 
+// ListRecordingRulesWithResponse request returning *ListRecordingRulesResponse
+func (c *ClientWithResponses) ListRecordingRulesWithResponse(ctx context.Context, instance string, params *ListRecordingRulesParams, reqEditors ...RequestEditorFn) (*ListRecordingRulesResponse, error) {
+	rsp, err := c.ListRecordingRules(ctx, instance, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListRecordingRulesResponse(rsp)
+}
+
+// CreateRecordingRuleWithBodyWithResponse request with arbitrary body returning *CreateRecordingRuleResponse
+func (c *ClientWithResponses) CreateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateRecordingRuleResponse, error) {
+	rsp, err := c.CreateRecordingRuleWithBody(ctx, instance, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRecordingRuleResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateRecordingRuleWithResponse(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRecordingRuleResponse, error) {
+	rsp, err := c.CreateRecordingRule(ctx, instance, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateRecordingRuleResponse(rsp)
+}
+
+// DeleteRecordingRuleWithResponse request returning *DeleteRecordingRuleResponse
+func (c *ClientWithResponses) DeleteRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error) {
+	rsp, err := c.DeleteRecordingRule(ctx, instance, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteRecordingRuleResponse(rsp)
+}
+
+// GetRecordingRuleWithResponse request returning *GetRecordingRuleResponse
+func (c *ClientWithResponses) GetRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error) {
+	rsp, err := c.GetRecordingRule(ctx, instance, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRecordingRuleResponse(rsp)
+}
+
+// UpdateRecordingRuleWithBodyWithResponse request with arbitrary body returning *UpdateRecordingRuleResponse
+func (c *ClientWithResponses) UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
+	rsp, err := c.UpdateRecordingRuleWithBody(ctx, instance, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRecordingRuleResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateRecordingRuleWithResponse(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
+	rsp, err := c.UpdateRecordingRule(ctx, instance, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateRecordingRuleResponse(rsp)
+}
+
+// GetRecordingRuleStatusWithResponse request returning *GetRecordingRuleStatusResponse
+func (c *ClientWithResponses) GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error) {
+	rsp, err := c.GetRecordingRuleStatus(ctx, instance, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetRecordingRuleStatusResponse(rsp)
+}
+
 // ListRolesOpWithResponse request returning *ListRolesOpResponse
 func (c *ClientWithResponses) ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error) {
 	rsp, err := c.ListRolesOp(ctx, instance, reqEditors...)
@@ -21488,6 +22389,60 @@ func ParseCreateApiKeysResponse(rsp *http.Response) (*CreateApiKeysResponse, err
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListApiKeysPermissionsResponse parses an HTTP response from a ListApiKeysPermissionsWithResponse call
+func ParseListApiKeysPermissionsResponse(rsp *http.Response) (*ListApiKeysPermissionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApiKeysPermissionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKeyPermissions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21527,6 +22482,13 @@ func ParseDeleteApiKeysByIdResponse(rsp *http.Response) (*DeleteApiKeysByIdRespo
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
@@ -21642,6 +22604,13 @@ func ParsePatchApiKeysByIdResponse(rsp *http.Response) (*PatchApiKeysByIdRespons
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
@@ -29287,6 +30256,365 @@ func ParseTestNotifierResponse(rsp *http.Response) (*TestNotifierResponse, error
 	return response, nil
 }
 
+// ParseListRecordingRulesResponse parses an HTTP response from a ListRecordingRulesWithResponse call
+func ParseListRecordingRulesResponse(rsp *http.Response) (*ListRecordingRulesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListRecordingRulesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecordingRuleListResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateRecordingRuleResponse parses an HTTP response from a CreateRecordingRuleWithResponse call
+func ParseCreateRecordingRuleResponse(rsp *http.Response) (*CreateRecordingRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateRecordingRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecordingRuleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteRecordingRuleResponse parses an HTTP response from a DeleteRecordingRuleWithResponse call
+func ParseDeleteRecordingRuleResponse(rsp *http.Response) (*DeleteRecordingRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteRecordingRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRecordingRuleResponse parses an HTTP response from a GetRecordingRuleWithResponse call
+func ParseGetRecordingRuleResponse(rsp *http.Response) (*GetRecordingRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRecordingRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecordingRuleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateRecordingRuleResponse parses an HTTP response from a UpdateRecordingRuleWithResponse call
+func ParseUpdateRecordingRuleResponse(rsp *http.Response) (*UpdateRecordingRuleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateRecordingRuleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecordingRuleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetRecordingRuleStatusResponse parses an HTTP response from a GetRecordingRuleStatusWithResponse call
+func ParseGetRecordingRuleStatusResponse(rsp *http.Response) (*GetRecordingRuleStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetRecordingRuleStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest RecordingRuleStatusResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseListRolesOpResponse parses an HTTP response from a ListRolesOpWithResponse call
 func ParseListRolesOpResponse(rsp *http.Response) (*ListRolesOpResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -30638,6 +31966,13 @@ func ParsePatchUsersResponse(rsp *http.Response) (*PatchUsersResponse, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors

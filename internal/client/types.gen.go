@@ -165,17 +165,37 @@ type AnonymousType3 = map[string]interface{}
 
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
-	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
-	DeletedAtEpochMillis  *int      `json:"deletedAtEpochMillis,omitempty"`
-	ExpiresAtEpochMillis  int       `json:"expiresAtEpochMillis"`
-	Id                    string    `json:"id"`
-	IsPrimary             bool      `json:"isPrimary"`
-	LastUsedAtEpochMillis int       `json:"lastUsedAtEpochMillis"`
-	Name                  string    `json:"name"`
-	Roles                 *[]string `json:"roles,omitempty"`
-	Scopes                *[]string `json:"scopes,omitempty"`
-	Token                 string    `json:"token"`
-	UpdatedAtEpochMillis  int       `json:"updatedAtEpochMillis"`
+	Access               string `json:"access"`
+	CreatedAtEpochMillis int    `json:"createdAtEpochMillis"`
+
+	// CreatedBy CreatedBy is empty for keys that an API key created, and for keys
+	// created before it was recorded.
+	CreatedBy             *string `json:"createdBy,omitempty"`
+	DeletedAtEpochMillis  *int    `json:"deletedAtEpochMillis,omitempty"`
+	ExpiresAtEpochMillis  int     `json:"expiresAtEpochMillis"`
+	Id                    string  `json:"id"`
+	IsPrimary             bool    `json:"isPrimary"`
+	LastUsedAtEpochMillis int     `json:"lastUsedAtEpochMillis"`
+	Name                  string  `json:"name"`
+
+	// OwnerEmail OwnerEmail is set only on personal keys.
+	OwnerEmail           *string   `json:"ownerEmail,omitempty"`
+	Roles                *[]string `json:"roles,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	Token                string    `json:"token"`
+	UpdatedAtEpochMillis int       `json:"updatedAtEpochMillis"`
+}
+
+// ApiKeyPermissions ApiKeyPermissions tells what kind of API key the caller may create.
+type ApiKeyPermissions struct {
+	// AccessOptions AccessOptions lists the access values the caller may give a new key.
+	AccessOptions *[]string `json:"accessOptions"`
+
+	// AssignableRoles AssignableRoles lists the roles the caller may give a key.
+	AssignableRoles *[]string `json:"assignableRoles"`
+
+	// CanCreate CanCreate is true when the caller may create at least one kind of key.
+	CanCreate bool `json:"canCreate"`
 }
 
 // Authorization Authorization contains HTTP authorization credentials.
@@ -821,6 +841,10 @@ type ConfluentCloudIntegrationWrapper struct {
 
 // CreateApiKeyRequest defines model for CreateApiKeyRequest.
 type CreateApiKeyRequest struct {
+	// Access Access is optional. When it is absent, an admin gets an organization
+	// key and other users get a personal key, which is the only kind they
+	// may create.
+	Access *string   `json:"access,omitempty"`
 	Name   string    `json:"name"`
 	Roles  *[]string `json:"roles,omitempty"`
 	Scopes *[]string `json:"scopes"`
@@ -1187,6 +1211,17 @@ type CreatePromptRequest struct {
 	Prompt interface{} `json:"prompt"`
 	Tags   *[]string   `json:"tags,omitempty"`
 	Type   *string     `json:"type,omitempty"`
+}
+
+// CreateRecordingRuleRequest CreateRecordingRuleRequest is the body of a create request.
+type CreateRecordingRuleRequest struct {
+	// DryRun DryRun checks the rule and stores nothing. A valid rule gives an
+	// empty response, and a rule that is not valid gives an error.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule RecordingRule `json:"recording_rule"`
 }
 
 // CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
@@ -1810,11 +1845,14 @@ type ExperimentRow struct {
 
 // ExperimentRowView ExperimentRowView is a stored row with its scores.
 type ExperimentRowView struct {
-	CreatedAt     string      `json:"createdAt"`
-	DatasetItemId string      `json:"datasetItemId"`
-	DatasetRunId  string      `json:"datasetRunId"`
-	ErrorMessage  *string     `json:"errorMessage,omitempty"`
-	Expected      interface{} `json:"expected,omitempty"`
+	// Comparison RowComparison is how one row of an experiment compares with
+	// the base experiment.
+	Comparison    *RowComparison `json:"comparison,omitempty"`
+	CreatedAt     string         `json:"createdAt"`
+	DatasetItemId string         `json:"datasetItemId"`
+	DatasetRunId  string         `json:"datasetRunId"`
+	ErrorMessage  *string        `json:"errorMessage,omitempty"`
+	Expected      interface{}    `json:"expected,omitempty"`
 
 	// ExternalId ExternalID is the caller's id for the row. A write that
 	// repeats it updates the row instead of adding a second one.
@@ -1829,12 +1867,15 @@ type ExperimentRowView struct {
 	Metrics       interface{} `json:"metrics,omitempty"`
 	ObservationId *string     `json:"observationId,omitempty"`
 	Output        *string     `json:"output,omitempty"`
-	Scores        *[]Score    `json:"scores"`
-	SpanId        *string     `json:"spanId,omitempty"`
-	Status        *string     `json:"status,omitempty"`
-	Tags          *[]string   `json:"tags,omitempty"`
-	TraceId       string      `json:"traceId"`
-	UpdatedAt     string      `json:"updatedAt"`
+
+	// Scores Scores holds one score of each name: the row's own, else
+	// the average of the scores that spans under it wrote.
+	Scores    *[]Score  `json:"scores"`
+	SpanId    *string   `json:"spanId,omitempty"`
+	Status    *string   `json:"status,omitempty"`
+	Tags      *[]string `json:"tags,omitempty"`
+	TraceId   string    `json:"traceId"`
+	UpdatedAt string    `json:"updatedAt"`
 }
 
 // ExperimentRowsResponse ExperimentRowsResponse is one page of experiment rows with
@@ -1842,6 +1883,12 @@ type ExperimentRowView struct {
 type ExperimentRowsResponse struct {
 	Cursor *string              `json:"cursor,omitempty"`
 	Data   *[]ExperimentRowView `json:"data"`
+
+	// MovedTotal MovedTotal is set when the request names `moved`. It is
+	// the number of row keys that moved that way, which is the
+	// "better" or "worse" count of the summary. Rows that share
+	// an input are one key, so the rows can be more.
+	MovedTotal *int `json:"movedTotal,omitempty"`
 }
 
 // ExperimentSummary ExperimentSummary is the summary of one experiment, compared
@@ -2969,6 +3016,97 @@ type PromptResponse struct {
 	Version         int                   `json:"version"`
 }
 
+// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+// the result as a new metric.
+type RecordingRule struct {
+	// CreatedAt CreatedAt is when the rule was created.
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExecutionGroup ExecutionGroup names a set of rules that run together, one after
+	// another, in the order of their creation. Put a rule that reads the
+	// output of another rule in the same group. If you do not set it,
+	// the rule runs in a group of its own, named by its slug.
+	ExecutionGroup *string `json:"execution_group,omitempty"`
+
+	// IntervalSecs IntervalSecs is how often the rule runs, in seconds. The default
+	// is 60. All rules in one execution group run at the shortest
+	// interval of the group.
+	IntervalSecs *int `json:"interval_secs,omitempty"`
+
+	// LabelPolicy RecordingRuleLabelPolicy sets labels on every series that a recording rule writes.
+	LabelPolicy *RecordingRuleLabelPolicy `json:"label_policy,omitempty"`
+
+	// MetricName MetricName is the name of the metric that the rule writes.
+	MetricName string `json:"metric_name"`
+
+	// Name Name is the display name of the rule.
+	Name string `json:"name"`
+
+	// PrometheusExpr PrometheusExpr is the PromQL expression that the rule evaluates.
+	PrometheusExpr string `json:"prometheus_expr"`
+
+	// Slug Slug is the unique ID of the rule in the instance. It cannot
+	// change after the rule is created. If you create a rule without a
+	// slug, Oodle makes one from the name.
+	Slug *string `json:"slug,omitempty"`
+
+	// UpdatedAt UpdatedAt is when the rule was last changed.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// RecordingRuleLabelPolicy RecordingRuleLabelPolicy sets labels on every series that a recording rule writes.
+type RecordingRuleLabelPolicy struct {
+	// Add Add sets these labels on each recorded series. A label that the
+	// expression already returns is replaced.
+	Add *map[string]string `json:"add,omitempty"`
+}
+
+// RecordingRuleListResponse RecordingRuleListResponse holds one page of recording rules.
+type RecordingRuleListResponse struct {
+	// Page RecordingRulesPage tells the client how to read the next page.
+	Page           RecordingRulesPage `json:"page"`
+	RecordingRules *[]RecordingRule   `json:"recording_rules"`
+}
+
+// RecordingRuleResponse RecordingRuleResponse holds one recording rule. It is empty for a dry
+// run.
+type RecordingRuleResponse struct {
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule *RecordingRule `json:"recording_rule,omitempty"`
+}
+
+// RecordingRuleStatus RecordingRuleStatus is the last evaluation of a recording rule.
+type RecordingRuleStatus struct {
+	// EvaluationTimeSecs EvaluationTimeSecs is how long the last evaluation took.
+	EvaluationTimeSecs *float32 `json:"evaluation_time_secs,omitempty"`
+
+	// Health Health is "ok", "err" or "unknown". A rule that has not run yet,
+	// or that the evaluator does not have yet, is "unknown".
+	Health string `json:"health"`
+
+	// LastError LastError is the error of the last evaluation, if it failed.
+	LastError *string `json:"last_error,omitempty"`
+
+	// LastEvaluation LastEvaluation is when the rule last ran.
+	LastEvaluation *time.Time `json:"last_evaluation,omitempty"`
+
+	// Slug Slug is the ID of the rule.
+	Slug string `json:"slug"`
+}
+
+// RecordingRuleStatusResponse RecordingRuleStatusResponse holds the status of one recording rule.
+type RecordingRuleStatusResponse struct {
+	// Status RecordingRuleStatus is the last evaluation of a recording rule.
+	Status RecordingRuleStatus `json:"status"`
+}
+
+// RecordingRulesPage RecordingRulesPage tells the client how to read the next page.
+type RecordingRulesPage struct {
+	// NextToken NextToken reads the next page. It is empty on the last page.
+	NextToken *string `json:"next_token,omitempty"`
+}
+
 // RenameDatasetFolderRequest RenameDatasetFolderRequest moves every dataset under one folder
 // path to another.
 //
@@ -3009,6 +3147,19 @@ type RenameDatasetFolderResponse struct {
 // there is no prompt rename.
 type RenameDatasetRequest struct {
 	Name string `json:"name"`
+}
+
+// RowComparison RowComparison is how one row of an experiment compares with
+// the base experiment.
+type RowComparison struct {
+	// BaseScores BaseScores is the base's score of each name for the key,
+	// averaged over the base rows that share the key. Empty when
+	// the row is not matched.
+	BaseScores *map[string]float32 `json:"baseScores"`
+
+	// Matched Matched is true when the base has a row with the same
+	// RowMatchKey.
+	Matched bool `json:"matched"`
 }
 
 // RuleInUseResponse RuleInUseResponse is the 409 answer to a rename or delete of
@@ -4148,9 +4299,27 @@ type UpdatePromptVersionLabelsRequest struct {
 	NewLabels *[]string `json:"newLabels"`
 }
 
+// UpdateRecordingRuleRequest UpdateRecordingRuleRequest is the body of an update request.
+type UpdateRecordingRuleRequest struct {
+	// CreateIfMissing CreateIfMissing creates the rule if no rule has the slug. Without
+	// it, an update of a missing rule gives 404.
+	CreateIfMissing *bool `json:"create_if_missing,omitempty"`
+
+	// DryRun DryRun checks the rule and stores nothing.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule RecordingRule `json:"recording_rule"`
+}
+
 // UpdateUserRequest UpdateUserRequest is the request body for updating a
 // user within the organization.
 type UpdateUserRequest struct {
+	// Force Force lowers the user's personal api keys to the new roles. Without
+	// it, a change that leaves a key with more access than its owner is
+	// refused.
+	Force  *bool     `json:"force,omitempty"`
 	Roles  *[]string `json:"roles"`
 	UserId string    `json:"user_id"`
 }
@@ -4701,6 +4870,15 @@ type CompareGenaiExperimentsParams struct {
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `movedIn`. Lists only the inputs whose score of that name moved that way in `movedIn` against the first experiment, the rows behind the summary's count. `meta.totalItems` counts them.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedIn The experiment that `moved` reads: one of `experimentIds` other than the first.
+	MovedIn *string `form:"movedIn,omitempty" json:"movedIn,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
+
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
@@ -4728,11 +4906,20 @@ type ListGenaiProjectExperimentsParams struct {
 
 // ListGenaiExperimentRowsParams defines parameters for ListGenaiExperimentRows.
 type ListGenaiExperimentRowsParams struct {
+	// CompareTo The id of a base experiment. Each row then carries `comparison`: whether the base has a row with the same input, and the base's scores for it. The rules are those of the summary.
+	CompareTo *string `form:"compareTo,omitempty" json:"compareTo,omitempty"`
+
 	// Cursor The `cursor` of the previous page. Omit it for the first page.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
 }
 
 // GetGenaiExperimentSummaryParams defines parameters for GetGenaiExperimentSummary.
@@ -4847,6 +5034,24 @@ type GetValuesByIdParams struct {
 type GetMonitorStateByIdParams struct {
 	// HistoryRange Time range for the monitor history in the format start-end in epoch seconds in UTC (e.g. 1705036708-1705123108), defaults to last 7 days
 	HistoryRange *string `form:"history_range,omitempty" json:"history_range,omitempty"`
+}
+
+// ListRecordingRulesParams defines parameters for ListRecordingRules.
+type ListRecordingRulesParams struct {
+	// ExecutionGroups Return only rules in these execution groups. Repeat the parameter or give a comma-separated list.
+	ExecutionGroups *string `form:"execution_groups,omitempty" json:"execution_groups,omitempty"`
+
+	// Names Return only rules with these names. Repeat the parameter or give a comma-separated list.
+	Names *string `form:"names,omitempty" json:"names,omitempty"`
+
+	// PageMaxSize Most rules to return in one page. 0 uses the default of 100. The largest page is 1000.
+	PageMaxSize *int `form:"page.max_size,omitempty" json:"page.max_size,omitempty"`
+
+	// PageToken The next_token of the previous page. Leave it empty for the first page.
+	PageToken *string `form:"page.token,omitempty" json:"page.token,omitempty"`
+
+	// Slugs Return only rules with these slugs. Repeat the parameter or give a comma-separated list.
+	Slugs *string `form:"slugs,omitempty" json:"slugs,omitempty"`
 }
 
 // ListLabelsParams defines parameters for ListLabels.
@@ -5145,6 +5350,12 @@ type CreateNotifiersJSONRequestBody = Notifier
 
 // UpdateNotifiersByIdJSONRequestBody defines body for UpdateNotifiersById for application/json ContentType.
 type UpdateNotifiersByIdJSONRequestBody = Notifier
+
+// CreateRecordingRuleJSONRequestBody defines body for CreateRecordingRule for application/json ContentType.
+type CreateRecordingRuleJSONRequestBody = CreateRecordingRuleRequest
+
+// UpdateRecordingRuleJSONRequestBody defines body for UpdateRecordingRule for application/json ContentType.
+type UpdateRecordingRuleJSONRequestBody = UpdateRecordingRuleRequest
 
 // CreateSyntheticMonitorsJSONRequestBody defines body for CreateSyntheticMonitors for application/json ContentType.
 type CreateSyntheticMonitorsJSONRequestBody = SyntheticMonitor

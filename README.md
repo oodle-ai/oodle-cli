@@ -435,6 +435,31 @@ Aliases: `dr`, `drop-rule`.
 oodle drop-rules list
 ```
 
+### Recording Rules — `oodle recording-rules`
+
+Aliases: `rr`, `recording-rule`. A recording rule evaluates a PromQL
+expression on an interval and stores the result as a new metric.
+
+| Subcommand                   | Description                                                     |
+|------------------------------|-----------------------------------------------------------------|
+| `list`                       | List recording rules (`--execution-group`, `--slug`, `--name`)  |
+| `get <slug>`                 | Get a recording rule                                            |
+| `status <slug>`              | Show the last evaluation: health, time, last error              |
+| `create -f <file>`           | Create a recording rule (`--dry-run` checks it only)            |
+| `update <slug> -f <file>`    | Replace a recording rule (`--create-if-missing`, `--dry-run`)   |
+| `delete <slug>`              | Delete a recording rule                                         |
+| `apply -f <file>`            | Load Prometheus rule groups (`--prune`, `--dry-run`)            |
+
+`apply` reads a Prometheus rule file, such as the output of `sloth generate`.
+Each group becomes an execution group, and each rule gets the slug
+`<group>.<record>`, so a second apply of the same file updates the rules.
+`--prune` deletes rules of the file's groups that the file no longer has.
+
+```bash
+oodle recording-rules apply -f rules.yaml --dry-run
+sloth generate -i slo.yaml --disable-alerts | oodle recording-rules apply -f - --prune
+```
+
 ### Metrics — `oodle metrics`
 
 Alias: `metric`. Inspect metrics, labels, and label values.
