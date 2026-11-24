@@ -89,6 +89,7 @@ func newAwsAddCmd() *cobra.Command {
 		namespacesFlag   string
 		tagFlags         []string
 		cfStackRegion    string
+		metricFilters    []string
 	)
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -126,6 +127,7 @@ to provide a full JSON/YAML payload instead of the flag-based form.`,
 					namespaces:    splitAndTrim(namespacesFlag),
 					tags:          tagFlags,
 					cfStackRegion: cfStackRegion,
+					metricFilters: metricFilters,
 				})
 				if err != nil {
 					return err
@@ -153,6 +155,7 @@ to provide a full JSON/YAML payload instead of the flag-based form.`,
 	cmd.Flags().StringVar(&namespacesFlag, "namespaces", "", "Comma-separated CloudWatch namespaces (e.g. AWS/EC2,AWS/RDS)")
 	cmd.Flags().StringArrayVar(&tagFlags, "tag", nil, "Tag filter applied to all namespaces, as key=value. Repeat for multiple tags.")
 	cmd.Flags().StringVar(&cfStackRegion, "cf-stack-region", defaultCFStackRegion, "Region recorded as launchCFStackRegion on the integration")
+	cmd.Flags().StringArrayVar(&metricFilters, "metric-filter", nil, metricFilterFlagHelp)
 	return cmd
 }
 
@@ -199,6 +202,8 @@ func newAwsUpdateCmd() *cobra.Command {
 		tagFlags         []string
 		cfStackRegion    string
 		statusFlag       string
+		metricFilters    []string
+		clearFilters     bool
 	)
 	cmd := &cobra.Command{
 		Use:   "update <id>",
@@ -234,6 +239,8 @@ payload instead.`,
 					cfStackRegion: flagValue(cmd, "cf-stack-region", cfStackRegion),
 					status:        flagValue(cmd, "status", statusFlag),
 					tagsProvided:  cmd.Flags().Changed("tag"),
+					metricFilters: metricFilters,
+					clearFilters:  clearFilters,
 				})
 				if err != nil {
 					return err
@@ -261,6 +268,9 @@ payload instead.`,
 	cmd.Flags().StringArrayVar(&tagFlags, "tag", nil, "Replacement tag filter as key=value (repeatable). Supplying --tag at all clears existing tags before applying these.")
 	cmd.Flags().StringVar(&cfStackRegion, "cf-stack-region", "", "Replacement launchCFStackRegion value")
 	cmd.Flags().StringVar(&statusFlag, "status", "", "Replacement integration status (e.g. ACTIVE, INACTIVE)")
+	cmd.Flags().StringArrayVar(&metricFilters, "metric-filter", nil, metricFilterFlagHelp+" Supplying --metric-filter at all replaces all existing metric filters.")
+	cmd.Flags().BoolVar(&clearFilters, "clear-metric-filters", false, "Remove all metric name filters, so that Oodle pulls every metric of each namespace")
+	cmd.MarkFlagsMutuallyExclusive("metric-filter", "clear-metric-filters")
 	return cmd
 }
 
@@ -343,6 +353,7 @@ type awsBuildInputs struct {
 	namespaces    []string
 	tags          []string
 	cfStackRegion string
+	metricFilters []string
 }
 
 func buildAwsCreateBody(in awsBuildInputs) (client.CreateIntegrationsJSONRequestBody, error) {
@@ -386,6 +397,13 @@ func buildCloudWatchPayload(in awsBuildInputs) (client.CloudWatchMetricPullInteg
 	if in.cfStackRegion != "" {
 		cw.LaunchCFStackRegion = stringPtr(in.cfStackRegion)
 	}
+	if len(in.metricFilters) > 0 {
+		filters, err := parseMetricFilterFlags(in.metricFilters)
+		if err != nil {
+			return client.CloudWatchMetricPullIntegration{}, err
+		}
+		cw.MetricNameFilters = &filters
+	}
 	return cw, nil
 }
 
@@ -398,6 +416,10 @@ type awsPatchInputs struct {
 	tagsProvided  bool
 	cfStackRegion *string
 	status        *string
+	// metricFilters replaces all stored filters when it has items.
+	metricFilters []string
+	// clearFilters sends an empty list, which removes all stored filters.
+	clearFilters bool
 }
 
 // buildAwsPatchBody overlays user-provided patch flags onto the integration's
@@ -444,6 +466,19 @@ func buildAwsPatchBody(existing client.CloudWatchMetricPullIntegration, in awsPa
 				SearchTags:    tagPairs,
 			},
 		}
+	}
+
+	// Without either flag, the filters read from the server go back
+	// unchanged.
+	switch {
+	case in.clearFilters:
+		updated.MetricNameFilters = &[]client.CloudWatchMetricNameFilter{}
+	case len(in.metricFilters) > 0:
+		filters, err := parseMetricFilterFlags(in.metricFilters)
+		if err != nil {
+			return client.PatchIntegrationsByIdJSONRequestBody{}, err
+		}
+		updated.MetricNameFilters = &filters
 	}
 
 	wrapper := client.CloudWatchMetricPullIntegrationWrapper{
@@ -562,6 +597,55 @@ func buildCFLaunchURL(externalID, oodleAWSAccountID, region, roleName string) st
 		"https://console.aws.amazon.com/cloudformation/home?region=%s#/stacks/create/review?%s",
 		url.QueryEscape(region),
 		q.Encode(),
+	)
+}
+
+const metricFilterFlagHelp = "Metric name filter for one namespace, as NAMESPACE:include=P1,P2 or NAMESPACE:exclude=P1,P2 " +
+	"(repeatable, one per namespace). Patterns match CloudWatch metric names such as CPUUtilization; " +
+	"* and ? are wildcards and case is ignored. Example: --metric-filter 'AWS/EC2:include=CPUUtilization,Network*'."
+
+// parseMetricFilterFlags reads --metric-filter values. The server does the
+// full validation; this rejects only values that cannot be read.
+func parseMetricFilterFlags(values []string) ([]client.CloudWatchMetricNameFilter, error) {
+	filters := make([]client.CloudWatchMetricNameFilter, 0, len(values))
+	seen := make(map[string]struct{}, len(values))
+	for _, raw := range values {
+		namespace, mode, patterns, err := splitMetricFilterFlag(raw)
+		if err != nil {
+			return nil, err
+		}
+		if _, ok := seen[namespace]; ok {
+			return nil, fmt.Errorf("invalid --metric-filter %q: namespace %s has more than one filter", raw, namespace)
+		}
+		seen[namespace] = struct{}{}
+
+		filter := client.CloudWatchMetricNameFilter{Namespace: namespace}
+		if mode == "include" {
+			filter.IncludeOnly = &patterns
+		} else {
+			filter.ExcludeOnly = &patterns
+		}
+		filters = append(filters, filter)
+	}
+	return filters, nil
+}
+
+func splitMetricFilterFlag(raw string) (namespace, mode string, patterns []string, err error) {
+	for _, candidate := range []string{"include", "exclude"} {
+		before, after, found := strings.Cut(raw, ":"+candidate+"=")
+		if !found {
+			continue
+		}
+		namespace = strings.TrimSpace(before)
+		patterns = splitAndTrim(after)
+		if namespace == "" || len(patterns) == 0 {
+			break
+		}
+		return namespace, candidate, patterns, nil
+	}
+	return "", "", nil, fmt.Errorf(
+		"invalid --metric-filter %q: expected NAMESPACE:include=P1,P2 or NAMESPACE:exclude=P1,P2",
+		raw,
 	)
 }
 

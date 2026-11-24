@@ -22,9 +22,17 @@ components:
         - createdAtEpochMillis
         - updatedAtEpochMillis
         - isPrimary
+        - access
       properties:
+        access:
+          type: string
         createdAtEpochMillis:
           type: integer
+        createdBy:
+          type: string
+          description: |-
+            CreatedBy is empty for keys that an API key created, and for keys
+            created before it was recorded.
         deletedAtEpochMillis:
           type: integer
           nullable: true
@@ -38,6 +46,9 @@ components:
           type: integer
         name:
           type: string
+        ownerEmail:
+          type: string
+          description: OwnerEmail is set only on personal keys.
         roles:
           type: array
           nullable: true
@@ -52,6 +63,29 @@ components:
           type: string
         updatedAtEpochMillis:
           type: integer
+    ApiKeyPermissions:
+      type: object
+      description: ApiKeyPermissions tells what kind of API key the caller may create.
+      required:
+        - canCreate
+        - accessOptions
+        - assignableRoles
+      properties:
+        accessOptions:
+          type: array
+          description: AccessOptions lists the access values the caller may give a new key.
+          nullable: true
+          items:
+            type: string
+        assignableRoles:
+          type: array
+          description: AssignableRoles lists the roles the caller may give a key.
+          nullable: true
+          items:
+            type: string
+        canCreate:
+          type: boolean
+          description: CanCreate is true when the caller may create at least one kind of key.
     Authorization:
       type: object
       description: Authorization contains HTTP authorization credentials.
@@ -381,6 +415,32 @@ components:
             RoleSource is AWS_INTEGRATION to use the IAM role of an AWS account that
             the AWS integration connects, or NEW_ROLE to use a role created for this
             datasource.
+    CloudWatchMetricNameFilter:
+      type: object
+      description: |-
+        CloudWatchMetricNameFilter limits the metrics that Oodle pulls from one
+        CloudWatch namespace. Exactly one of IncludeOnly and ExcludeOnly has
+        patterns. A pattern matches the full CloudWatch metric name (for example
+        CPUUtilization), case is ignored, `*` matches zero or more characters and
+        `?` matches one character.
+      required:
+        - namespace
+      properties:
+        excludeOnly:
+          type: array
+          description: ExcludeOnly drops the metrics whose name matches a pattern.
+          nullable: true
+          items:
+            type: string
+        includeOnly:
+          type: array
+          description: IncludeOnly keeps only the metrics whose name matches a pattern.
+          nullable: true
+          items:
+            type: string
+        namespace:
+          type: string
+          description: Namespace is a CloudWatch namespace, for example AWS/EC2.
     CloudWatchMetricPullIntegration:
       type: object
       properties:
@@ -392,6 +452,16 @@ components:
           type: string
         launchCFStackURL:
           type: string
+        metricNameFilters:
+          type: array
+          description: |-
+            MetricNameFilters limits the metrics pulled from each namespace, with at
+            most one filter for each namespace. An update without this field keeps
+            the stored filters, and an empty list removes them. A read always
+            returns a list, empty when no namespace has a filter.
+          nullable: true
+          items:
+            $ref: '#/components/schemas/CloudWatchMetricNameFilter'
         regions:
           type: array
           nullable: true
@@ -1094,6 +1164,12 @@ components:
         - name
         - scopes
       properties:
+        access:
+          type: string
+          description: |-
+            Access is optional. When it is absent, an admin gets an organization
+            key and other users get a personal key, which is the only kind they
+            may create.
         name:
           type: string
         roles:
@@ -2755,6 +2831,8 @@ components:
         - updatedAt
         - scores
       properties:
+        comparison:
+          $ref: '#/components/schemas/RowComparison'
         createdAt:
           type: string
         datasetItemId:
@@ -2784,6 +2862,9 @@ components:
           type: string
         scores:
           type: array
+          description: |-
+            Scores holds one score of each name: the row's own, else
+            the average of the scores that spans under it wrote.
           nullable: true
           items:
             $ref: '#/components/schemas/Score'
@@ -2815,6 +2896,14 @@ components:
           nullable: true
           items:
             $ref: '#/components/schemas/ExperimentRowView'
+        movedTotal:
+          type: integer
+          description: |-
+            MovedTotal is set when the request names `moved`. It is
+            the number of row keys that moved that way, which is the
+            "better" or "worse" count of the summary. Rows that share
+            an input are one key, so the rows can be more.
+          nullable: true
     ExperimentSummary:
       type: object
       description: |-
@@ -4800,6 +4889,29 @@ components:
       properties:
         name:
           type: string
+    RowComparison:
+      type: object
+      description: |-
+        RowComparison is how one row of an experiment compares with
+        the base experiment.
+      required:
+        - matched
+        - baseScores
+      properties:
+        baseScores:
+          type: object
+          description: |-
+            BaseScores is the base's score of each name for the key,
+            averaged over the base rows that share the key. Empty when
+            the row is not matched.
+          nullable: true
+          additionalProperties:
+            type: number
+        matched:
+          type: boolean
+          description: |-
+            Matched is true when the base has a row with the same
+            RowMatchKey.
     RuleInUseResponse:
       type: object
       description: |-
@@ -6803,6 +6915,12 @@ components:
         - user_id
         - roles
       properties:
+        force:
+          type: boolean
+          description: |-
+            Force lowers the user's personal api keys to the new roles. Without
+            it, a change that leaves a key with more access than its owner is
+            refused.
         roles:
           type: array
           nullable: true
@@ -7909,7 +8027,7 @@ paths:
       summary: Create Api Keys
       description: |2-
 
-        **Required role:** Admin
+        **Required role:** Admin for organization keys; any role for your own personal keys
       operationId: createApiKeys
       parameters:
         - name: instance
@@ -7942,6 +8060,53 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/api-keys-permissions:
+    get:
+      tags:
+        - API Keys
+      summary: List Api Keys Permissions
+      description: |2-
+
+        **Required role:** Viewer, Editor, or Admin
+      operationId: listApiKeysPermissions
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiKeyPermissions'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "500":
           description: ""
           content:
@@ -7961,7 +8126,7 @@ paths:
       summary: Delete Api Key
       description: |2-
 
-        **Required role:** Admin
+        **Required role:** Admin for organization keys; any role for your own personal keys
       operationId: deleteApiKeysById
       parameters:
         - name: id
@@ -7980,6 +8145,12 @@ paths:
         "204":
           description: No Content
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
           description: ""
           content:
             application/json:
@@ -8061,7 +8232,7 @@ paths:
       summary: Patch Api Key
       description: |2-
 
-        **Required role:** Admin
+        **Required role:** Admin for organization keys; any role for your own personal keys
       operationId: patchApiKeysById
       parameters:
         - name: id
@@ -8095,6 +8266,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "403":
           description: ""
           content:
             application/json:
@@ -11224,6 +11401,21 @@ paths:
           description: Results per page. Defaults to 50, capped at 200.
           schema:
             type: integer
+        - name: moved
+          in: query
+          description: '`<scoreName>:better` or `<scoreName>:worse`. Needs `movedIn`. Lists only the inputs whose score of that name moved that way in `movedIn` against the first experiment, the rows behind the summary''s count. `meta.totalItems` counts them.'
+          schema:
+            type: string
+        - name: movedIn
+          in: query
+          description: 'The experiment that `moved` reads: one of `experimentIds` other than the first.'
+          schema:
+            type: string
+        - name: movedKind
+          in: query
+          description: 'What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.'
+          schema:
+            type: string
         - name: page
           in: query
           description: 1-based page number. Defaults to 1.
@@ -11645,6 +11837,11 @@ paths:
       summary: List an experiment's rows with their scores
       operationId: listGenaiExperimentRows
       parameters:
+        - name: compareTo
+          in: query
+          description: 'The id of a base experiment. Each row then carries `comparison`: whether the base has a row with the same input, and the base''s scores for it. The rules are those of the summary.'
+          schema:
+            type: string
         - name: cursor
           in: query
           description: The `cursor` of the previous page. Omit it for the first page.
@@ -11655,6 +11852,16 @@ paths:
           description: Results per page. Defaults to 50, capped at 200.
           schema:
             type: integer
+        - name: moved
+          in: query
+          description: '`<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.'
+          schema:
+            type: string
+        - name: movedKind
+          in: query
+          description: 'What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.'
+          schema:
+            type: string
         - name: experimentId
           in: path
           description: Experiment ID.
@@ -17078,6 +17285,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
         "403":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
           description: ""
           content:
             application/json:

@@ -165,17 +165,37 @@ type AnonymousType3 = map[string]interface{}
 
 // ApiKey defines model for ApiKey.
 type ApiKey struct {
-	CreatedAtEpochMillis  int       `json:"createdAtEpochMillis"`
-	DeletedAtEpochMillis  *int      `json:"deletedAtEpochMillis,omitempty"`
-	ExpiresAtEpochMillis  int       `json:"expiresAtEpochMillis"`
-	Id                    string    `json:"id"`
-	IsPrimary             bool      `json:"isPrimary"`
-	LastUsedAtEpochMillis int       `json:"lastUsedAtEpochMillis"`
-	Name                  string    `json:"name"`
-	Roles                 *[]string `json:"roles,omitempty"`
-	Scopes                *[]string `json:"scopes,omitempty"`
-	Token                 string    `json:"token"`
-	UpdatedAtEpochMillis  int       `json:"updatedAtEpochMillis"`
+	Access               string `json:"access"`
+	CreatedAtEpochMillis int    `json:"createdAtEpochMillis"`
+
+	// CreatedBy CreatedBy is empty for keys that an API key created, and for keys
+	// created before it was recorded.
+	CreatedBy             *string `json:"createdBy,omitempty"`
+	DeletedAtEpochMillis  *int    `json:"deletedAtEpochMillis,omitempty"`
+	ExpiresAtEpochMillis  int     `json:"expiresAtEpochMillis"`
+	Id                    string  `json:"id"`
+	IsPrimary             bool    `json:"isPrimary"`
+	LastUsedAtEpochMillis int     `json:"lastUsedAtEpochMillis"`
+	Name                  string  `json:"name"`
+
+	// OwnerEmail OwnerEmail is set only on personal keys.
+	OwnerEmail           *string   `json:"ownerEmail,omitempty"`
+	Roles                *[]string `json:"roles,omitempty"`
+	Scopes               *[]string `json:"scopes,omitempty"`
+	Token                string    `json:"token"`
+	UpdatedAtEpochMillis int       `json:"updatedAtEpochMillis"`
+}
+
+// ApiKeyPermissions ApiKeyPermissions tells what kind of API key the caller may create.
+type ApiKeyPermissions struct {
+	// AccessOptions AccessOptions lists the access values the caller may give a new key.
+	AccessOptions *[]string `json:"accessOptions"`
+
+	// AssignableRoles AssignableRoles lists the roles the caller may give a key.
+	AssignableRoles *[]string `json:"assignableRoles"`
+
+	// CanCreate CanCreate is true when the caller may create at least one kind of key.
+	CanCreate bool `json:"canCreate"`
 }
 
 // Authorization Authorization contains HTTP authorization credentials.
@@ -384,12 +404,34 @@ type CloudWatchDatasource struct {
 	RoleSource string `json:"roleSource"`
 }
 
+// CloudWatchMetricNameFilter CloudWatchMetricNameFilter limits the metrics that Oodle pulls from one
+// CloudWatch namespace. Exactly one of IncludeOnly and ExcludeOnly has
+// patterns. A pattern matches the full CloudWatch metric name (for example
+// CPUUtilization), case is ignored, `*` matches zero or more characters and
+// `?` matches one character.
+type CloudWatchMetricNameFilter struct {
+	// ExcludeOnly ExcludeOnly drops the metrics whose name matches a pattern.
+	ExcludeOnly *[]string `json:"excludeOnly,omitempty"`
+
+	// IncludeOnly IncludeOnly keeps only the metrics whose name matches a pattern.
+	IncludeOnly *[]string `json:"includeOnly,omitempty"`
+
+	// Namespace Namespace is a CloudWatch namespace, for example AWS/EC2.
+	Namespace string `json:"namespace"`
+}
+
 // CloudWatchMetricPullIntegration defines model for CloudWatchMetricPullIntegration.
 type CloudWatchMetricPullIntegration struct {
-	AccountId                   *string                             `json:"accountId,omitempty"`
-	ExternalId                  *string                             `json:"externalId,omitempty"`
-	LaunchCFStackRegion         *string                             `json:"launchCFStackRegion,omitempty"`
-	LaunchCFStackURL            *string                             `json:"launchCFStackURL,omitempty"`
+	AccountId           *string `json:"accountId,omitempty"`
+	ExternalId          *string `json:"externalId,omitempty"`
+	LaunchCFStackRegion *string `json:"launchCFStackRegion,omitempty"`
+	LaunchCFStackURL    *string `json:"launchCFStackURL,omitempty"`
+
+	// MetricNameFilters MetricNameFilters limits the metrics pulled from each namespace, with at
+	// most one filter for each namespace. An update without this field keeps
+	// the stored filters, and an empty list removes them. A read always
+	// returns a list, empty when no namespace has a filter.
+	MetricNameFilters           *[]CloudWatchMetricNameFilter       `json:"metricNameFilters,omitempty"`
 	Regions                     *[]string                           `json:"regions,omitempty"`
 	ResourceTypesSearchTagsList *[]CloudWatchResourceTypeSearchTags `json:"resourceTypesSearchTagsList,omitempty"`
 	RoleArn                     *string                             `json:"roleArn,omitempty"`
@@ -821,6 +863,10 @@ type ConfluentCloudIntegrationWrapper struct {
 
 // CreateApiKeyRequest defines model for CreateApiKeyRequest.
 type CreateApiKeyRequest struct {
+	// Access Access is optional. When it is absent, an admin gets an organization
+	// key and other users get a personal key, which is the only kind they
+	// may create.
+	Access *string   `json:"access,omitempty"`
 	Name   string    `json:"name"`
 	Roles  *[]string `json:"roles,omitempty"`
 	Scopes *[]string `json:"scopes"`
@@ -1810,11 +1856,14 @@ type ExperimentRow struct {
 
 // ExperimentRowView ExperimentRowView is a stored row with its scores.
 type ExperimentRowView struct {
-	CreatedAt     string      `json:"createdAt"`
-	DatasetItemId string      `json:"datasetItemId"`
-	DatasetRunId  string      `json:"datasetRunId"`
-	ErrorMessage  *string     `json:"errorMessage,omitempty"`
-	Expected      interface{} `json:"expected,omitempty"`
+	// Comparison RowComparison is how one row of an experiment compares with
+	// the base experiment.
+	Comparison    *RowComparison `json:"comparison,omitempty"`
+	CreatedAt     string         `json:"createdAt"`
+	DatasetItemId string         `json:"datasetItemId"`
+	DatasetRunId  string         `json:"datasetRunId"`
+	ErrorMessage  *string        `json:"errorMessage,omitempty"`
+	Expected      interface{}    `json:"expected,omitempty"`
 
 	// ExternalId ExternalID is the caller's id for the row. A write that
 	// repeats it updates the row instead of adding a second one.
@@ -1829,12 +1878,15 @@ type ExperimentRowView struct {
 	Metrics       interface{} `json:"metrics,omitempty"`
 	ObservationId *string     `json:"observationId,omitempty"`
 	Output        *string     `json:"output,omitempty"`
-	Scores        *[]Score    `json:"scores"`
-	SpanId        *string     `json:"spanId,omitempty"`
-	Status        *string     `json:"status,omitempty"`
-	Tags          *[]string   `json:"tags,omitempty"`
-	TraceId       string      `json:"traceId"`
-	UpdatedAt     string      `json:"updatedAt"`
+
+	// Scores Scores holds one score of each name: the row's own, else
+	// the average of the scores that spans under it wrote.
+	Scores    *[]Score  `json:"scores"`
+	SpanId    *string   `json:"spanId,omitempty"`
+	Status    *string   `json:"status,omitempty"`
+	Tags      *[]string `json:"tags,omitempty"`
+	TraceId   string    `json:"traceId"`
+	UpdatedAt string    `json:"updatedAt"`
 }
 
 // ExperimentRowsResponse ExperimentRowsResponse is one page of experiment rows with
@@ -1842,6 +1894,12 @@ type ExperimentRowView struct {
 type ExperimentRowsResponse struct {
 	Cursor *string              `json:"cursor,omitempty"`
 	Data   *[]ExperimentRowView `json:"data"`
+
+	// MovedTotal MovedTotal is set when the request names `moved`. It is
+	// the number of row keys that moved that way, which is the
+	// "better" or "worse" count of the summary. Rows that share
+	// an input are one key, so the rows can be more.
+	MovedTotal *int `json:"movedTotal,omitempty"`
 }
 
 // ExperimentSummary ExperimentSummary is the summary of one experiment, compared
@@ -3011,6 +3069,19 @@ type RenameDatasetRequest struct {
 	Name string `json:"name"`
 }
 
+// RowComparison RowComparison is how one row of an experiment compares with
+// the base experiment.
+type RowComparison struct {
+	// BaseScores BaseScores is the base's score of each name for the key,
+	// averaged over the base rows that share the key. Empty when
+	// the row is not matched.
+	BaseScores *map[string]float32 `json:"baseScores"`
+
+	// Matched Matched is true when the base has a row with the same
+	// RowMatchKey.
+	Matched bool `json:"matched"`
+}
+
 // RuleInUseResponse RuleInUseResponse is the 409 answer to a rename or delete of
 // an evaluation rule that other rules depend on: they gate on
 // it, or their code reads its scores by name.
@@ -4151,6 +4222,10 @@ type UpdatePromptVersionLabelsRequest struct {
 // UpdateUserRequest UpdateUserRequest is the request body for updating a
 // user within the organization.
 type UpdateUserRequest struct {
+	// Force Force lowers the user's personal api keys to the new roles. Without
+	// it, a change that leaves a key with more access than its owner is
+	// refused.
+	Force  *bool     `json:"force,omitempty"`
 	Roles  *[]string `json:"roles"`
 	UserId string    `json:"user_id"`
 }
@@ -4701,6 +4776,15 @@ type CompareGenaiExperimentsParams struct {
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `movedIn`. Lists only the inputs whose score of that name moved that way in `movedIn` against the first experiment, the rows behind the summary's count. `meta.totalItems` counts them.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedIn The experiment that `moved` reads: one of `experimentIds` other than the first.
+	MovedIn *string `form:"movedIn,omitempty" json:"movedIn,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
+
 	// Page 1-based page number. Defaults to 1.
 	Page *int `form:"page,omitempty" json:"page,omitempty"`
 }
@@ -4728,11 +4812,20 @@ type ListGenaiProjectExperimentsParams struct {
 
 // ListGenaiExperimentRowsParams defines parameters for ListGenaiExperimentRows.
 type ListGenaiExperimentRowsParams struct {
+	// CompareTo The id of a base experiment. Each row then carries `comparison`: whether the base has a row with the same input, and the base's scores for it. The rules are those of the summary.
+	CompareTo *string `form:"compareTo,omitempty" json:"compareTo,omitempty"`
+
 	// Cursor The `cursor` of the previous page. Omit it for the first page.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 
 	// Limit Results per page. Defaults to 50, capped at 200.
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Moved `<scoreName>:better` or `<scoreName>:worse`. Needs `compareTo`. Lists only the rows whose score of that name moved that way against the base, and sets `movedTotal`. The cursor pages inside those rows.
+	Moved *string `form:"moved,omitempty" json:"moved,omitempty"`
+
+	// MovedKind What `moved` names: `score` (the default) or `metric`, a row metric such as `duration`, where lower is better.
+	MovedKind *string `form:"movedKind,omitempty" json:"movedKind,omitempty"`
 }
 
 // GetGenaiExperimentSummaryParams defines parameters for GetGenaiExperimentSummary.
