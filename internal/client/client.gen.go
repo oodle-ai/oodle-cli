@@ -122,6 +122,9 @@ type ClientInterface interface {
 
 	CreateApiKeys(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListApiKeysPermissions request
+	ListApiKeysPermissions(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// DeleteApiKeysById request
 	DeleteApiKeysById(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -908,6 +911,18 @@ func (c *Client) CreateApiKeysWithBody(ctx context.Context, instance string, con
 
 func (c *Client) CreateApiKeys(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateApiKeysRequest(c.Server, instance, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) ListApiKeysPermissions(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListApiKeysPermissionsRequest(c.Server, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -4316,6 +4331,40 @@ func NewCreateApiKeysRequestWithBody(server string, instance string, contentType
 	return req, nil
 }
 
+// NewListApiKeysPermissionsRequest generates requests for ListApiKeysPermissions
+func NewListApiKeysPermissionsRequest(server string, instance string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "instance", instance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/v1/api/instance/%s/api-keys-permissions", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteApiKeysByIdRequest generates requests for DeleteApiKeysById
 func NewDeleteApiKeysByIdRequest(server string, instance string, id string) (*http.Request, error) {
 	var err error
@@ -7511,6 +7560,54 @@ func NewCompareGenaiExperimentsRequest(server string, instance string, params *C
 
 		}
 
+		if params.Moved != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "moved", *params.Moved, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedIn != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedIn", *params.MovedIn, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedKind", *params.MovedKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Page != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page", *params.Page, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
@@ -7947,6 +8044,22 @@ func NewListGenaiExperimentRowsRequest(server string, instance string, experimen
 	if params != nil {
 		queryValues := queryURL.Query()
 
+		if params.CompareTo != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "compareTo", *params.CompareTo, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Cursor != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "cursor", *params.Cursor, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -7966,6 +8079,38 @@ func NewListGenaiExperimentRowsRequest(server string, instance string, experimen
 		if params.Limit != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Moved != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "moved", *params.Moved, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.MovedKind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "movedKind", *params.MovedKind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -13583,6 +13728,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateApiKeysWithResponse(ctx context.Context, instance string, body CreateApiKeysJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApiKeysResponse, error)
 
+	// ListApiKeysPermissionsWithResponse request
+	ListApiKeysPermissionsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysPermissionsResponse, error)
+
 	// DeleteApiKeysByIdWithResponse request
 	DeleteApiKeysByIdWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteApiKeysByIdResponse, error)
 
@@ -14425,6 +14573,7 @@ type CreateApiKeysResponse struct {
 	JSON200      *ApiKey
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -14445,10 +14594,36 @@ func (r CreateApiKeysResponse) StatusCode() int {
 	return 0
 }
 
+type ListApiKeysPermissionsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ApiKeyPermissions
+	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON500      *OodleUtilHttputilsModelsErrors
+	JSONDefault  *OodleUtilHttputilsModelsErrors
+}
+
+// Status returns HTTPResponse.Status
+func (r ListApiKeysPermissionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListApiKeysPermissionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteApiKeysByIdResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
@@ -14502,6 +14677,7 @@ type PatchApiKeysByIdResponse struct {
 	JSON200      *ApiKey
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
+	JSON403      *OodleUtilHttputilsModelsErrors
 	JSON404      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
@@ -18786,6 +18962,7 @@ type PatchUsersResponse struct {
 	JSON400      *OodleUtilHttputilsModelsErrors
 	JSON401      *OodleUtilHttputilsModelsErrors
 	JSON403      *OodleUtilHttputilsModelsErrors
+	JSON409      *OodleUtilHttputilsModelsErrors
 	JSON500      *OodleUtilHttputilsModelsErrors
 	JSONDefault  *OodleUtilHttputilsModelsErrors
 }
@@ -19114,6 +19291,15 @@ func (c *ClientWithResponses) CreateApiKeysWithResponse(ctx context.Context, ins
 		return nil, err
 	}
 	return ParseCreateApiKeysResponse(rsp)
+}
+
+// ListApiKeysPermissionsWithResponse request returning *ListApiKeysPermissionsResponse
+func (c *ClientWithResponses) ListApiKeysPermissionsWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListApiKeysPermissionsResponse, error) {
+	rsp, err := c.ListApiKeysPermissions(ctx, instance, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListApiKeysPermissionsResponse(rsp)
 }
 
 // DeleteApiKeysByIdWithResponse request returning *DeleteApiKeysByIdResponse
@@ -21488,6 +21674,60 @@ func ParseCreateApiKeysResponse(rsp *http.Response) (*CreateApiKeysResponse, err
 		}
 		response.JSON401 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListApiKeysPermissionsResponse parses an HTTP response from a ListApiKeysPermissionsWithResponse call
+func ParseListApiKeysPermissionsResponse(rsp *http.Response) (*ListApiKeysPermissionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListApiKeysPermissionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApiKeyPermissions
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -21527,6 +21767,13 @@ func ParseDeleteApiKeysByIdResponse(rsp *http.Response) (*DeleteApiKeysByIdRespo
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
@@ -21642,6 +21889,13 @@ func ParsePatchApiKeysByIdResponse(rsp *http.Response) (*PatchApiKeysByIdRespons
 			return nil, err
 		}
 		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
 		var dest OodleUtilHttputilsModelsErrors
@@ -30638,6 +30892,13 @@ func ParsePatchUsersResponse(rsp *http.Response) (*PatchUsersResponse, error) {
 			return nil, err
 		}
 		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest OodleUtilHttputilsModelsErrors
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest OodleUtilHttputilsModelsErrors
