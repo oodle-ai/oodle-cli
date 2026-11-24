@@ -14,8 +14,8 @@ import (
 
 func TestParseMetricFilterFlags(t *testing.T) {
 	filters, err := parseMetricFilterFlags([]string{
-		"AWS/EC2:include=CPUUtilization, Network*",
-		"AWS/RDS:exclude=Aurora*",
+		"AWS/EC2:include=aws_ec2_cpuutilization_maximum, aws_ec2_network*",
+		"AWS/RDS:exclude=*_samplecount",
 	})
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -24,20 +24,20 @@ func TestParseMetricFilterFlags(t *testing.T) {
 		t.Fatalf("got %d filters, want 2", len(filters))
 	}
 	if filters[0].Namespace != "AWS/EC2" || filters[0].IncludeOnly == nil ||
-		!reflect.DeepEqual(*filters[0].IncludeOnly, []string{"CPUUtilization", "Network*"}) ||
+		!reflect.DeepEqual(*filters[0].IncludeOnly, []string{"aws_ec2_cpuutilization_maximum", "aws_ec2_network*"}) ||
 		filters[0].ExcludeOnly != nil {
 		t.Errorf("filters[0] = %+v", filters[0])
 	}
 	if filters[1].Namespace != "AWS/RDS" || filters[1].ExcludeOnly == nil ||
-		!reflect.DeepEqual(*filters[1].ExcludeOnly, []string{"Aurora*"}) ||
+		!reflect.DeepEqual(*filters[1].ExcludeOnly, []string{"*_samplecount"}) ||
 		filters[1].IncludeOnly != nil {
 		t.Errorf("filters[1] = %+v", filters[1])
 	}
 
 	for _, bad := range [][]string{
 		{"AWS/EC2"},
-		{"AWS/EC2:keep=CPU*"},
-		{":include=CPU*"},
+		{"AWS/EC2:keep=aws_ec2_cpu*"},
+		{":include=aws_ec2_cpu*"},
 		{"AWS/EC2:include="},
 		{"AWS/EC2:include=A", "AWS/EC2:exclude=B"},
 	} {
@@ -58,7 +58,7 @@ func TestBuildCloudWatchPayloadMetricFilters(t *testing.T) {
 
 	with, err := buildCloudWatchPayload(awsBuildInputs{
 		namespaces:    []string{"AWS/EC2"},
-		metricFilters: []string{"AWS/EC2:include=CPU*"},
+		metricFilters: []string{"AWS/EC2:include=aws_ec2_cpu*"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -88,7 +88,7 @@ func runAwsUpdate(t *testing.T, args ...string) (json.RawMessage, bool) {
 				   "accountId":"123","externalId":"e","roleArn":"arn:aws:iam::123:role/R",
 				   "regions":["us-west-2"],
 				   "resourceTypesSearchTagsList":[{"resourceTypes":["AWS/EC2"]}],
-				   "metricNameFilters":[{"namespace":"AWS/EC2","includeOnly":["CPU*"]}]
+				   "metricNameFilters":[{"namespace":"AWS/EC2","includeOnly":["aws_ec2_cpu*"]}]
 				}}
 			}`)
 		case http.MethodPatch:
@@ -121,13 +121,13 @@ func TestAwsUpdateCmd_KeepsMetricFilters(t *testing.T) {
 	if err := json.Unmarshal(filters, &got); err != nil {
 		t.Fatalf("decode filters: %v", err)
 	}
-	if len(got) != 1 || got[0].Namespace != "AWS/EC2" || got[0].IncludeOnly == nil || (*got[0].IncludeOnly)[0] != "CPU*" {
+	if len(got) != 1 || got[0].Namespace != "AWS/EC2" || got[0].IncludeOnly == nil || (*got[0].IncludeOnly)[0] != "aws_ec2_cpu*" {
 		t.Errorf("filters = %s, want the stored filter", filters)
 	}
 }
 
 func TestAwsUpdateCmd_ReplacesMetricFilters(t *testing.T) {
-	filters, _ := runAwsUpdate(t, "--metric-filter", "AWS/RDS:exclude=Aurora*")
+	filters, _ := runAwsUpdate(t, "--metric-filter", "AWS/RDS:exclude=*_samplecount")
 	var got []client.CloudWatchMetricNameFilter
 	if err := json.Unmarshal(filters, &got); err != nil {
 		t.Fatalf("decode filters: %v", err)

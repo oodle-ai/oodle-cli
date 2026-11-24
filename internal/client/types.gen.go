@@ -404,16 +404,18 @@ type CloudWatchDatasource struct {
 	RoleSource string `json:"roleSource"`
 }
 
-// CloudWatchMetricNameFilter CloudWatchMetricNameFilter limits the metrics that Oodle pulls from one
+// CloudWatchMetricNameFilter CloudWatchMetricNameFilter limits the series that Oodle pulls from one
 // CloudWatch namespace. Exactly one of IncludeOnly and ExcludeOnly has
-// patterns. A pattern matches the full CloudWatch metric name (for example
-// CPUUtilization), case is ignored, `*` matches zero or more characters and
-// `?` matches one character.
+// patterns. A pattern matches the full Oodle metric name (for example
+// aws_ec2_cpuutilization_maximum), case is ignored, `*` matches zero or more
+// characters and `?` matches one character.
 type CloudWatchMetricNameFilter struct {
-	// ExcludeOnly ExcludeOnly drops the metrics whose name matches a pattern.
+	// ExcludeOnly ExcludeOnly drops the series whose Oodle metric name matches a
+	// pattern.
 	ExcludeOnly *[]string `json:"excludeOnly,omitempty"`
 
-	// IncludeOnly IncludeOnly keeps only the metrics whose name matches a pattern.
+	// IncludeOnly IncludeOnly keeps only the series whose Oodle metric name matches a
+	// pattern.
 	IncludeOnly *[]string `json:"includeOnly,omitempty"`
 
 	// Namespace Namespace is a CloudWatch namespace, for example AWS/EC2.

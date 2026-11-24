@@ -418,23 +418,27 @@ components:
     CloudWatchMetricNameFilter:
       type: object
       description: |-
-        CloudWatchMetricNameFilter limits the metrics that Oodle pulls from one
+        CloudWatchMetricNameFilter limits the series that Oodle pulls from one
         CloudWatch namespace. Exactly one of IncludeOnly and ExcludeOnly has
-        patterns. A pattern matches the full CloudWatch metric name (for example
-        CPUUtilization), case is ignored, `*` matches zero or more characters and
-        `?` matches one character.
+        patterns. A pattern matches the full Oodle metric name (for example
+        aws_ec2_cpuutilization_maximum), case is ignored, `*` matches zero or more
+        characters and `?` matches one character.
       required:
         - namespace
       properties:
         excludeOnly:
           type: array
-          description: ExcludeOnly drops the metrics whose name matches a pattern.
+          description: |-
+            ExcludeOnly drops the series whose Oodle metric name matches a
+            pattern.
           nullable: true
           items:
             type: string
         includeOnly:
           type: array
-          description: IncludeOnly keeps only the metrics whose name matches a pattern.
+          description: |-
+            IncludeOnly keeps only the series whose Oodle metric name matches a
+            pattern.
           nullable: true
           items:
             type: string

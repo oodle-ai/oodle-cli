@@ -601,8 +601,9 @@ func buildCFLaunchURL(externalID, oodleAWSAccountID, region, roleName string) st
 }
 
 const metricFilterFlagHelp = "Metric name filter for one namespace, as NAMESPACE:include=P1,P2 or NAMESPACE:exclude=P1,P2 " +
-	"(repeatable, one per namespace). Patterns match CloudWatch metric names such as CPUUtilization; " +
-	"* and ? are wildcards and case is ignored. Example: --metric-filter 'AWS/EC2:include=CPUUtilization,Network*'."
+	"(repeatable, one per namespace). Patterns match the metric names that Oodle shows, one for each statistic, " +
+	"such as aws_ec2_cpuutilization_maximum; * and ? are wildcards and case is ignored. " +
+	"Example: --metric-filter 'AWS/EC2:include=aws_ec2_cpuutilization_maximum,aws_ec2_network*'."
 
 // parseMetricFilterFlags reads --metric-filter values. The server does the
 // full validation; this rejects only values that cannot be read.
