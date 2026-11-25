@@ -331,7 +331,7 @@ func parseTimeFlagSeconds(value string) (float64, error) {
 	return f, nil
 }
 
-// parseRelativeDuration parses durations like "-1h", "-30m", "-7d", "-1d12h".
+// parseRelativeDuration parses durations like "-1h", "-30m", "-7d", "-1d12h", "-1.5d".
 // "d" units are translated to hours (24h) before delegating to
 // time.ParseDuration.
 func parseRelativeDuration(v string) (time.Duration, error) {
@@ -343,16 +343,22 @@ func parseRelativeDuration(v string) (time.Duration, error) {
 	}
 	for i := 0; i < len(v); i++ {
 		c := v[i]
-		if c >= '0' && c <= '9' {
+		if (c >= '0' && c <= '9') || c == '.' {
 			num.WriteByte(c)
 			continue
 		}
 		if c == 'd' && num.Len() > 0 {
-			n, err := strconv.Atoi(num.String())
+			// A day count may have a fraction, as Go durations may ("1.5d" is
+			// 36h). Parse it as hours and scale, so the fraction is not lost.
+			hours, err := time.ParseDuration(num.String() + "h")
 			if err != nil {
 				return 0, err
 			}
-			fmt.Fprintf(&b, "%dh", n*24)
+			days := hours * 24
+			if days/24 != hours {
+				return 0, fmt.Errorf("duration %q is too large", v)
+			}
+			fmt.Fprintf(&b, "%dns", int64(days))
 			num.Reset()
 			continue
 		}

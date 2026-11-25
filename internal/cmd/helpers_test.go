@@ -164,6 +164,40 @@ func TestParseTimeFlag_Relative7d(t *testing.T) {
 	}
 }
 
+// TestParseRelativeDuration_FractionalDays checks that a day count with a
+// fraction keeps its whole part ("-1.5d" is 36h, not 1h7m12s), and that whole
+// days, mixed units and hour fractions come out as before.
+func TestParseRelativeDuration_FractionalDays(t *testing.T) {
+	cases := []struct {
+		in   string
+		want time.Duration
+	}{
+		{"-1.5d", -36 * time.Hour},
+		{"-0.5d", -12 * time.Hour},
+		{"1.25d", 30 * time.Hour},
+		{"-2.2d", -(52*time.Hour + 48*time.Minute)},
+		{"-1.5d30m", -(36*time.Hour + 30*time.Minute)},
+		{"-7d", -7 * 24 * time.Hour},
+		{"-1d12h", -36 * time.Hour},
+		{"-1.5h", -90 * time.Minute},
+	}
+	for _, c := range cases {
+		got, err := parseRelativeDuration(c.in)
+		if err != nil {
+			t.Errorf("parseRelativeDuration(%q) error: %v", c.in, err)
+			continue
+		}
+		if got != c.want {
+			t.Errorf("parseRelativeDuration(%q) = %v, want %v", c.in, got, c.want)
+		}
+	}
+	for _, in := range []string{"-200000d", "-1..5d"} {
+		if _, err := parseRelativeDuration(in); err == nil {
+			t.Errorf("parseRelativeDuration(%q): expected an error", in)
+		}
+	}
+}
+
 func TestParseTimeFlag_Invalid(t *testing.T) {
 	for _, v := range timeFlagVariants() {
 		t.Run(v.name, func(t *testing.T) {
