@@ -70,6 +70,9 @@ func TestPlanRecordingRules(t *testing.T) {
 	if labels["sloth_id"] != "postbox-api-availability" {
 		t.Errorf("labels = %v", labels)
 	}
+	if got, want := first["name"], "slo:sli_error:ratio_rate5m (sloth-slo-sli-recordings-postbox-api-availability)"; got != want {
+		t.Errorf("name = %q, want %q", got, want)
+	}
 	if _, ok := planned[1].Body["label_policy"]; ok {
 		t.Error("a rule without labels must not send label_policy")
 	}
