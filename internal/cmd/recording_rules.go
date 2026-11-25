@@ -405,8 +405,11 @@ func planRecordingRules(data []byte) ([]plannedRule, []string, error) {
 			if r.Record == "" {
 				return nil, nil, fmt.Errorf("rule group %q rule %d has no 'record'", g.Name, i+1)
 			}
+			// The record comes first: rules of one group share the
+			// group name, and a list that cuts long names would show
+			// only that shared part.
 			body := map[string]any{
-				"name":            fmt.Sprintf("%s %s", g.Name, r.Record),
+				"name":            fmt.Sprintf("%s (%s)", r.Record, g.Name),
 				"metric_name":     r.Record,
 				"prometheus_expr": strings.TrimSpace(r.Expr),
 				"interval_secs":   interval,
