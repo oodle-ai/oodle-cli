@@ -3049,8 +3049,12 @@ type RecordingRule struct {
 	// ExecutionGroup ExecutionGroup names a set of rules that run together, one after
 	// another, in the order of their creation. Put a rule that reads the
 	// output of another rule in the same group. If you do not set it,
-	// the rule runs in a group of its own, named by its slug.
+	// the rule runs in a group of its own, named by its ID.
 	ExecutionGroup *string `json:"execution_group,omitempty"`
+
+	// Id ID is the unique ID that Oodle gives the rule when it creates it.
+	// It never changes. Oodle ignores it in a create request.
+	Id *string `json:"id,omitempty"`
 
 	// IntervalSecs IntervalSecs is how often the rule runs, in seconds. The default
 	// is 60. All rules in one execution group run at the shortest
@@ -3068,11 +3072,6 @@ type RecordingRule struct {
 
 	// PrometheusExpr PrometheusExpr is the PromQL expression that the rule evaluates.
 	PrometheusExpr string `json:"prometheus_expr"`
-
-	// Slug Slug is the unique ID of the rule in the instance. It cannot
-	// change after the rule is created. If you create a rule without a
-	// slug, Oodle makes one from the name.
-	Slug *string `json:"slug,omitempty"`
 
 	// UpdatedAt UpdatedAt is when the rule was last changed.
 	UpdatedAt *time.Time `json:"updated_at,omitempty"`
@@ -3109,14 +3108,14 @@ type RecordingRuleStatus struct {
 	// or that the evaluator does not have yet, is "unknown".
 	Health string `json:"health"`
 
+	// Id ID is the ID of the rule.
+	Id string `json:"id"`
+
 	// LastError LastError is the error of the last evaluation, if it failed.
 	LastError *string `json:"last_error,omitempty"`
 
 	// LastEvaluation LastEvaluation is when the rule last ran.
 	LastEvaluation *time.Time `json:"last_evaluation,omitempty"`
-
-	// Slug Slug is the ID of the rule.
-	Slug string `json:"slug"`
 }
 
 // RecordingRuleStatusResponse RecordingRuleStatusResponse holds the status of one recording rule.
@@ -4325,10 +4324,6 @@ type UpdatePromptVersionLabelsRequest struct {
 
 // UpdateRecordingRuleRequest UpdateRecordingRuleRequest is the body of an update request.
 type UpdateRecordingRuleRequest struct {
-	// CreateIfMissing CreateIfMissing creates the rule if no rule has the slug. Without
-	// it, an update of a missing rule gives 404.
-	CreateIfMissing *bool `json:"create_if_missing,omitempty"`
-
 	// DryRun DryRun checks the rule and stores nothing.
 	DryRun *bool `json:"dry_run,omitempty"`
 
@@ -5065,6 +5060,9 @@ type ListRecordingRulesParams struct {
 	// ExecutionGroups Return only rules in these execution groups. Repeat the parameter or give a comma-separated list.
 	ExecutionGroups *string `form:"execution_groups,omitempty" json:"execution_groups,omitempty"`
 
+	// Ids Return only rules with these IDs. Repeat the parameter or give a comma-separated list.
+	Ids *string `form:"ids,omitempty" json:"ids,omitempty"`
+
 	// Names Return only rules with these names. Repeat the parameter or give a comma-separated list.
 	Names *string `form:"names,omitempty" json:"names,omitempty"`
 
@@ -5073,9 +5071,6 @@ type ListRecordingRulesParams struct {
 
 	// PageToken The next_token of the previous page. Leave it empty for the first page.
 	PageToken *string `form:"page.token,omitempty" json:"page.token,omitempty"`
-
-	// Slugs Return only rules with these slugs. Repeat the parameter or give a comma-separated list.
-	Slugs *string `form:"slugs,omitempty" json:"slugs,omitempty"`
 }
 
 // ListLabelsParams defines parameters for ListLabels.

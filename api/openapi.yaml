@@ -4852,7 +4852,12 @@ components:
             ExecutionGroup names a set of rules that run together, one after
             another, in the order of their creation. Put a rule that reads the
             output of another rule in the same group. If you do not set it,
-            the rule runs in a group of its own, named by its slug.
+            the rule runs in a group of its own, named by its ID.
+        id:
+          type: string
+          description: |-
+            ID is the unique ID that Oodle gives the rule when it creates it.
+            It never changes. Oodle ignores it in a create request.
         interval_secs:
           type: integer
           description: |-
@@ -4870,12 +4875,6 @@ components:
         prometheus_expr:
           type: string
           description: PrometheusExpr is the PromQL expression that the rule evaluates.
-        slug:
-          type: string
-          description: |-
-            Slug is the unique ID of the rule in the instance. It cannot
-            change after the rule is created. If you create a rule without a
-            slug, Oodle makes one from the name.
         updated_at:
           type: string
           format: date-time
@@ -4919,7 +4918,7 @@ components:
       type: object
       description: RecordingRuleStatus is the last evaluation of a recording rule.
       required:
-        - slug
+        - id
         - health
       properties:
         evaluation_time_secs:
@@ -4930,6 +4929,9 @@ components:
           description: |-
             Health is "ok", "err" or "unknown". A rule that has not run yet,
             or that the evaluator does not have yet, is "unknown".
+        id:
+          type: string
+          description: ID is the ID of the rule.
         last_error:
           type: string
           description: LastError is the error of the last evaluation, if it failed.
@@ -4938,9 +4940,6 @@ components:
           format: date-time
           description: LastEvaluation is when the rule last ran.
           nullable: true
-        slug:
-          type: string
-          description: Slug is the ID of the rule.
     RecordingRuleStatusResponse:
       type: object
       description: RecordingRuleStatusResponse holds the status of one recording rule.
@@ -7054,11 +7053,6 @@ components:
       required:
         - recording_rule
       properties:
-        create_if_missing:
-          type: boolean
-          description: |-
-            CreateIfMissing creates the rule if no rule has the slug. Without
-            it, an update of a missing rule gives 404.
         dry_run:
           type: boolean
           description: DryRun checks the rule and stores nothing.
@@ -15977,6 +15971,11 @@ paths:
           description: Return only rules in these execution groups. Repeat the parameter or give a comma-separated list.
           schema:
             type: string
+        - name: ids
+          in: query
+          description: Return only rules with these IDs. Repeat the parameter or give a comma-separated list.
+          schema:
+            type: string
         - name: names
           in: query
           description: Return only rules with these names. Repeat the parameter or give a comma-separated list.
@@ -15990,11 +15989,6 @@ paths:
         - name: page.token
           in: query
           description: The next_token of the previous page. Leave it empty for the first page.
-          schema:
-            type: string
-        - name: slugs
-          in: query
-          description: Return only rules with these slugs. Repeat the parameter or give a comma-separated list.
           schema:
             type: string
         - name: instance
@@ -16094,22 +16088,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/recording-rules/{slug}:
+  /v1/api/instance/{instance}/recording-rules/{id}:
     delete:
       tags:
         - Recording Rules
       summary: Delete a recording rule
       operationId: deleteRecordingRule
       parameters:
-        - name: instance
+        - name: id
           in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          description: ID of the recording rule.
           required: true
           schema:
             type: string
-        - name: slug
+        - name: instance
           in: path
-          description: Slug of the recording rule.
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -16152,15 +16146,15 @@ paths:
       summary: Get a recording rule
       operationId: getRecordingRule
       parameters:
-        - name: instance
+        - name: id
           in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          description: ID of the recording rule.
           required: true
           schema:
             type: string
-        - name: slug
+        - name: instance
           in: path
-          description: Slug of the recording rule.
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -16201,15 +16195,15 @@ paths:
       summary: Update a recording rule
       operationId: updateRecordingRule
       parameters:
-        - name: instance
+        - name: id
           in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          description: ID of the recording rule.
           required: true
           schema:
             type: string
-        - name: slug
+        - name: instance
           in: path
-          description: Slug of the recording rule.
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string
@@ -16261,22 +16255,22 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
-  /v1/api/instance/{instance}/recording-rules/{slug}/status:
+  /v1/api/instance/{instance}/recording-rules/{id}/status:
     get:
       tags:
         - Recording Rules
       summary: Get the last evaluation of a recording rule
       operationId: getRecordingRuleStatus
       parameters:
-        - name: instance
+        - name: id
           in: path
-          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          description: ID of the recording rule.
           required: true
           schema:
             type: string
-        - name: slug
+        - name: instance
           in: path
-          description: Slug of the recording rule.
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
           required: true
           schema:
             type: string

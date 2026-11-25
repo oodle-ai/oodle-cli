@@ -668,18 +668,18 @@ type ClientInterface interface {
 	CreateRecordingRule(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteRecordingRule request
-	DeleteRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeleteRecordingRule(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRecordingRule request
-	GetRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRecordingRule(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UpdateRecordingRuleWithBody request with any body
-	UpdateRecordingRuleWithBody(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateRecordingRuleWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	UpdateRecordingRule(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateRecordingRule(ctx context.Context, instance string, id string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetRecordingRuleStatus request
-	GetRecordingRuleStatus(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetRecordingRuleStatus(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListRolesOp request
 	ListRolesOp(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3343,8 +3343,8 @@ func (c *Client) CreateRecordingRule(ctx context.Context, instance string, body 
 	return c.Client.Do(req)
 }
 
-func (c *Client) DeleteRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeleteRecordingRuleRequest(c.Server, instance, slug)
+func (c *Client) DeleteRecordingRule(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteRecordingRuleRequest(c.Server, instance, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3355,8 +3355,8 @@ func (c *Client) DeleteRecordingRule(ctx context.Context, instance string, slug 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRecordingRule(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRecordingRuleRequest(c.Server, instance, slug)
+func (c *Client) GetRecordingRule(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRecordingRuleRequest(c.Server, instance, id)
 	if err != nil {
 		return nil, err
 	}
@@ -3367,8 +3367,8 @@ func (c *Client) GetRecordingRule(ctx context.Context, instance string, slug str
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRecordingRuleWithBody(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRecordingRuleRequestWithBody(c.Server, instance, slug, contentType, body)
+func (c *Client) UpdateRecordingRuleWithBody(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRecordingRuleRequestWithBody(c.Server, instance, id, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3379,8 +3379,8 @@ func (c *Client) UpdateRecordingRuleWithBody(ctx context.Context, instance strin
 	return c.Client.Do(req)
 }
 
-func (c *Client) UpdateRecordingRule(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUpdateRecordingRuleRequest(c.Server, instance, slug, body)
+func (c *Client) UpdateRecordingRule(ctx context.Context, instance string, id string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateRecordingRuleRequest(c.Server, instance, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -3391,8 +3391,8 @@ func (c *Client) UpdateRecordingRule(ctx context.Context, instance string, slug 
 	return c.Client.Do(req)
 }
 
-func (c *Client) GetRecordingRuleStatus(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetRecordingRuleStatusRequest(c.Server, instance, slug)
+func (c *Client) GetRecordingRuleStatus(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetRecordingRuleStatusRequest(c.Server, instance, id)
 	if err != nil {
 		return nil, err
 	}
@@ -11937,6 +11937,22 @@ func NewListRecordingRulesRequest(server string, instance string, params *ListRe
 
 		}
 
+		if params.Ids != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "ids", *params.Ids, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		if params.Names != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "names", *params.Names, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
@@ -11972,22 +11988,6 @@ func NewListRecordingRulesRequest(server string, instance string, params *ListRe
 		if params.PageToken != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "page.token", *params.PageToken, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
-		}
-
-		if params.Slugs != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "slugs", *params.Slugs, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -12060,7 +12060,7 @@ func NewCreateRecordingRuleRequestWithBody(server string, instance string, conte
 }
 
 // NewDeleteRecordingRuleRequest generates requests for DeleteRecordingRule
-func NewDeleteRecordingRuleRequest(server string, instance string, slug string) (*http.Request, error) {
+func NewDeleteRecordingRuleRequest(server string, instance string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -12072,7 +12072,7 @@ func NewDeleteRecordingRuleRequest(server string, instance string, slug string) 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12101,7 +12101,7 @@ func NewDeleteRecordingRuleRequest(server string, instance string, slug string) 
 }
 
 // NewGetRecordingRuleRequest generates requests for GetRecordingRule
-func NewGetRecordingRuleRequest(server string, instance string, slug string) (*http.Request, error) {
+func NewGetRecordingRuleRequest(server string, instance string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -12113,7 +12113,7 @@ func NewGetRecordingRuleRequest(server string, instance string, slug string) (*h
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12142,18 +12142,18 @@ func NewGetRecordingRuleRequest(server string, instance string, slug string) (*h
 }
 
 // NewUpdateRecordingRuleRequest calls the generic UpdateRecordingRule builder with application/json body
-func NewUpdateRecordingRuleRequest(server string, instance string, slug string, body UpdateRecordingRuleJSONRequestBody) (*http.Request, error) {
+func NewUpdateRecordingRuleRequest(server string, instance string, id string, body UpdateRecordingRuleJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewUpdateRecordingRuleRequestWithBody(server, instance, slug, "application/json", bodyReader)
+	return NewUpdateRecordingRuleRequestWithBody(server, instance, id, "application/json", bodyReader)
 }
 
 // NewUpdateRecordingRuleRequestWithBody generates requests for UpdateRecordingRule with any type of body
-func NewUpdateRecordingRuleRequestWithBody(server string, instance string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+func NewUpdateRecordingRuleRequestWithBody(server string, instance string, id string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -12165,7 +12165,7 @@ func NewUpdateRecordingRuleRequestWithBody(server string, instance string, slug 
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -12196,7 +12196,7 @@ func NewUpdateRecordingRuleRequestWithBody(server string, instance string, slug 
 }
 
 // NewGetRecordingRuleStatusRequest generates requests for GetRecordingRuleStatus
-func NewGetRecordingRuleStatusRequest(server string, instance string, slug string) (*http.Request, error) {
+func NewGetRecordingRuleStatusRequest(server string, instance string, id string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -12208,7 +12208,7 @@ func NewGetRecordingRuleStatusRequest(server string, instance string, slug strin
 
 	var pathParam1 string
 
-	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
 	if err != nil {
 		return nil, err
 	}
@@ -14736,18 +14736,18 @@ type ClientWithResponsesInterface interface {
 	CreateRecordingRuleWithResponse(ctx context.Context, instance string, body CreateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateRecordingRuleResponse, error)
 
 	// DeleteRecordingRuleWithResponse request
-	DeleteRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error)
+	DeleteRecordingRuleWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error)
 
 	// GetRecordingRuleWithResponse request
-	GetRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error)
+	GetRecordingRuleWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error)
 
 	// UpdateRecordingRuleWithBodyWithResponse request with any body
-	UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
+	UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
 
-	UpdateRecordingRuleWithResponse(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
+	UpdateRecordingRuleWithResponse(ctx context.Context, instance string, id string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error)
 
 	// GetRecordingRuleStatusWithResponse request
-	GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error)
+	GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error)
 
 	// ListRolesOpWithResponse request
 	ListRolesOpWithResponse(ctx context.Context, instance string, reqEditors ...RequestEditorFn) (*ListRolesOpResponse, error)
@@ -21684,8 +21684,8 @@ func (c *ClientWithResponses) CreateRecordingRuleWithResponse(ctx context.Contex
 }
 
 // DeleteRecordingRuleWithResponse request returning *DeleteRecordingRuleResponse
-func (c *ClientWithResponses) DeleteRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error) {
-	rsp, err := c.DeleteRecordingRule(ctx, instance, slug, reqEditors...)
+func (c *ClientWithResponses) DeleteRecordingRuleWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*DeleteRecordingRuleResponse, error) {
+	rsp, err := c.DeleteRecordingRule(ctx, instance, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -21693,8 +21693,8 @@ func (c *ClientWithResponses) DeleteRecordingRuleWithResponse(ctx context.Contex
 }
 
 // GetRecordingRuleWithResponse request returning *GetRecordingRuleResponse
-func (c *ClientWithResponses) GetRecordingRuleWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error) {
-	rsp, err := c.GetRecordingRule(ctx, instance, slug, reqEditors...)
+func (c *ClientWithResponses) GetRecordingRuleWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*GetRecordingRuleResponse, error) {
+	rsp, err := c.GetRecordingRule(ctx, instance, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -21702,16 +21702,16 @@ func (c *ClientWithResponses) GetRecordingRuleWithResponse(ctx context.Context, 
 }
 
 // UpdateRecordingRuleWithBodyWithResponse request with arbitrary body returning *UpdateRecordingRuleResponse
-func (c *ClientWithResponses) UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
-	rsp, err := c.UpdateRecordingRuleWithBody(ctx, instance, slug, contentType, body, reqEditors...)
+func (c *ClientWithResponses) UpdateRecordingRuleWithBodyWithResponse(ctx context.Context, instance string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
+	rsp, err := c.UpdateRecordingRuleWithBody(ctx, instance, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseUpdateRecordingRuleResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateRecordingRuleWithResponse(ctx context.Context, instance string, slug string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
-	rsp, err := c.UpdateRecordingRule(ctx, instance, slug, body, reqEditors...)
+func (c *ClientWithResponses) UpdateRecordingRuleWithResponse(ctx context.Context, instance string, id string, body UpdateRecordingRuleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateRecordingRuleResponse, error) {
+	rsp, err := c.UpdateRecordingRule(ctx, instance, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -21719,8 +21719,8 @@ func (c *ClientWithResponses) UpdateRecordingRuleWithResponse(ctx context.Contex
 }
 
 // GetRecordingRuleStatusWithResponse request returning *GetRecordingRuleStatusResponse
-func (c *ClientWithResponses) GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, slug string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error) {
-	rsp, err := c.GetRecordingRuleStatus(ctx, instance, slug, reqEditors...)
+func (c *ClientWithResponses) GetRecordingRuleStatusWithResponse(ctx context.Context, instance string, id string, reqEditors ...RequestEditorFn) (*GetRecordingRuleStatusResponse, error) {
+	rsp, err := c.GetRecordingRuleStatus(ctx, instance, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}

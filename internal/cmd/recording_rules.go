@@ -3,14 +3,11 @@ package cmd
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -25,11 +22,6 @@ import (
 
 // The server's largest page. List reads every page.
 const recordingRulesPageSize = 1000
-
-// The server accepts slugs of at most this many characters.
-const maxRecordingRuleSlug = 200
-
-var slugUnsafeRE = regexp.MustCompile(`[^a-z0-9_.-]+`)
 
 // newRecordingRulesCmd returns the `oodle recording-rules` command tree.
 func newRecordingRulesCmd() *cobra.Command {
@@ -55,7 +47,7 @@ Use 'apply' to load Prometheus rule groups, such as the output of
 
 func recordingRuleColumns() []output.Column {
 	return []output.Column{
-		{Header: "SLUG", Field: "Slug"},
+		{Header: "ID", Field: "Id"},
 		{Header: "METRIC", Field: "MetricName"},
 		{Header: "GROUP", Field: "ExecutionGroup"},
 		{Header: "INTERVAL", Field: "IntervalSecs"},
@@ -95,7 +87,7 @@ func listAllRecordingRules(
 }
 
 func newRecordingRulesListCmd() *cobra.Command {
-	var groups, slugs, names []string
+	var groups, ids, names []string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List recording rules",
@@ -108,9 +100,9 @@ func newRecordingRulesListCmd() *cobra.Command {
 				v := strings.Join(groups, ",")
 				params.ExecutionGroups = &v
 			}
-			if len(slugs) > 0 {
-				v := strings.Join(slugs, ",")
-				params.Slugs = &v
+			if len(ids) > 0 {
+				v := strings.Join(ids, ",")
+				params.Ids = &v
 			}
 			if len(names) > 0 {
 				v := strings.Join(names, ",")
@@ -127,14 +119,14 @@ func newRecordingRulesListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVar(&groups, "execution-group", nil, "Show only rules in these execution groups")
-	cmd.Flags().StringSliceVar(&slugs, "slug", nil, "Show only rules with these slugs")
+	cmd.Flags().StringSliceVar(&ids, "id", nil, "Show only rules with these IDs")
 	cmd.Flags().StringSliceVar(&names, "name", nil, "Show only rules with these names")
 	return cmd
 }
 
 func newRecordingRulesGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <slug>",
+		Use:   "get <id>",
 		Short: "Get a recording rule",
 		Args:  exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -155,7 +147,7 @@ func newRecordingRulesGetCmd() *cobra.Command {
 
 func newRecordingRulesStatusCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status <slug>",
+		Use:   "status <id>",
 		Short: "Show the last evaluation of a recording rule",
 		Long: `Show the last evaluation of a recording rule: its health, when it ran,
 how long it took, and the last error. A rule that has not run yet has the
@@ -173,7 +165,7 @@ health "unknown".`,
 				return fmt.Errorf("unexpected empty response")
 			}
 			return printBodyOrTable(cmd, resp.Body, []client.RecordingRuleStatus{resp.JSON200.Status}, []output.Column{
-				{Header: "SLUG", Field: "Slug"},
+				{Header: "ID", Field: "Id"},
 				{Header: "HEALTH", Field: "Health"},
 				{Header: "LAST EVALUATION", Field: "LastEvaluation"},
 				{Header: "SECONDS", Field: "EvaluationTimeSecs"},
@@ -208,9 +200,10 @@ func newRecordingRulesCreateCmd() *cobra.Command {
 		Short: "Create a recording rule from a JSON or YAML file",
 		Long: `Create a recording rule from a JSON or YAML file.
 
-The file holds name, metric_name and prometheus_expr, and optionally slug,
-interval_secs, execution_group and label_policy.add. Run
-'oodle recording-rules get <slug> -o yaml' on a rule for a template.`,
+The file holds name, metric_name and prometheus_expr, and optionally
+interval_secs, execution_group and label_policy.add. Oodle gives the rule
+its ID. Run 'oodle recording-rules get <id> -o yaml' on a rule for a
+template.`,
 		Example: `  oodle recording-rules create -f rule.yaml
   oodle recording-rules create -f rule.yaml --dry-run`,
 		Args: cobra.NoArgs,
@@ -248,15 +241,15 @@ interval_secs, execution_group and label_policy.add. Run
 
 func newRecordingRulesUpdateCmd() *cobra.Command {
 	var file string
-	var dryRun, createIfMissing bool
+	var dryRun bool
 	cmd := &cobra.Command{
-		Use:   "update <slug>",
+		Use:   "update <id>",
 		Short: "Replace a recording rule with the rule in a JSON or YAML file",
 		Long: `Replace a recording rule with the rule in a JSON or YAML file.
 
 The file replaces the whole rule. To change one field, run
-'oodle recording-rules get <slug> -o yaml', edit the output, and give it here.
-The slug cannot change.`,
+'oodle recording-rules get <id> -o yaml', edit the output, and give it here.
+The ID cannot change.`,
 		Args: exactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			rule, err := readRecordingRuleFile(file)
@@ -264,9 +257,8 @@ The slug cannot change.`,
 				return err
 			}
 			body, err := json.Marshal(map[string]any{
-				"recording_rule":    rule,
-				"dry_run":           dryRun,
-				"create_if_missing": createIfMissing,
+				"recording_rule": rule,
+				"dry_run":        dryRun,
 			})
 			if err != nil {
 				return err
@@ -290,14 +282,13 @@ The slug cannot change.`,
 	}
 	cmd.Flags().StringVarP(&file, "file", "f", "", "Path to JSON or YAML file with the recording rule (required)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Check the rule and store nothing")
-	cmd.Flags().BoolVar(&createIfMissing, "create-if-missing", false, "Create the rule if no rule has the slug")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
 }
 
 func newRecordingRulesDeleteCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "delete <slug>",
+		Use:   "delete <id>",
 		Short: "Delete a recording rule",
 		Long: `Delete a recording rule. Its metric stops updating. The series that it
 already wrote stay until their retention ends.`,
@@ -340,28 +331,22 @@ type promRule struct {
 
 // plannedRule is one rule of an apply, in the order of the file.
 type plannedRule struct {
-	Slug string
+	// Key matches the rule to a stored rule; see applyKey.
+	Key  string
 	Body map[string]any
 }
 
-// ruleSlug makes the slug of a rule from its group and its metric. The
-// slug must be the same on every apply of the same file, so that apply
-// updates rules and does not create them again. A rule's position is not
-// in the slug, so adding a rule to a group does not rename the others.
-func ruleSlug(group, record string, seen map[string]int) string {
-	base := strings.Trim(slugUnsafeRE.ReplaceAllString(strings.ToLower(group+"."+record), "-"), "-_.")
-	// Rules of one group can write the same metric, for example with
-	// different labels. The second gets a number.
-	seen[base]++
-	if n := seen[base]; n > 1 {
-		base = fmt.Sprintf("%s.%d", base, n)
+// applyKey names a rule by its group, its metric, and how many rules
+// before it in the group write the same metric. The server makes rule
+// IDs, so apply finds the stored rule of a file rule by this key on every
+// apply of the same file. A change of the expression or the labels keeps
+// the key, so the rule is updated in place and keeps its place in the
+// group.
+func applyKey(group, record string, n int) string {
+	if n == 0 {
+		return group + "/" + record
 	}
-	if len(base) <= maxRecordingRuleSlug {
-		return base
-	}
-	sum := sha256.Sum256([]byte(base))
-	suffix := "-" + hex.EncodeToString(sum[:])[:12]
-	return strings.TrimRight(base[:maxRecordingRuleSlug-len(suffix)], "-_.") + suffix
+	return fmt.Sprintf("%s/%s#%d", group, record, n+1)
 }
 
 // planRecordingRules turns rule groups into recording rules. Alerting
@@ -418,12 +403,37 @@ func planRecordingRules(data []byte) ([]plannedRule, []string, error) {
 			if len(r.Labels) > 0 {
 				body["label_policy"] = map[string]any{"add": r.Labels}
 			}
-			slug := ruleSlug(g.Name, r.Record, seen)
-			body["slug"] = slug
-			planned = append(planned, plannedRule{Slug: slug, Body: body})
+			key := applyKey(g.Name, r.Record, seen[r.Record])
+			seen[r.Record]++
+			planned = append(planned, plannedRule{Key: key, Body: body})
 		}
 	}
 	return planned, groups, nil
+}
+
+// storedByKey keys the stored rules of the file's groups as applyKey
+// does. Rules of a group that write one metric are counted in the order
+// that the group runs them: by creation time, then by ID. A stored rule
+// whose key is not in the file, for example a copy left by a create
+// whose answer was lost, is one that --prune deletes.
+func storedByKey(rules []client.RecordingRule) map[string]client.RecordingRule {
+	sorted := append([]client.RecordingRule(nil), rules...)
+	sort.SliceStable(sorted, func(i, j int) bool {
+		ti, tj := sorted[i].CreatedAt, sorted[j].CreatedAt
+		if ti != nil && tj != nil && !ti.Equal(*tj) {
+			return ti.Before(*tj)
+		}
+		return deref(sorted[i].Id) < deref(sorted[j].Id)
+	})
+	byKey := map[string]client.RecordingRule{}
+	seen := map[string]int{}
+	for _, r := range sorted {
+		group := deref(r.ExecutionGroup)
+		k := group + "/" + r.MetricName
+		byKey[applyKey(group, r.MetricName, seen[k])] = r
+		seen[k]++
+	}
+	return byKey
 }
 
 func readApplyInput(cmd *cobra.Command, path string) ([]byte, error) {
@@ -445,8 +455,11 @@ and recording rules (record, expr, labels). 'sloth generate' prints this
 format.
 
 Each group becomes an execution group, so its rules run in the file's order.
-Each rule gets the slug <group>.<record>, so a later apply of the same file
-updates the rules and does not create them again.
+Apply finds the stored rule of each file rule by its group and its record
+(and, when a group records one metric more than once, by its position among
+those rules). It updates that rule, or creates the rule when there is none.
+So a later apply of the same file updates the rules and does not create them
+again.
 
 With --prune, apply also deletes the rules that are in one of the file's
 groups but no longer in the file. Rules in other groups do not change.
@@ -471,70 +484,83 @@ place in its group.`,
 			instance := getInstance(cmd)
 			out := cmd.OutOrStdout()
 
-			var stale []string
-			if prune {
-				joined := strings.Join(groups, ",")
-				existing, err := listAllRecordingRules(ctx, c, instance, client.ListRecordingRulesParams{ExecutionGroups: &joined})
-				if err != nil {
-					return err
-				}
-				wanted := map[string]bool{}
-				for _, p := range planned {
-					wanted[p.Slug] = true
-				}
-				for _, r := range existing {
-					if r.Slug != nil && !wanted[*r.Slug] {
-						stale = append(stale, *r.Slug)
-					}
-				}
-				sort.Strings(stale)
+			joined := strings.Join(groups, ",")
+			existing, err := listAllRecordingRules(ctx, c, instance, client.ListRecordingRulesParams{ExecutionGroups: &joined})
+			if err != nil {
+				return err
 			}
+			byKey := storedByKey(existing)
 
+			created, updated := 0, 0
+			wanted := map[string]bool{}
 			for _, p := range planned {
 				body, err := json.Marshal(map[string]any{
-					"recording_rule":    p.Body,
-					"create_if_missing": true,
-					"dry_run":           dryRun,
+					"recording_rule": p.Body,
+					"dry_run":        dryRun,
 				})
 				if err != nil {
 					return err
 				}
-				resp, err := c.Inner.UpdateRecordingRuleWithBodyWithResponse(ctx, instance, p.Slug, "application/json", bytes.NewReader(body))
+				stored, ok := byKey[p.Key]
+				if ok && stored.Id != nil {
+					wanted[*stored.Id] = true
+					resp, err := c.Inner.UpdateRecordingRuleWithBodyWithResponse(ctx, instance, *stored.Id, "application/json", bytes.NewReader(body))
+					if err != nil {
+						return fmt.Errorf("applying %s: API request failed: %w", p.Key, err)
+					}
+					if resp.StatusCode() >= 300 {
+						return fmt.Errorf("applying %s: %w", p.Key, api.CheckResponse(resp.HTTPResponse, resp.Body))
+					}
+					updated++
+					continue
+				}
+				resp, err := c.Inner.CreateRecordingRuleWithBodyWithResponse(ctx, instance, "application/json", bytes.NewReader(body))
 				if err != nil {
-					return fmt.Errorf("applying %s: API request failed: %w", p.Slug, err)
+					return fmt.Errorf("applying %s: API request failed: %w", p.Key, err)
 				}
 				if resp.StatusCode() >= 300 {
-					return fmt.Errorf("applying %s: %w", p.Slug, api.CheckResponse(resp.HTTPResponse, resp.Body))
+					return fmt.Errorf("applying %s: %w", p.Key, api.CheckResponse(resp.HTTPResponse, resp.Body))
 				}
+				created++
 			}
 
-			for _, slug := range stale {
+			type staleRule struct{ id, key string }
+			var stale []staleRule
+			if prune {
+				for key, r := range byKey {
+					if r.Id != nil && !wanted[*r.Id] {
+						stale = append(stale, staleRule{id: *r.Id, key: key})
+					}
+				}
+				sort.Slice(stale, func(i, j int) bool { return stale[i].key < stale[j].key })
+			}
+
+			for _, r := range stale {
 				if dryRun {
 					continue
 				}
-				resp, err := c.Inner.DeleteRecordingRuleWithResponse(ctx, instance, slug)
+				resp, err := c.Inner.DeleteRecordingRuleWithResponse(ctx, instance, r.id)
 				if err != nil {
-					return fmt.Errorf("deleting %s: API request failed: %w", slug, err)
+					return fmt.Errorf("deleting %s: API request failed: %w", r.key, err)
 				}
 				// A rule that is gone already needs no delete.
 				if resp.StatusCode() >= 300 && resp.StatusCode() != http.StatusNotFound {
-					return fmt.Errorf("deleting %s: %w", slug, api.CheckResponse(resp.HTTPResponse, resp.Body))
+					return fmt.Errorf("deleting %s: %w", r.key, api.CheckResponse(resp.HTTPResponse, resp.Body))
 				}
 			}
 
-			verb := "Applied"
-			deleted := "deleted"
+			verb, createdWord, updatedWord, deleted := "Applied", "created", "updated", "deleted"
 			if dryRun {
-				verb = "Checked"
-				deleted = "would delete"
+				verb, createdWord, updatedWord, deleted = "Checked", "would create", "would update", "would delete"
 			}
-			fmt.Fprintf(out, "%s %d recording rules in %d groups", verb, len(planned), len(groups))
+			fmt.Fprintf(out, "%s %d recording rules in %d groups (%s %d, %s %d)",
+				verb, len(planned), len(groups), createdWord, created, updatedWord, updated)
 			if prune {
 				fmt.Fprintf(out, "; %s %d", deleted, len(stale))
 			}
 			fmt.Fprintln(out, ".")
-			for _, slug := range stale {
-				fmt.Fprintf(out, "  %s %s\n", deleted, slug)
+			for _, r := range stale {
+				fmt.Fprintf(out, "  %s %s (%s)\n", deleted, r.key, r.id)
 			}
 			return nil
 		},
