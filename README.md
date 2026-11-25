@@ -442,17 +442,19 @@ expression on an interval and stores the result as a new metric.
 
 | Subcommand                   | Description                                                     |
 |------------------------------|-----------------------------------------------------------------|
-| `list`                       | List recording rules (`--execution-group`, `--slug`, `--name`)  |
-| `get <slug>`                 | Get a recording rule                                            |
-| `status <slug>`              | Show the last evaluation: health, time, last error              |
+| `list`                       | List recording rules (`--execution-group`, `--id`, `--name`)    |
+| `get <id>`                   | Get a recording rule                                            |
+| `status <id>`                | Show the last evaluation: health, time, last error              |
 | `create -f <file>`           | Create a recording rule (`--dry-run` checks it only)            |
-| `update <slug> -f <file>`    | Replace a recording rule (`--create-if-missing`, `--dry-run`)   |
-| `delete <slug>`              | Delete a recording rule                                         |
+| `update <id> -f <file>`      | Replace a recording rule (`--dry-run` checks it only)           |
+| `delete <id>`                | Delete a recording rule                                         |
 | `apply -f <file>`            | Load Prometheus rule groups (`--prune`, `--dry-run`)            |
 
+Oodle gives each rule its ID when it creates the rule.
 `apply` reads a Prometheus rule file, such as the output of `sloth generate`.
-Each group becomes an execution group, and each rule gets the slug
-`<group>.<record>`, so a second apply of the same file updates the rules.
+Each group becomes an execution group. Apply finds the stored rule of each
+file rule by its group and its record, updates it, or creates it when there
+is none, so a second apply of the same file updates the rules.
 `--prune` deletes rules of the file's groups that the file no longer has.
 
 ```bash

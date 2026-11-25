@@ -12,9 +12,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
+	"github.com/oodle-ai/oodle-cli/internal/client"
 	"github.com/oodle-ai/oodle-cli/internal/output"
 )
+
+const sliGroup = "sloth-slo-sli-recordings-postbox-api-availability"
 
 const slothRules = `groups:
 - name: sloth-slo-sli-recordings-postbox-api-availability
@@ -45,17 +49,20 @@ func TestPlanRecordingRules(t *testing.T) {
 	if strings.Join(groups, ",") != strings.Join(wantGroups, ",") {
 		t.Errorf("groups = %v, want %v", groups, wantGroups)
 	}
-	wantSlugs := []string{
-		"sloth-slo-sli-recordings-postbox-api-availability.slo-sli_error-ratio_rate5m",
-		"sloth-slo-sli-recordings-postbox-api-availability.slo-sli_error-ratio_rate30m",
-		"sloth-slo-meta-recordings-postbox-api-availability.slo-objective-ratio",
+	wantKeys := []string{
+		sliGroup + "/slo:sli_error:ratio_rate5m",
+		sliGroup + "/slo:sli_error:ratio_rate30m",
+		"sloth-slo-meta-recordings-postbox-api-availability/slo:objective:ratio",
 	}
-	if len(planned) != len(wantSlugs) {
-		t.Fatalf("got %d rules, want %d", len(planned), len(wantSlugs))
+	if len(planned) != len(wantKeys) {
+		t.Fatalf("got %d rules, want %d", len(planned), len(wantKeys))
 	}
 	for i, p := range planned {
-		if p.Slug != wantSlugs[i] {
-			t.Errorf("rule %d slug = %q, want %q", i, p.Slug, wantSlugs[i])
+		if p.Key != wantKeys[i] {
+			t.Errorf("rule %d key = %q, want %q", i, p.Key, wantKeys[i])
+		}
+		if _, ok := p.Body["id"]; ok {
+			t.Errorf("rule %d sends an id; the server makes it", i)
 		}
 	}
 
@@ -101,26 +108,30 @@ func TestPlanRecordingRulesErrors(t *testing.T) {
 	}
 }
 
-func TestRuleSlug(t *testing.T) {
-	seen := map[string]int{}
-	if got := ruleSlug("G", "a:b", seen); got != "g.a-b" {
-		t.Errorf("slug = %q", got)
+func TestPlanRecordingRulesNumbersARepeatedMetric(t *testing.T) {
+	planned, _, err := planRecordingRules([]byte("groups:\n- name: g\n  rules:\n  - record: m\n    expr: '1'\n  - record: m\n    expr: '2'\n"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := ruleSlug("G", "a:b", seen); got != "g.a-b.2" {
-		t.Errorf("second rule with the same metric: slug = %q", got)
+	if planned[0].Key != "g/m" || planned[1].Key != "g/m#2" {
+		t.Errorf("keys = %q, %q", planned[0].Key, planned[1].Key)
 	}
+}
 
-	long := strings.Repeat("x", 300)
-	a := ruleSlug(long, "a", map[string]int{})
-	b := ruleSlug(long, "b", map[string]int{})
-	if len(a) > maxRecordingRuleSlug || len(b) > maxRecordingRuleSlug {
-		t.Errorf("slug longer than %d: %d, %d", maxRecordingRuleSlug, len(a), len(b))
-	}
-	if a == b {
-		t.Error("long slugs of different rules must differ")
-	}
-	if a != ruleSlug(long, "a", map[string]int{}) {
-		t.Error("the slug must be the same on every apply")
+func TestStoredByKeyCountsInRunOrder(t *testing.T) {
+	early := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	late := early.Add(time.Minute)
+	g := "g"
+	id := func(s string) *string { return &s }
+	got := storedByKey([]client.RecordingRule{
+		{Id: id("b"), ExecutionGroup: &g, MetricName: "m", CreatedAt: &late},
+		{Id: id("a"), ExecutionGroup: &g, MetricName: "m", CreatedAt: &early},
+		{Id: id("c"), ExecutionGroup: &g, MetricName: "other", CreatedAt: &early},
+	})
+	for key, want := range map[string]string{"g/m": "a", "g/m#2": "b", "g/other": "c"} {
+		if r, ok := got[key]; !ok || *r.Id != want {
+			t.Errorf("%s: got %v, want id %s", key, r.Id, want)
+		}
 	}
 }
 
@@ -128,6 +139,7 @@ type fakeRecordingRulesServer struct {
 	mu       sync.Mutex
 	existing []map[string]any
 	puts     map[string]map[string]any
+	posts    []map[string]any
 	deletes  []string
 	listURL  string
 }
@@ -141,6 +153,12 @@ func (f *fakeRecordingRulesServer) handler(w http.ResponseWriter, r *http.Reques
 	case r.Method == http.MethodGet && r.URL.Path == base:
 		f.listURL = r.URL.RawQuery
 		_ = json.NewEncoder(w).Encode(map[string]any{"recording_rules": f.existing, "page": map[string]any{}})
+	case r.Method == http.MethodPost && r.URL.Path == base:
+		body, _ := io.ReadAll(r.Body)
+		var req map[string]any
+		_ = json.Unmarshal(body, &req)
+		f.posts = append(f.posts, req)
+		_ = json.NewEncoder(w).Encode(map[string]any{"recording_rule": req["recording_rule"]})
 	case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, base+"/"):
 		body, _ := io.ReadAll(r.Body)
 		var req map[string]any
@@ -180,52 +198,76 @@ func runApply(t *testing.T, f *fakeRecordingRulesServer, args ...string) string 
 	return buf.String()
 }
 
-func TestApplyPrunesOnlyTheFileGroups(t *testing.T) {
+func storedRule(id, group, metric string) map[string]any {
+	return map[string]any{
+		"id": id, "name": "x", "metric_name": metric, "prometheus_expr": "up",
+		"execution_group": group, "created_at": "2026-11-01T00:00:00Z",
+	}
+}
+
+func TestApplyUpdatesMatchedRulesCreatesNewOnesAndPrunes(t *testing.T) {
 	f := &fakeRecordingRulesServer{
 		puts: map[string]map[string]any{},
 		existing: []map[string]any{
-			{"slug": "sloth-slo-sli-recordings-postbox-api-availability.slo-sli_error-ratio_rate5m", "name": "a", "metric_name": "m", "prometheus_expr": "up"},
-			{"slug": "sloth-slo-sli-recordings-postbox-api-availability.slo-sli_error-ratio_rate1h", "name": "b", "metric_name": "m", "prometheus_expr": "up"},
+			storedRule("id-5m", sliGroup, "slo:sli_error:ratio_rate5m"),
+			storedRule("id-1h", sliGroup, "slo:sli_error:ratio_rate1h"),
 		},
 	}
 	out := runApply(t, f, "--prune")
 
-	if len(f.puts) != 3 {
-		t.Errorf("got %d PUTs, want 3", len(f.puts))
+	if len(f.puts) != 1 || f.puts["id-5m"] == nil {
+		t.Errorf("PUTs = %v, want one for id-5m", f.puts)
 	}
-	for slug, req := range f.puts {
-		if req["create_if_missing"] != true || req["dry_run"] != false {
-			t.Errorf("%s: create_if_missing=%v dry_run=%v", slug, req["create_if_missing"], req["dry_run"])
+	if len(f.posts) != 2 {
+		t.Errorf("got %d creates, want 2", len(f.posts))
+	}
+	for _, req := range append([]map[string]any{f.puts["id-5m"]}, f.posts...) {
+		if req["dry_run"] != false {
+			t.Errorf("dry_run = %v", req["dry_run"])
+		}
+		if _, ok := req["create_if_missing"]; ok {
+			t.Error("apply must not send create_if_missing")
 		}
 	}
 	if !strings.Contains(f.listURL, "execution_groups=") {
-		t.Errorf("prune must list only the file's groups; query = %q", f.listURL)
+		t.Errorf("apply must list only the file's groups; query = %q", f.listURL)
 	}
-	want := "sloth-slo-sli-recordings-postbox-api-availability.slo-sli_error-ratio_rate1h"
-	if len(f.deletes) != 1 || f.deletes[0] != want {
-		t.Errorf("deletes = %v, want [%s]", f.deletes, want)
+	if len(f.deletes) != 1 || f.deletes[0] != "id-1h" {
+		t.Errorf("deletes = %v, want [id-1h]", f.deletes)
 	}
-	if !strings.Contains(out, "Applied 3 recording rules in 2 groups; deleted 1.") {
+	if !strings.Contains(out, "Applied 3 recording rules in 2 groups (created 2, updated 1); deleted 1.") {
 		t.Errorf("output = %q", out)
+	}
+}
+
+func TestApplyWithoutPruneDeletesNothing(t *testing.T) {
+	f := &fakeRecordingRulesServer{
+		puts:     map[string]map[string]any{},
+		existing: []map[string]any{storedRule("id-old", sliGroup, "slo:old")},
+	}
+	runApply(t, f)
+
+	if len(f.deletes) != 0 {
+		t.Errorf("deletes = %v, want none", f.deletes)
 	}
 }
 
 func TestApplyDryRunChangesNothing(t *testing.T) {
 	f := &fakeRecordingRulesServer{
 		puts:     map[string]map[string]any{},
-		existing: []map[string]any{{"slug": "sloth-slo-sli-recordings-postbox-api-availability.old", "name": "a", "metric_name": "m", "prometheus_expr": "up"}},
+		existing: []map[string]any{storedRule("id-old", sliGroup, "slo:old")},
 	}
 	out := runApply(t, f, "--prune", "--dry-run")
 
-	for slug, req := range f.puts {
+	for _, req := range f.posts {
 		if req["dry_run"] != true {
-			t.Errorf("%s: dry_run = %v, want true", slug, req["dry_run"])
+			t.Errorf("dry_run = %v, want true", req["dry_run"])
 		}
 	}
 	if len(f.deletes) != 0 {
 		t.Errorf("a dry run deleted %v", f.deletes)
 	}
-	if !strings.Contains(out, "would delete sloth-slo-sli-recordings-postbox-api-availability.old") {
+	if !strings.Contains(out, "would delete "+sliGroup+"/slo:old (id-old)") {
 		t.Errorf("output = %q", out)
 	}
 }
