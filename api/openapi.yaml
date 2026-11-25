@@ -1703,6 +1703,19 @@ components:
             type: string
         type:
           type: string
+    CreateRecordingRuleRequest:
+      type: object
+      description: CreateRecordingRuleRequest is the body of a create request.
+      required:
+        - recording_rule
+      properties:
+        dry_run:
+          type: boolean
+          description: |-
+            DryRun checks the rule and stores nothing. A valid rule gives an
+            empty response, and a rule that is not valid gives an error.
+        recording_rule:
+          $ref: '#/components/schemas/RecordingRule'
     CreateScoreRequest:
       type: object
       description: |-
@@ -4818,6 +4831,131 @@ components:
           type: string
         version:
           type: integer
+    RecordingRule:
+      type: object
+      description: |-
+        RecordingRule evaluates a PromQL expression on an interval and stores
+        the result as a new metric.
+      required:
+        - name
+        - metric_name
+        - prometheus_expr
+      properties:
+        created_at:
+          type: string
+          format: date-time
+          description: CreatedAt is when the rule was created.
+          nullable: true
+        execution_group:
+          type: string
+          description: |-
+            ExecutionGroup names a set of rules that run together, one after
+            another, in the order of their creation. Put a rule that reads the
+            output of another rule in the same group. If you do not set it,
+            the rule runs in a group of its own, named by its slug.
+        interval_secs:
+          type: integer
+          description: |-
+            IntervalSecs is how often the rule runs, in seconds. The default
+            is 60. All rules in one execution group run at the shortest
+            interval of the group.
+        label_policy:
+          $ref: '#/components/schemas/RecordingRuleLabelPolicy'
+        metric_name:
+          type: string
+          description: MetricName is the name of the metric that the rule writes.
+        name:
+          type: string
+          description: Name is the display name of the rule.
+        prometheus_expr:
+          type: string
+          description: PrometheusExpr is the PromQL expression that the rule evaluates.
+        slug:
+          type: string
+          description: |-
+            Slug is the unique ID of the rule in the instance. It cannot
+            change after the rule is created. If you create a rule without a
+            slug, Oodle makes one from the name.
+        updated_at:
+          type: string
+          format: date-time
+          description: UpdatedAt is when the rule was last changed.
+          nullable: true
+    RecordingRuleLabelPolicy:
+      type: object
+      description: RecordingRuleLabelPolicy sets labels on every series that a recording rule writes.
+      properties:
+        add:
+          type: object
+          description: |-
+            Add sets these labels on each recorded series. A label that the
+            expression already returns is replaced.
+          nullable: true
+          additionalProperties:
+            type: string
+    RecordingRuleListResponse:
+      type: object
+      description: RecordingRuleListResponse holds one page of recording rules.
+      required:
+        - page
+        - recording_rules
+      properties:
+        page:
+          $ref: '#/components/schemas/RecordingRulesPage'
+        recording_rules:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/RecordingRule'
+    RecordingRuleResponse:
+      type: object
+      description: |-
+        RecordingRuleResponse holds one recording rule. It is empty for a dry
+        run.
+      properties:
+        recording_rule:
+          $ref: '#/components/schemas/RecordingRule'
+    RecordingRuleStatus:
+      type: object
+      description: RecordingRuleStatus is the last evaluation of a recording rule.
+      required:
+        - slug
+        - health
+      properties:
+        evaluation_time_secs:
+          type: number
+          description: EvaluationTimeSecs is how long the last evaluation took.
+        health:
+          type: string
+          description: |-
+            Health is "ok", "err" or "unknown". A rule that has not run yet,
+            or that the evaluator does not have yet, is "unknown".
+        last_error:
+          type: string
+          description: LastError is the error of the last evaluation, if it failed.
+        last_evaluation:
+          type: string
+          format: date-time
+          description: LastEvaluation is when the rule last ran.
+          nullable: true
+        slug:
+          type: string
+          description: Slug is the ID of the rule.
+    RecordingRuleStatusResponse:
+      type: object
+      description: RecordingRuleStatusResponse holds the status of one recording rule.
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/RecordingRuleStatus'
+    RecordingRulesPage:
+      type: object
+      description: RecordingRulesPage tells the client how to read the next page.
+      properties:
+        next_token:
+          type: string
+          description: NextToken reads the next page. It is empty on the last page.
     RenameDatasetFolderRequest:
       type: object
       description: |-
@@ -6910,6 +7048,22 @@ components:
           nullable: true
           items:
             type: string
+    UpdateRecordingRuleRequest:
+      type: object
+      description: UpdateRecordingRuleRequest is the body of an update request.
+      required:
+        - recording_rule
+      properties:
+        create_if_missing:
+          type: boolean
+          description: |-
+            CreateIfMissing creates the rule if no rule has the slug. Without
+            it, an update of a missing rule gives 404.
+        dry_run:
+          type: boolean
+          description: DryRun checks the rule and stores nothing.
+        recording_rule:
+          $ref: '#/components/schemas/RecordingRule'
     UpdateUserRequest:
       type: object
       description: |-
@@ -15781,6 +15935,358 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/recording-rules:
+    get:
+      tags:
+        - Recording Rules
+      summary: List recording rules
+      operationId: listRecordingRules
+      parameters:
+        - name: execution_groups
+          in: query
+          description: Return only rules in these execution groups. Repeat the parameter or give a comma-separated list.
+          schema:
+            type: string
+        - name: names
+          in: query
+          description: Return only rules with these names. Repeat the parameter or give a comma-separated list.
+          schema:
+            type: string
+        - name: page.max_size
+          in: query
+          description: Most rules to return in one page. 0 uses the default of 100. The largest page is 1000.
+          schema:
+            type: integer
+        - name: page.token
+          in: query
+          description: The next_token of the previous page. Leave it empty for the first page.
+          schema:
+            type: string
+        - name: slugs
+          in: query
+          description: Return only rules with these slugs. Repeat the parameter or give a comma-separated list.
+          schema:
+            type: string
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingRuleListResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    post:
+      tags:
+        - Recording Rules
+      summary: Create a recording rule
+      operationId: createRecordingRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRecordingRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingRuleResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "409":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/recording-rules/{slug}:
+    delete:
+      tags:
+        - Recording Rules
+      summary: Delete a recording rule
+      operationId: deleteRecordingRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          description: Slug of the recording rule.
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    get:
+      tags:
+        - Recording Rules
+      summary: Get a recording rule
+      operationId: getRecordingRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          description: Slug of the recording rule.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingRuleResponse'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+    put:
+      tags:
+        - Recording Rules
+      summary: Update a recording rule
+      operationId: updateRecordingRule
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          description: Slug of the recording rule.
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRecordingRuleRequest'
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingRuleResponse'
+        "400":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "401":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "404":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "500":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        "502":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+        default:
+          description: Unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/oodle_util_httputils_models_Errors'
+  /v1/api/instance/{instance}/recording-rules/{slug}/status:
+    get:
+      tags:
+        - Recording Rules
+      summary: Get the last evaluation of a recording rule
+      operationId: getRecordingRuleStatus
+      parameters:
+        - name: instance
+          in: path
+          description: Oodle instance ID. See [Finding your Instance ID](/api#finding-your-instance-id) in the API overview.
+          required: true
+          schema:
+            type: string
+        - name: slug
+          in: path
+          description: Slug of the recording rule.
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: ""
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecordingRuleStatusResponse'
         "401":
           description: ""
           content:

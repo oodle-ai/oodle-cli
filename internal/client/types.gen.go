@@ -1237,6 +1237,17 @@ type CreatePromptRequest struct {
 	Type   *string     `json:"type,omitempty"`
 }
 
+// CreateRecordingRuleRequest CreateRecordingRuleRequest is the body of a create request.
+type CreateRecordingRuleRequest struct {
+	// DryRun DryRun checks the rule and stores nothing. A valid rule gives an
+	// empty response, and a rule that is not valid gives an error.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule RecordingRule `json:"recording_rule"`
+}
+
 // CreateScoreRequest CreateScoreRequest attaches a score to a trace or a single
 // observation within it.
 type CreateScoreRequest struct {
@@ -3029,6 +3040,97 @@ type PromptResponse struct {
 	Version         int                   `json:"version"`
 }
 
+// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+// the result as a new metric.
+type RecordingRule struct {
+	// CreatedAt CreatedAt is when the rule was created.
+	CreatedAt *time.Time `json:"created_at,omitempty"`
+
+	// ExecutionGroup ExecutionGroup names a set of rules that run together, one after
+	// another, in the order of their creation. Put a rule that reads the
+	// output of another rule in the same group. If you do not set it,
+	// the rule runs in a group of its own, named by its slug.
+	ExecutionGroup *string `json:"execution_group,omitempty"`
+
+	// IntervalSecs IntervalSecs is how often the rule runs, in seconds. The default
+	// is 60. All rules in one execution group run at the shortest
+	// interval of the group.
+	IntervalSecs *int `json:"interval_secs,omitempty"`
+
+	// LabelPolicy RecordingRuleLabelPolicy sets labels on every series that a recording rule writes.
+	LabelPolicy *RecordingRuleLabelPolicy `json:"label_policy,omitempty"`
+
+	// MetricName MetricName is the name of the metric that the rule writes.
+	MetricName string `json:"metric_name"`
+
+	// Name Name is the display name of the rule.
+	Name string `json:"name"`
+
+	// PrometheusExpr PrometheusExpr is the PromQL expression that the rule evaluates.
+	PrometheusExpr string `json:"prometheus_expr"`
+
+	// Slug Slug is the unique ID of the rule in the instance. It cannot
+	// change after the rule is created. If you create a rule without a
+	// slug, Oodle makes one from the name.
+	Slug *string `json:"slug,omitempty"`
+
+	// UpdatedAt UpdatedAt is when the rule was last changed.
+	UpdatedAt *time.Time `json:"updated_at,omitempty"`
+}
+
+// RecordingRuleLabelPolicy RecordingRuleLabelPolicy sets labels on every series that a recording rule writes.
+type RecordingRuleLabelPolicy struct {
+	// Add Add sets these labels on each recorded series. A label that the
+	// expression already returns is replaced.
+	Add *map[string]string `json:"add,omitempty"`
+}
+
+// RecordingRuleListResponse RecordingRuleListResponse holds one page of recording rules.
+type RecordingRuleListResponse struct {
+	// Page RecordingRulesPage tells the client how to read the next page.
+	Page           RecordingRulesPage `json:"page"`
+	RecordingRules *[]RecordingRule   `json:"recording_rules"`
+}
+
+// RecordingRuleResponse RecordingRuleResponse holds one recording rule. It is empty for a dry
+// run.
+type RecordingRuleResponse struct {
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule *RecordingRule `json:"recording_rule,omitempty"`
+}
+
+// RecordingRuleStatus RecordingRuleStatus is the last evaluation of a recording rule.
+type RecordingRuleStatus struct {
+	// EvaluationTimeSecs EvaluationTimeSecs is how long the last evaluation took.
+	EvaluationTimeSecs *float32 `json:"evaluation_time_secs,omitempty"`
+
+	// Health Health is "ok", "err" or "unknown". A rule that has not run yet,
+	// or that the evaluator does not have yet, is "unknown".
+	Health string `json:"health"`
+
+	// LastError LastError is the error of the last evaluation, if it failed.
+	LastError *string `json:"last_error,omitempty"`
+
+	// LastEvaluation LastEvaluation is when the rule last ran.
+	LastEvaluation *time.Time `json:"last_evaluation,omitempty"`
+
+	// Slug Slug is the ID of the rule.
+	Slug string `json:"slug"`
+}
+
+// RecordingRuleStatusResponse RecordingRuleStatusResponse holds the status of one recording rule.
+type RecordingRuleStatusResponse struct {
+	// Status RecordingRuleStatus is the last evaluation of a recording rule.
+	Status RecordingRuleStatus `json:"status"`
+}
+
+// RecordingRulesPage RecordingRulesPage tells the client how to read the next page.
+type RecordingRulesPage struct {
+	// NextToken NextToken reads the next page. It is empty on the last page.
+	NextToken *string `json:"next_token,omitempty"`
+}
+
 // RenameDatasetFolderRequest RenameDatasetFolderRequest moves every dataset under one folder
 // path to another.
 //
@@ -4221,6 +4323,20 @@ type UpdatePromptVersionLabelsRequest struct {
 	NewLabels *[]string `json:"newLabels"`
 }
 
+// UpdateRecordingRuleRequest UpdateRecordingRuleRequest is the body of an update request.
+type UpdateRecordingRuleRequest struct {
+	// CreateIfMissing CreateIfMissing creates the rule if no rule has the slug. Without
+	// it, an update of a missing rule gives 404.
+	CreateIfMissing *bool `json:"create_if_missing,omitempty"`
+
+	// DryRun DryRun checks the rule and stores nothing.
+	DryRun *bool `json:"dry_run,omitempty"`
+
+	// RecordingRule RecordingRule evaluates a PromQL expression on an interval and stores
+	// the result as a new metric.
+	RecordingRule RecordingRule `json:"recording_rule"`
+}
+
 // UpdateUserRequest UpdateUserRequest is the request body for updating a
 // user within the organization.
 type UpdateUserRequest struct {
@@ -4944,6 +5060,24 @@ type GetMonitorStateByIdParams struct {
 	HistoryRange *string `form:"history_range,omitempty" json:"history_range,omitempty"`
 }
 
+// ListRecordingRulesParams defines parameters for ListRecordingRules.
+type ListRecordingRulesParams struct {
+	// ExecutionGroups Return only rules in these execution groups. Repeat the parameter or give a comma-separated list.
+	ExecutionGroups *string `form:"execution_groups,omitempty" json:"execution_groups,omitempty"`
+
+	// Names Return only rules with these names. Repeat the parameter or give a comma-separated list.
+	Names *string `form:"names,omitempty" json:"names,omitempty"`
+
+	// PageMaxSize Most rules to return in one page. 0 uses the default of 100. The largest page is 1000.
+	PageMaxSize *int `form:"page.max_size,omitempty" json:"page.max_size,omitempty"`
+
+	// PageToken The next_token of the previous page. Leave it empty for the first page.
+	PageToken *string `form:"page.token,omitempty" json:"page.token,omitempty"`
+
+	// Slugs Return only rules with these slugs. Repeat the parameter or give a comma-separated list.
+	Slugs *string `form:"slugs,omitempty" json:"slugs,omitempty"`
+}
+
 // ListLabelsParams defines parameters for ListLabels.
 type ListLabelsParams struct {
 	// End End of the time range in epoch microseconds
@@ -5240,6 +5374,12 @@ type CreateNotifiersJSONRequestBody = Notifier
 
 // UpdateNotifiersByIdJSONRequestBody defines body for UpdateNotifiersById for application/json ContentType.
 type UpdateNotifiersByIdJSONRequestBody = Notifier
+
+// CreateRecordingRuleJSONRequestBody defines body for CreateRecordingRule for application/json ContentType.
+type CreateRecordingRuleJSONRequestBody = CreateRecordingRuleRequest
+
+// UpdateRecordingRuleJSONRequestBody defines body for UpdateRecordingRule for application/json ContentType.
+type UpdateRecordingRuleJSONRequestBody = UpdateRecordingRuleRequest
 
 // CreateSyntheticMonitorsJSONRequestBody defines body for CreateSyntheticMonitors for application/json ContentType.
 type CreateSyntheticMonitorsJSONRequestBody = SyntheticMonitor
