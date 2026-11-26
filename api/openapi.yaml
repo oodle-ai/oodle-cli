@@ -2941,10 +2941,21 @@ components:
         - scores
         - metrics
       properties:
+        baseElapsed:
+          type: number
+          nullable: true
         comparison:
           $ref: '#/components/schemas/DatasetRun'
         comparisonRowCount:
           type: integer
+        elapsed:
+          type: number
+          description: |-
+            Elapsed is the wall time of the experiment in seconds: from
+            the first start to the last end of its rows. Rows run in
+            parallel, so a sum of their durations would overstate it.
+            Absent when no row has both times.
+          nullable: true
         experiment:
           $ref: '#/components/schemas/DatasetRun'
         matchedRows:
@@ -4111,6 +4122,12 @@ components:
         baseAverage:
           type: number
           nullable: true
+        baseCount:
+          type: integer
+          description: |-
+            BaseCount is how many base rows have a value, so the base's
+            total (BaseAverage times BaseCount) can be compared with this
+            experiment's.
         count:
           type: integer
         diff:
@@ -5047,7 +5064,17 @@ components:
       required:
         - matched
         - baseScores
+        - baseMetrics
       properties:
+        baseMetrics:
+          type: object
+          description: |-
+            BaseMetrics is the same for the row metrics (duration, tokens,
+            cost), by the names RowMetrics reads, so a metric cell can show
+            its change as a score cell does.
+          nullable: true
+          additionalProperties:
+            type: number
         baseScores:
           type: object
           description: |-
