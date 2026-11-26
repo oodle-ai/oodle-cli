@@ -1484,8 +1484,12 @@ type DatasetRunResponse struct {
 	LatestJobConfig  interface{} `json:"latestJobConfig,omitempty"`
 	LatestJobStatus  *string     `json:"latestJobStatus,omitempty"`
 	Metadata         interface{} `json:"metadata"`
-	Name             string      `json:"name"`
-	Parameters       interface{} `json:"parameters,omitempty"`
+
+	// Metrics Metrics is the average of each row metric (duration, tokens,
+	// cost) over the rows of the run, as its summary reads them.
+	Metrics    *[]RunMetricAggregate `json:"metrics"`
+	Name       string                `json:"name"`
+	Parameters interface{}           `json:"parameters,omitempty"`
 
 	// ProjectId ProjectID is "" for the default project.
 	ProjectId string               `json:"projectId"`
@@ -3192,6 +3196,18 @@ type RuleInUseResponse struct {
 	Dependents *[]NamedRef `json:"dependents"`
 	Error      string      `json:"error"`
 	Message    string      `json:"message"`
+}
+
+// RunMetricAggregate RunMetricAggregate is the average of one row metric over the
+// rows of a run, as the run summary shows it.
+type RunMetricAggregate struct {
+	Average float32 `json:"average"`
+
+	// Count Count is how many rows have a value. A row with no value
+	// is not a zero.
+	Count int     `json:"count"`
+	Name  string  `json:"name"`
+	Unit  *string `json:"unit,omitempty"`
 }
 
 // RunScoreAggregate RunScoreAggregate is every score of one name over one
