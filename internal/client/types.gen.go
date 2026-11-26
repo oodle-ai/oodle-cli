@@ -1484,8 +1484,12 @@ type DatasetRunResponse struct {
 	LatestJobConfig  interface{} `json:"latestJobConfig,omitempty"`
 	LatestJobStatus  *string     `json:"latestJobStatus,omitempty"`
 	Metadata         interface{} `json:"metadata"`
-	Name             string      `json:"name"`
-	Parameters       interface{} `json:"parameters,omitempty"`
+
+	// Metrics Metrics is the average of each row metric (duration, tokens,
+	// cost) over the rows of the run, as its summary reads them.
+	Metrics    *[]RunMetricAggregate `json:"metrics"`
+	Name       string                `json:"name"`
+	Parameters interface{}           `json:"parameters,omitempty"`
 
 	// ProjectId ProjectID is "" for the default project.
 	ProjectId string               `json:"projectId"`
@@ -1918,13 +1922,20 @@ type ExperimentRowsResponse struct {
 // ExperimentSummary ExperimentSummary is the summary of one experiment, compared
 // with a base experiment when one is given.
 type ExperimentSummary struct {
-	Comparison         *DatasetRun      `json:"comparison,omitempty"`
-	ComparisonRowCount *int             `json:"comparisonRowCount,omitempty"`
-	Experiment         DatasetRun       `json:"experiment"`
-	MatchedRows        *int             `json:"matchedRows,omitempty"`
-	Metrics            *[]MetricSummary `json:"metrics"`
-	RowCount           int              `json:"rowCount"`
-	Scores             *[]ScoreSummary  `json:"scores"`
+	BaseElapsed        *float32    `json:"baseElapsed,omitempty"`
+	Comparison         *DatasetRun `json:"comparison,omitempty"`
+	ComparisonRowCount *int        `json:"comparisonRowCount,omitempty"`
+
+	// Elapsed Elapsed is the wall time of the experiment in seconds: from
+	// the first start to the last end of its rows. Rows run in
+	// parallel, so a sum of their durations would overstate it.
+	// Absent when no row has both times.
+	Elapsed     *float32         `json:"elapsed,omitempty"`
+	Experiment  DatasetRun       `json:"experiment"`
+	MatchedRows *int             `json:"matchedRows,omitempty"`
+	Metrics     *[]MetricSummary `json:"metrics"`
+	RowCount    int              `json:"rowCount"`
+	Scores      *[]ScoreSummary  `json:"scores"`
 }
 
 // Folder Folder represents a Grafana folder
@@ -2624,8 +2635,13 @@ type MetricLabelMatcher struct {
 // for example duration, tokens or cost. A lower value is better
 // for every metric.
 type MetricSummary struct {
-	Average      *float32 `json:"average,omitempty"`
-	BaseAverage  *float32 `json:"baseAverage,omitempty"`
+	Average     *float32 `json:"average,omitempty"`
+	BaseAverage *float32 `json:"baseAverage,omitempty"`
+
+	// BaseCount BaseCount is how many base rows have a value, so the base's
+	// total (BaseAverage times BaseCount) can be compared with this
+	// experiment's.
+	BaseCount    *int     `json:"baseCount,omitempty"`
 	Count        int      `json:"count"`
 	Diff         *float32 `json:"diff,omitempty"`
 	Improvements int      `json:"improvements"`
@@ -3175,6 +3191,11 @@ type RenameDatasetRequest struct {
 // RowComparison RowComparison is how one row of an experiment compares with
 // the base experiment.
 type RowComparison struct {
+	// BaseMetrics BaseMetrics is the same for the row metrics (duration, tokens,
+	// cost), by the names RowMetrics reads, so a metric cell can show
+	// its change as a score cell does.
+	BaseMetrics *map[string]float32 `json:"baseMetrics"`
+
 	// BaseScores BaseScores is the base's score of each name for the key,
 	// averaged over the base rows that share the key. Empty when
 	// the row is not matched.
@@ -3192,6 +3213,18 @@ type RuleInUseResponse struct {
 	Dependents *[]NamedRef `json:"dependents"`
 	Error      string      `json:"error"`
 	Message    string      `json:"message"`
+}
+
+// RunMetricAggregate RunMetricAggregate is the average of one row metric over the
+// rows of a run, as the run summary shows it.
+type RunMetricAggregate struct {
+	Average float32 `json:"average"`
+
+	// Count Count is how many rows have a value. A row with no value
+	// is not a zero.
+	Count int     `json:"count"`
+	Name  string  `json:"name"`
+	Unit  *string `json:"unit,omitempty"`
 }
 
 // RunScoreAggregate RunScoreAggregate is every score of one name over one
