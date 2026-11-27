@@ -33,7 +33,7 @@ type Exporter struct {
 // NewExporter creates a new Grafana exporter
 func NewExporter(config ExportConfig) *Exporter {
 	return &Exporter{
-		client: NewClient(config.GrafanaURL, config.GrafanaToken),
+		client: NewClient(config.GrafanaURL, config.GrafanaToken, config.InsecureSkipVerify),
 		config: config,
 	}
 }
