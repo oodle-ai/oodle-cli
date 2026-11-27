@@ -86,19 +86,6 @@ components:
         canCreate:
           type: boolean
           description: CanCreate is true when the caller may create at least one kind of key.
-    Authorization:
-      type: object
-      description: Authorization contains HTTP authorization credentials.
-      properties:
-        credentials:
-          type: string
-        credentials_file:
-          type: string
-        credentials_ref:
-          type: string
-          description: CredentialsRef is the name of the secret within the secret manager to use as credentials.
-        type:
-          type: string
     AzureMetricsIntegration:
       type: object
       description: |-
@@ -258,26 +245,6 @@ components:
             with the batch markers it can see to show progress.
         updatedAt:
           type: string
-    BasicAuth:
-      type: object
-      description: BasicAuth contains basic HTTP authentication credentials.
-      required:
-        - username
-      properties:
-        password:
-          type: string
-        password_file:
-          type: string
-        password_ref:
-          type: string
-          description: PasswordRef is the name of the secret within the secret manager to use as the password.
-        username:
-          type: string
-        username_file:
-          type: string
-        username_ref:
-          type: string
-          description: UsernameRef is the name of the secret within the secret manager to use as the username.
     BulkDeleteMonitorsRequest:
       type: object
       description: |-
@@ -3040,7 +3007,7 @@ components:
         card_title:
           type: string
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         message:
           type: string
         send_resolved:
@@ -3087,96 +3054,63 @@ components:
           type: boolean
         disabled:
           type: boolean
-    HTTPClientConfig:
+    HTTPAuthorization:
       type: object
-      description: HTTPClientConfig configures an HTTP client.
+      description: HTTPAuthorization is the Authorization header of a notifier request.
+      properties:
+        credentials:
+          type: string
+        type:
+          type: string
+    HTTPBasicAuth:
+      type: object
+      description: HTTPBasicAuth is the HTTP basic authentication of a notifier.
+      required:
+        - username
+      properties:
+        password:
+          type: string
+        username:
+          type: string
+    HTTPConfig:
+      type: object
+      description: HTTPConfig configures the HTTP client of a notifier.
       required:
         - follow_redirects
         - enable_http2
       properties:
         authorization:
-          $ref: '#/components/schemas/Authorization'
+          $ref: '#/components/schemas/HTTPAuthorization'
         basic_auth:
-          $ref: '#/components/schemas/BasicAuth'
-        bearer_token:
-          type: string
-          description: |-
-            The bearer token for the targets. Deprecated in favour of
-            Authorization.Credentials.
-        bearer_token_file:
-          type: string
-          description: |-
-            The bearer token file for the targets. Deprecated in favour of
-            Authorization.CredentialsFile.
+          $ref: '#/components/schemas/HTTPBasicAuth'
         enable_http2:
           type: boolean
-          description: |-
-            EnableHTTP2 specifies whether the client should configure HTTP2.
-            The omitempty flag is not set, because it would be hidden from the
-            marshalled configuration when set to false.
         follow_redirects:
           type: boolean
-          description: |-
-            FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
-            The omitempty flag is not set, because it would be hidden from the
-            marshalled configuration when set to false.
-        http_headers:
-          $ref: '#/components/schemas/Headers'
-        no_proxy:
-          type: string
-          description: NoProxy contains addresses that should not use a proxy.
-        oauth2:
-          $ref: '#/components/schemas/OAuth2'
-        proxy_connect_header:
-          type: object
-          description: |-
-            ProxyConnectHeader optionally specifies headers to send to
-            proxies during CONNECT requests. Assume that at least _some_ of
-            these headers are going to contain secrets and use Secret as the
-            value type instead of string.
-          nullable: true
-          additionalProperties:
-            type: array
-            nullable: true
-            items:
-              type: string
-        proxy_from_environment:
-          type: boolean
-          description: |-
-            ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
-            to determine proxies.
         tls_config:
-          $ref: '#/components/schemas/TLSConfig'
-    Header:
+          $ref: '#/components/schemas/HTTPTLSConfig'
+    HTTPTLSConfig:
       type: object
-      description: Header represents the configuration for a single HTTP header.
-      properties:
-        files:
-          type: array
-          nullable: true
-          items:
-            type: string
-        secrets:
-          type: array
-          nullable: true
-          items:
-            type: string
-        values:
-          type: array
-          nullable: true
-          items:
-            type: string
-    Headers:
-      type: object
-      description: Headers represents the configuration for HTTP headers.
+      description: |-
+        HTTPTLSConfig is the TLS config of a notifier. The certificates are given
+        inline.
       required:
-        - Headers
+        - insecure_skip_verify
       properties:
-        Headers:
-          type: object
-          nullable: true
-          additionalProperties:
-            type: string
+        ca:
+          type: string
+        cert:
+          type: string
+        insecure_skip_verify:
+          type: boolean
+        key:
+          type: string
+        max_version:
+          type: integer
+        min_version:
+          type: integer
+        server_name:
+          type: string
     IndexPatternEntry:
       type: object
       description: |-
@@ -4044,7 +3978,7 @@ components:
         - send_resolved
       properties:
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         send_resolved:
           type: boolean
         text:
@@ -4496,59 +4430,6 @@ components:
           items:
             type: string
             format: uuid
-    OAuth2:
-      type: object
-      description: OAuth2 is the oauth2 client configuration.
-      required:
-        - client_id
-        - token_url
-      properties:
-        TLSConfig:
-          $ref: '#/components/schemas/TLSConfig'
-        client_id:
-          type: string
-        client_secret:
-          type: string
-        client_secret_file:
-          type: string
-        client_secret_ref:
-          type: string
-          description: |-
-            ClientSecretRef is the name of the secret within the secret manager to use as the client
-            secret.
-        endpoint_params:
-          type: object
-          nullable: true
-          additionalProperties:
-            type: string
-        no_proxy:
-          type: string
-          description: NoProxy contains addresses that should not use a proxy.
-        proxy_connect_header:
-          type: object
-          description: |-
-            ProxyConnectHeader optionally specifies headers to send to
-            proxies during CONNECT requests. Assume that at least _some_ of
-            these headers are going to contain secrets and use Secret as the
-            value type instead of string.
-          nullable: true
-          additionalProperties:
-            type: array
-            nullable: true
-            items:
-              type: string
-        proxy_from_environment:
-          type: boolean
-          description: |-
-            ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
-            to determine proxies.
-        scopes:
-          type: array
-          nullable: true
-          items:
-            type: string
-        token_url:
-          type: string
     OpsGenieConfig:
       type: object
       description: OpsGenieConfig configures notifications via OpsGenie.
@@ -4571,7 +4452,7 @@ components:
         entity:
           type: string
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         message:
           type: string
         note:
@@ -4628,7 +4509,7 @@ components:
         group:
           type: string
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         images:
           type: array
           nullable: true
@@ -5659,7 +5540,7 @@ components:
         footer:
           type: string
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         icon_emoji:
           type: string
         icon_url:
@@ -6786,7 +6667,7 @@ components:
             rest.
     URL:
       type: object
-      description: URL is a custom URL type that allows validation at configuration load time.
+      description: URL is a custom type that represents an HTTP or HTTPS URL and allows validation at configuration load time.
       required:
         - Scheme
         - Opaque
@@ -7439,7 +7320,7 @@ components:
         entity_display_name:
           type: string
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         message_type:
           type: string
         monitoring_tool:
@@ -7567,7 +7448,7 @@ components:
         - max_alerts
       properties:
         http_config:
-          $ref: '#/components/schemas/HTTPClientConfig'
+          $ref: '#/components/schemas/HTTPConfig'
         max_alerts:
           type: integer
           description: |-

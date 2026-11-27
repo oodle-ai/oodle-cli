@@ -198,16 +198,6 @@ type ApiKeyPermissions struct {
 	CanCreate bool `json:"canCreate"`
 }
 
-// Authorization Authorization contains HTTP authorization credentials.
-type Authorization struct {
-	Credentials     *string `json:"credentials,omitempty"`
-	CredentialsFile *string `json:"credentials_file,omitempty"`
-
-	// CredentialsRef CredentialsRef is the name of the secret within the secret manager to use as credentials.
-	CredentialsRef *string `json:"credentials_ref,omitempty"`
-	Type           *string `json:"type,omitempty"`
-}
-
 // AzureMetricsIntegration AzureMetricsIntegration is the API-facing config for an Azure Monitor metric
 // pull integration. One record is one Azure subscription.
 //
@@ -304,20 +294,6 @@ type BackfillRun struct {
 	// with the batch markers it can see to show progress.
 	TotalBuckets int    `json:"totalBuckets"`
 	UpdatedAt    string `json:"updatedAt"`
-}
-
-// BasicAuth BasicAuth contains basic HTTP authentication credentials.
-type BasicAuth struct {
-	Password     *string `json:"password,omitempty"`
-	PasswordFile *string `json:"password_file,omitempty"`
-
-	// PasswordRef PasswordRef is the name of the secret within the secret manager to use as the password.
-	PasswordRef  *string `json:"password_ref,omitempty"`
-	Username     string  `json:"username"`
-	UsernameFile *string `json:"username_file,omitempty"`
-
-	// UsernameRef UsernameRef is the name of the secret within the secret manager to use as the username.
-	UsernameRef *string `json:"username_ref,omitempty"`
 }
 
 // BulkDeleteMonitorsRequest BulkDeleteMonitorsRequest is the JSON body of `DELETE /monitors`.
@@ -1975,12 +1951,12 @@ type GoogleChatConfig struct {
 	CardSubtitle *string `json:"card_subtitle,omitempty"`
 	CardTitle    *string `json:"card_title,omitempty"`
 
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig   *HTTPClientConfig `json:"http_config,omitempty"`
-	Message      *string           `json:"message,omitempty"`
-	SendResolved bool              `json:"send_resolved"`
-	Threading    *bool             `json:"threading,omitempty"`
-	Url          *string           `json:"url,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig   *HTTPConfig `json:"http_config,omitempty"`
+	Message      *string     `json:"message,omitempty"`
+	SendResolved bool        `json:"send_resolved"`
+	Threading    *bool       `json:"threading,omitempty"`
+	Url          *string     `json:"url,omitempty"`
 }
 
 // GrafanaDatasourceIntegration GrafanaDatasourceIntegration is one datasource in the Grafana of the
@@ -2016,58 +1992,43 @@ type Grouping struct {
 	Disabled  *bool     `json:"disabled,omitempty"`
 }
 
-// HTTPClientConfig HTTPClientConfig configures an HTTP client.
-type HTTPClientConfig struct {
-	// Authorization Authorization contains HTTP authorization credentials.
-	Authorization *Authorization `json:"authorization,omitempty"`
-
-	// BasicAuth BasicAuth contains basic HTTP authentication credentials.
-	BasicAuth *BasicAuth `json:"basic_auth,omitempty"`
-
-	// BearerToken The bearer token for the targets. Deprecated in favour of
-	// Authorization.Credentials.
-	BearerToken *string `json:"bearer_token,omitempty"`
-
-	// BearerTokenFile The bearer token file for the targets. Deprecated in favour of
-	// Authorization.CredentialsFile.
-	BearerTokenFile *string `json:"bearer_token_file,omitempty"`
-
-	// EnableHttp2 EnableHTTP2 specifies whether the client should configure HTTP2.
-	// The omitempty flag is not set, because it would be hidden from the
-	// marshalled configuration when set to false.
-	EnableHttp2 bool `json:"enable_http2"`
-
-	// FollowRedirects FollowRedirects specifies whether the client should follow HTTP 3xx redirects.
-	// The omitempty flag is not set, because it would be hidden from the
-	// marshalled configuration when set to false.
-	FollowRedirects bool `json:"follow_redirects"`
-
-	// HttpHeaders Headers represents the configuration for HTTP headers.
-	HttpHeaders *Headers `json:"http_headers,omitempty"`
-
-	// NoProxy NoProxy contains addresses that should not use a proxy.
-	NoProxy *string `json:"no_proxy,omitempty"`
-
-	// Oauth2 OAuth2 is the oauth2 client configuration.
-	Oauth2 *OAuth2 `json:"oauth2,omitempty"`
-
-	// ProxyConnectHeader ProxyConnectHeader optionally specifies headers to send to
-	// proxies during CONNECT requests. Assume that at least _some_ of
-	// these headers are going to contain secrets and use Secret as the
-	// value type instead of string.
-	ProxyConnectHeader *map[string]*[]string `json:"proxy_connect_header,omitempty"`
-
-	// ProxyFromEnvironment ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
-	// to determine proxies.
-	ProxyFromEnvironment *bool `json:"proxy_from_environment,omitempty"`
-
-	// TlsConfig TLSConfig configures the options for TLS connections.
-	TlsConfig *TLSConfig `json:"tls_config,omitempty"`
+// HTTPAuthorization HTTPAuthorization is the Authorization header of a notifier request.
+type HTTPAuthorization struct {
+	Credentials *string `json:"credentials,omitempty"`
+	Type        *string `json:"type,omitempty"`
 }
 
-// Headers Headers represents the configuration for HTTP headers.
-type Headers struct {
-	Headers *map[string]string `json:"Headers"`
+// HTTPBasicAuth HTTPBasicAuth is the HTTP basic authentication of a notifier.
+type HTTPBasicAuth struct {
+	Password *string `json:"password,omitempty"`
+	Username string  `json:"username"`
+}
+
+// HTTPConfig HTTPConfig configures the HTTP client of a notifier.
+type HTTPConfig struct {
+	// Authorization HTTPAuthorization is the Authorization header of a notifier request.
+	Authorization *HTTPAuthorization `json:"authorization,omitempty"`
+
+	// BasicAuth HTTPBasicAuth is the HTTP basic authentication of a notifier.
+	BasicAuth       *HTTPBasicAuth `json:"basic_auth,omitempty"`
+	EnableHttp2     bool           `json:"enable_http2"`
+	FollowRedirects bool           `json:"follow_redirects"`
+
+	// TlsConfig HTTPTLSConfig is the TLS config of a notifier. The certificates are given
+	// inline.
+	TlsConfig *HTTPTLSConfig `json:"tls_config,omitempty"`
+}
+
+// HTTPTLSConfig HTTPTLSConfig is the TLS config of a notifier. The certificates are given
+// inline.
+type HTTPTLSConfig struct {
+	Ca                 *string `json:"ca,omitempty"`
+	Cert               *string `json:"cert,omitempty"`
+	InsecureSkipVerify bool    `json:"insecure_skip_verify"`
+	Key                *string `json:"key,omitempty"`
+	MaxVersion         *int    `json:"max_version,omitempty"`
+	MinVersion         *int    `json:"min_version,omitempty"`
+	ServerName         *string `json:"server_name,omitempty"`
 }
 
 // IndexPatternEntry IndexPatternEntry is the public response shape
@@ -2583,12 +2544,12 @@ type LookupFallback struct {
 
 // MSTeamsV2Config defines model for MSTeamsV2Config.
 type MSTeamsV2Config struct {
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig   *HTTPClientConfig `json:"http_config,omitempty"`
-	SendResolved bool              `json:"send_resolved"`
-	Text         *string           `json:"text,omitempty"`
-	Title        *string           `json:"title,omitempty"`
-	WebhookUrl   *string           `json:"webhook_url,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig   *HTTPConfig `json:"http_config,omitempty"`
+	SendResolved bool        `json:"send_resolved"`
+	Text         *string     `json:"text,omitempty"`
+	Title        *string     `json:"title,omitempty"`
+	WebhookUrl   *string     `json:"webhook_url,omitempty"`
 }
 
 // MatchType Type of label matcher. Values:
@@ -2861,48 +2822,19 @@ type NotifiersByCondition struct {
 	Warn     *[]openapi_types.UUID `json:"warn,omitempty"`
 }
 
-// OAuth2 OAuth2 is the oauth2 client configuration.
-type OAuth2 struct {
-	// TLSConfig TLSConfig configures the options for TLS connections.
-	TLSConfig        *TLSConfig `json:"TLSConfig,omitempty"`
-	ClientId         string     `json:"client_id"`
-	ClientSecret     *string    `json:"client_secret,omitempty"`
-	ClientSecretFile *string    `json:"client_secret_file,omitempty"`
-
-	// ClientSecretRef ClientSecretRef is the name of the secret within the secret manager to use as the client
-	// secret.
-	ClientSecretRef *string            `json:"client_secret_ref,omitempty"`
-	EndpointParams  *map[string]string `json:"endpoint_params,omitempty"`
-
-	// NoProxy NoProxy contains addresses that should not use a proxy.
-	NoProxy *string `json:"no_proxy,omitempty"`
-
-	// ProxyConnectHeader ProxyConnectHeader optionally specifies headers to send to
-	// proxies during CONNECT requests. Assume that at least _some_ of
-	// these headers are going to contain secrets and use Secret as the
-	// value type instead of string.
-	ProxyConnectHeader *map[string]*[]string `json:"proxy_connect_header,omitempty"`
-
-	// ProxyFromEnvironment ProxyFromEnvironment makes use of net/http ProxyFromEnvironment function
-	// to determine proxies.
-	ProxyFromEnvironment *bool     `json:"proxy_from_environment,omitempty"`
-	Scopes               *[]string `json:"scopes,omitempty"`
-	TokenUrl             string    `json:"token_url"`
-}
-
 // OpsGenieConfig OpsGenieConfig configures notifications via OpsGenie.
 type OpsGenieConfig struct {
 	Actions *string `json:"actions,omitempty"`
 	ApiKey  *string `json:"api_key,omitempty"`
 
-	// ApiUrl URL is a custom URL type that allows validation at configuration load time.
+	// ApiUrl URL is a custom type that represents an HTTP or HTTPS URL and allows validation at configuration load time.
 	ApiUrl      *URL               `json:"api_url,omitempty"`
 	Description *string            `json:"description,omitempty"`
 	Details     *map[string]string `json:"details,omitempty"`
 	Entity      *string            `json:"entity,omitempty"`
 
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig   *HTTPClientConfig          `json:"http_config,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig   *HTTPConfig                `json:"http_config,omitempty"`
 	Message      *string                    `json:"message,omitempty"`
 	Note         *string                    `json:"note,omitempty"`
 	Priority     *string                    `json:"priority,omitempty"`
@@ -2934,8 +2866,8 @@ type PagerdutyConfig struct {
 	Details     *map[string]string `json:"details,omitempty"`
 	Group       *string            `json:"group,omitempty"`
 
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig     *HTTPClientConfig `json:"http_config,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig     *HTTPConfig       `json:"http_config,omitempty"`
 	Images         *[]PagerdutyImage `json:"images,omitempty"`
 	Links          *[]PagerdutyLink  `json:"links,omitempty"`
 	RoutingKey     *string           `json:"routing_key,omitempty"`
@@ -2945,7 +2877,7 @@ type PagerdutyConfig struct {
 	Severity       *string           `json:"severity,omitempty"`
 	Source         *string           `json:"source,omitempty"`
 
-	// Url URL is a custom URL type that allows validation at configuration load time.
+	// Url URL is a custom type that represents an HTTP or HTTPS URL and allows validation at configuration load time.
 	Url *URL `json:"url,omitempty"`
 }
 
@@ -3514,21 +3446,21 @@ type SlackConfig struct {
 	Fields   *[]SlackField `json:"fields,omitempty"`
 	Footer   *string       `json:"footer,omitempty"`
 
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig   *HTTPClientConfig `json:"http_config,omitempty"`
-	IconEmoji    *string           `json:"icon_emoji,omitempty"`
-	IconUrl      *string           `json:"icon_url,omitempty"`
-	ImageUrl     *string           `json:"image_url,omitempty"`
-	LinkNames    *bool             `json:"link_names,omitempty"`
-	MrkdwnIn     *[]string         `json:"mrkdwn_in,omitempty"`
-	Pretext      *string           `json:"pretext,omitempty"`
-	SendResolved bool              `json:"send_resolved"`
-	ShortFields  *bool             `json:"short_fields,omitempty"`
-	Text         *string           `json:"text,omitempty"`
-	ThumbUrl     *string           `json:"thumb_url,omitempty"`
-	Title        *string           `json:"title,omitempty"`
-	TitleLink    *string           `json:"title_link,omitempty"`
-	Username     *string           `json:"username,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig   *HTTPConfig `json:"http_config,omitempty"`
+	IconEmoji    *string     `json:"icon_emoji,omitempty"`
+	IconUrl      *string     `json:"icon_url,omitempty"`
+	ImageUrl     *string     `json:"image_url,omitempty"`
+	LinkNames    *bool       `json:"link_names,omitempty"`
+	MrkdwnIn     *[]string   `json:"mrkdwn_in,omitempty"`
+	Pretext      *string     `json:"pretext,omitempty"`
+	SendResolved bool        `json:"send_resolved"`
+	ShortFields  *bool       `json:"short_fields,omitempty"`
+	Text         *string     `json:"text,omitempty"`
+	ThumbUrl     *string     `json:"thumb_url,omitempty"`
+	Title        *string     `json:"title,omitempty"`
+	TitleLink    *string     `json:"title_link,omitempty"`
+	Username     *string     `json:"username,omitempty"`
 }
 
 // SlackConfirmationField SlackConfirmationField protect users from destructive actions or particularly distinguished decisions
@@ -4178,7 +4110,7 @@ type TracesResponse struct {
 	Truncated *bool `json:"truncated,omitempty"`
 }
 
-// URL URL is a custom URL type that allows validation at configuration load time.
+// URL URL is a custom type that represents an HTTP or HTTPS URL and allows validation at configuration load time.
 type URL struct {
 	ForceQuery  bool   `json:"ForceQuery"`
 	Fragment    string `json:"Fragment"`
@@ -4543,18 +4475,18 @@ type ValueExtractor struct {
 type VictorOpsConfig struct {
 	ApiKey *string `json:"api_key,omitempty"`
 
-	// ApiUrl URL is a custom URL type that allows validation at configuration load time.
+	// ApiUrl URL is a custom type that represents an HTTP or HTTPS URL and allows validation at configuration load time.
 	ApiUrl            *URL               `json:"api_url,omitempty"`
 	CustomFields      *map[string]string `json:"custom_fields,omitempty"`
 	EntityDisplayName *string            `json:"entity_display_name,omitempty"`
 
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig     *HTTPClientConfig `json:"http_config,omitempty"`
-	MessageType    *string           `json:"message_type,omitempty"`
-	MonitoringTool *string           `json:"monitoring_tool,omitempty"`
-	RoutingKey     *string           `json:"routing_key,omitempty"`
-	SendResolved   bool              `json:"send_resolved"`
-	StateMessage   *string           `json:"state_message,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig     *HTTPConfig `json:"http_config,omitempty"`
+	MessageType    *string     `json:"message_type,omitempty"`
+	MonitoringTool *string     `json:"monitoring_tool,omitempty"`
+	RoutingKey     *string     `json:"routing_key,omitempty"`
+	SendResolved   bool        `json:"send_resolved"`
+	StateMessage   *string     `json:"state_message,omitempty"`
 }
 
 // Webhook Webhook is an experiment target the customer hosts. An
@@ -4620,8 +4552,8 @@ type WebhookCall struct {
 
 // WebhookConfig WebhookConfig configures notifications via a generic webhook.
 type WebhookConfig struct {
-	// HttpConfig HTTPClientConfig configures an HTTP client.
-	HttpConfig *HTTPClientConfig `json:"http_config,omitempty"`
+	// HttpConfig HTTPConfig configures the HTTP client of a notifier.
+	HttpConfig *HTTPConfig `json:"http_config,omitempty"`
 
 	// MaxAlerts MaxAlerts is the maximum number of alerts to be sent per webhook message.
 	// Alerts exceeding this threshold will be truncated. Setting this to 0
