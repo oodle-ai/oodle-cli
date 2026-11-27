@@ -83,16 +83,39 @@ func (c *Client) CheckHealth(ctx context.Context) error {
 	return nil
 }
 
-// GetDashboards retrieves all dashboards from Grafana
-func (c *Client) GetDashboards(ctx context.Context) ([]Dashboard, error) {
-	respBody, err := c.DoRequest(ctx, http.MethodGet, "/api/search?type=dash-db")
-	if err != nil {
-		return nil, wrapErr(err, "failed to get dashboards")
-	}
+// dashboardSearchPageSize is the page size used when listing dashboards. The
+// Grafana Folder/Dashboard Search API caps the response at `limit` rows and
+// returns only the first page unless `page` is supplied, so a single request
+// would silently drop every dashboard beyond the first page.
+// Reg: https://grafana.com/docs/grafana/latest/developers/http_api/folder_dashboard_search/
+const dashboardSearchPageSize = 1000
 
+// GetDashboards retrieves all dashboards from Grafana, paging through the
+// search API until every dashboard is listed.
+func (c *Client) GetDashboards(ctx context.Context) ([]Dashboard, error) {
 	var dashboards []Dashboard
-	if err := json.Unmarshal(respBody, &dashboards); err != nil {
-		return nil, wrapErr(err, "failed to parse dashboards")
+	for page := 1; ; page++ {
+		path := fmt.Sprintf(
+			"/api/search?type=dash-db&limit=%d&page=%d",
+			dashboardSearchPageSize,
+			page,
+		)
+		respBody, err := c.DoRequest(ctx, http.MethodGet, path)
+		if err != nil {
+			return nil, wrapErr(err, "failed to get dashboards")
+		}
+
+		var pageDashboards []Dashboard
+		if err := json.Unmarshal(respBody, &pageDashboards); err != nil {
+			return nil, wrapErr(err, "failed to parse dashboards")
+		}
+		dashboards = append(dashboards, pageDashboards...)
+
+		// A short page is the last page. Loop also stops when Grafana
+		// returns an empty page.
+		if len(pageDashboards) < dashboardSearchPageSize {
+			break
+		}
 	}
 
 	return dashboards, nil
