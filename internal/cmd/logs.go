@@ -100,6 +100,9 @@ slows log queries for other users. To keep a query fast:
     of 3 days or less, and stop when you have found what you need.
   - Run log queries one at a time, not in parallel.
   - Use "size": 0 with aggs when you need counts, not log lines.
+  - A query that returns log lines has no hits.total unless it sets
+    "track_total_hits": true. The exact count reads the whole time range
+    a second time, so set it only when you need the number.
   - If a query times out, make it narrower. Do not run it again unchanged.
 
 Run 'oodle logs index-patterns' to list the index names.`,
